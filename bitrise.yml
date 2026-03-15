@@ -1,0 +1,107 @@
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+project_type: other
+
+app:
+  envs:
+    - PROJECT_PATH: iosApp/iosApp.xcodeproj
+    - IOS_SCHEME: iosApp
+    - GRADLEW_PATH: ./gradlew
+
+workflows:
+  primary:
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - script@1:
+          title: Prepare toolchain
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                chmod +x "$GRADLEW_PATH"
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                echo "Using JAVA_HOME=$JAVA_HOME"
+      - script@1:
+          title: Assemble Android debug app
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                "$GRADLEW_PATH" :composeApp:assembleDebug
+      - script@1:
+          title: Build iOS app for simulator
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                xcodebuild \
+                  -project "$PROJECT_PATH" \
+                  -scheme "$IOS_SCHEME" \
+                  -configuration Debug \
+                  -sdk iphonesimulator \
+                  -destination 'generic/platform=iOS Simulator' \
+                  build
+      - cache-push@2: {}
+
+  android_debug:
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - script@1:
+          title: Prepare toolchain
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                chmod +x "$GRADLEW_PATH"
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                echo "Using JAVA_HOME=$JAVA_HOME"
+      - script@1:
+          title: Assemble Android debug app
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                "$GRADLEW_PATH" :composeApp:assembleDebug
+      - cache-push@2: {}
+
+  ios_debug:
+    steps:
+      - activate-ssh-key@4: {}
+      - git-clone@8: {}
+      - cache-pull@2: {}
+      - script@1:
+          title: Prepare toolchain
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                chmod +x "$GRADLEW_PATH"
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                echo "Using JAVA_HOME=$JAVA_HOME"
+      - script@1:
+          title: Build iOS app for simulator
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+                xcodebuild \
+                  -project "$PROJECT_PATH" \
+                  -scheme "$IOS_SCHEME" \
+                  -configuration Debug \
+                  -sdk iphonesimulator \
+                  -destination 'generic/platform=iOS Simulator' \
+                  build
+      - cache-push@2: {}
+
+meta:
+  bitrise.io:
+    stack: osx-xcode-16.4.x
+    machine_type_id: g2-m1.4core
