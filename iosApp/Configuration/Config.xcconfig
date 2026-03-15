@@ -1,0 +1,7 @@
+TEAM_ID=
+
+PRODUCT_NAME=VtuberCamera_KMP_ver
+PRODUCT_BUNDLE_IDENTIFIER=com.example.vtubercamera_kmp_ver.VtuberCamera_KMP_ver$(TEAM_ID)
+
+CURRENT_PROJECT_VERSION=1
+MARKETING_VERSION=1.0
