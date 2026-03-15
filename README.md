@@ -1,5 +1,20 @@
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
+## Libraries added for the camera MVP
+
+The Gradle version catalog includes the baseline dependencies defined in [docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md).
+
+- Common: Kotlin Coroutines, Lifecycle Compose, Kotlin Test, Turbine
+- Android: CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`), Activity Compose, ExifInterface
+
+## Bitrise
+
+The repository includes [bitrise.yml](./bitrise.yml) with these workflows:
+
+- `android_debug`: assembles the Android debug app
+- `ios_debug`: builds the iOS app for the simulator
+- `primary`: runs both workflows
+
 * [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
   It contains several subfolders:
   - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
