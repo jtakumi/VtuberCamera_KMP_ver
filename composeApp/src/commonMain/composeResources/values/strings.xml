@@ -1,0 +1,5 @@
+<resources>
+    <string name="camera_permission_required_message">カメラプレビューを表示するにはカメラ権限が必要です。</string>
+    <string name="camera_permission_granted_description">権限を許可すると背面カメラのプレビューを表示します。</string>
+    <string name="camera_permission_request_button">カメラを許可</string>
+</resources>

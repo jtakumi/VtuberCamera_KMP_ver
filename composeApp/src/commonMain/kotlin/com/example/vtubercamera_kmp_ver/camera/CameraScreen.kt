@@ -15,6 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import org.jetbrains.compose.resources.stringResource
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 
 @Composable
 fun CameraScreen(modifier: Modifier = Modifier) {
@@ -55,18 +60,18 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "カメラプレビューを表示するにはカメラ権限が必要です。",
+            text = stringResource(Res.string.camera_permission_required_message),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "権限を許可すると背面カメラのプレビューを表示します。",
+            text = stringResource(Res.string.camera_permission_granted_description),
             modifier = Modifier.padding(top = 12.dp, bottom = 24.dp),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
         Button(onClick = onRequestPermission) {
-            Text("カメラを許可")
+            Text(stringResource(Res.string.camera_permission_request_button))
         }
     }
 }
