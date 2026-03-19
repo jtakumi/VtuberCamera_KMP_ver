@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import ComposeApp
 import UIKit
 
 struct ContentView: View {
@@ -13,6 +14,7 @@ struct ContentView: View {
             } else {
                 PermissionPromptView(
                     status: viewModel.authorizationStatus,
+                    texts: viewModel.permissionTexts,
                     onPrimaryAction: viewModel.handlePrimaryAction,
                 )
             }
@@ -29,40 +31,45 @@ struct ContentView: View {
 
 private struct PermissionPromptView: View {
     let status: AVAuthorizationStatus
+    let texts: CameraPermissionTexts?
     let onPrimaryAction: () -> Void
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("カメラプレビューを表示するにはカメラ権限が必要です。")
-                .font(.title3.weight(.semibold))
-                .multilineTextAlignment(.center)
-            Text(descriptionText)
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-            Button(primaryButtonTitle, action: onPrimaryAction)
-                .buttonStyle(.borderedProminent)
+        if let texts {
+            VStack(spacing: 16) {
+                Text(texts.requiredMessage)
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                Text(descriptionText(for: texts))
+                    .font(.body)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                Button(primaryButtonTitle(for: texts), action: onPrimaryAction)
+                    .buttonStyle(.borderedProminent)
+            }
+            .padding(.horizontal, 24)
+        } else {
+            ProgressView()
         }
-        .padding(.horizontal, 24)
     }
 
-    private var descriptionText: String {
+    private func descriptionText(for texts: CameraPermissionTexts) -> String {
         switch status {
         case .denied, .restricted:
-            return "設定アプリでカメラへのアクセスを許可すると、背面カメラのプレビューを表示できます。"
+            return texts.deniedDescription
         case .notDetermined:
-            return "「カメラを起動」を押すと、iOS の権限ダイアログを表示します。"
+            return texts.notDeterminedDescription
         default:
-            return "権限を確認しています。"
+            return texts.checkingDescription
         }
     }
 
-    private var primaryButtonTitle: String {
+    private func primaryButtonTitle(for texts: CameraPermissionTexts) -> String {
         switch status {
         case .denied, .restricted:
-            return "設定を開く"
+            return texts.openSettingsButtonTitle
         default:
-            return "カメラを起動"
+            return texts.launchCameraButtonTitle
         }
     }
 }
@@ -95,10 +102,16 @@ private final class PreviewContainerView: UIView {
 @MainActor
 private final class IOSCameraViewModel: ObservableObject {
     @Published var authorizationStatus: AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
+    @Published var permissionTexts: CameraPermissionTexts?
 
     let session = AVCaptureSession()
 
     private var isConfigured = false
+    private let permissionTextsLoader = CameraPermissionTextsLoader()
+
+    init() {
+        loadPermissionTexts()
+    }
 
     var isAuthorized: Bool {
         authorizationStatus == .authorized
@@ -128,6 +141,15 @@ private final class IOSCameraViewModel: ObservableObject {
         guard session.isRunning else { return }
         DispatchQueue.global(qos: .userInitiated).async {
             self.session.stopRunning()
+        }
+    }
+
+    private func loadPermissionTexts() {
+        permissionTextsLoader.load { texts, _ in
+            guard let texts else { return }
+            Task { @MainActor in
+                self.permissionTexts = texts
+            }
         }
     }
 
