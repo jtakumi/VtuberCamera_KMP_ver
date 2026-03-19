@@ -4,5 +4,7 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>カメラプレビューを表示して撮影するために使用します。</string>
 </dict>
 </plist>
