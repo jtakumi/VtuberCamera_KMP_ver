@@ -29,6 +29,6 @@ actual fun CameraPreviewHost(modifier: Modifier) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Text("iOS camera preview is not implemented yet.")
+        Text("iOS camera preview is hosted by the native iOS app.")
     }
 }
