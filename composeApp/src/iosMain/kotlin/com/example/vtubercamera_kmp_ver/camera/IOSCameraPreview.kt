@@ -22,7 +22,11 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
-actual fun CameraPreviewHost(modifier: Modifier) {
+actual fun CameraPreviewHost(
+    modifier: Modifier,
+    lensFacing: CameraLensFacing,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+) {
     Box(
         modifier = modifier
             .fillMaxSize()

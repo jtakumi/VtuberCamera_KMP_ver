@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -48,7 +49,11 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
-actual fun CameraPreviewHost(modifier: Modifier) {
+actual fun CameraPreviewHost(
+    modifier: Modifier,
+    lensFacing: CameraLensFacing,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
@@ -64,10 +69,21 @@ actual fun CameraPreviewHost(modifier: Modifier) {
         factory = { previewView },
     )
 
-    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture) {
+    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture, lensFacing) {
         val executor = ContextCompat.getMainExecutor(context)
         val listener = Runnable {
             val cameraProvider = cameraProviderFuture.get()
+            val resolvedLensFacing = cameraProvider.resolveLensFacing(lensFacing)
+            if (resolvedLensFacing != lensFacing) {
+                onLensFacingChanged(resolvedLensFacing)
+            }
+
+            val selector = resolvedLensFacing.toCameraSelector()
+            if (!cameraProvider.hasCameraSafely(selector)) {
+                cameraProvider.unbindAll()
+                return@Runnable
+            }
+
             val preview = Preview.Builder()
                 .build()
                 .also { it.surfaceProvider = previewView.surfaceProvider }
@@ -75,7 +91,7 @@ actual fun CameraPreviewHost(modifier: Modifier) {
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 lifecycleOwner,
-                CameraSelector.DEFAULT_BACK_CAMERA,
+                selector,
                 preview,
             )
         }
@@ -95,4 +111,34 @@ private fun Context.hasCameraPermission(): Boolean {
         this,
         Manifest.permission.CAMERA,
     ) == PackageManager.PERMISSION_GRANTED
+}
+
+private fun CameraLensFacing.toCameraSelector(): CameraSelector {
+    return when (this) {
+        CameraLensFacing.Back -> CameraSelector.DEFAULT_BACK_CAMERA
+        CameraLensFacing.Front -> CameraSelector.DEFAULT_FRONT_CAMERA
+    }
+}
+
+private fun ProcessCameraProvider.resolveLensFacing(requested: CameraLensFacing): CameraLensFacing {
+    if (hasCameraSafely(requested.toCameraSelector())) {
+        return requested
+    }
+
+    val fallback = requested.toggled()
+    return if (hasCameraSafely(fallback.toCameraSelector())) {
+        fallback
+    } else {
+        requested
+    }
+}
+
+private fun ProcessCameraProvider.hasCameraSafely(selector: CameraSelector): Boolean {
+    return try {
+        hasCamera(selector)
+    } catch (_: CameraInfoUnavailableException) {
+        false
+    } catch (_: IllegalArgumentException) {
+        false
+    }
 }

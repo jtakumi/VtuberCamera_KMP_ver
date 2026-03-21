@@ -8,6 +8,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_lau
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_not_determined_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_open_settings_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 
 class CameraPermissionTexts(
     val requiredMessage: String,
@@ -16,6 +17,7 @@ class CameraPermissionTexts(
     val checkingDescription: String,
     val openSettingsButtonTitle: String,
     val launchCameraButtonTitle: String,
+    val switchCameraButtonTitle: String,
 )
 
 class CameraPermissionTextsLoader {
@@ -27,6 +29,7 @@ class CameraPermissionTextsLoader {
             checkingDescription = getString(Res.string.camera_permission_checking_description),
             openSettingsButtonTitle = getString(Res.string.camera_permission_open_settings_button),
             launchCameraButtonTitle = getString(Res.string.camera_permission_launch_button),
+            switchCameraButtonTitle = getString(Res.string.camera_switch_button),
         )
     }
 }
