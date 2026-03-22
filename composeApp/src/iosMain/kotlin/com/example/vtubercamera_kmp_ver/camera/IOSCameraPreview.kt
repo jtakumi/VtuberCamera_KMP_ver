@@ -10,9 +10,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import platform.UIKit.UIApplication
-import platform.UIKit.UIDocumentPickerModeImport
+import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
+import platform.UIKit.UIWindow
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -33,7 +34,7 @@ actual fun rememberFilePickerLauncher(): FilePickerLauncher {
                 currentPresentedViewController()?.let { viewController ->
                     val pickerViewController = UIDocumentPickerViewController(
                         documentTypes = listOf("public.item"),
-                        inMode = UIDocumentPickerModeImport,
+                        inMode = UIDocumentPickerMode.UIDocumentPickerModeImport,
                     )
                     viewController.presentViewController(
                         viewControllerToPresent = pickerViewController,
@@ -64,11 +65,12 @@ actual fun CameraPreviewHost(
 
 private fun currentPresentedViewController(): UIViewController? {
     var currentViewController = UIApplication.sharedApplication.windows
-        .firstOrNull { window -> window.isKeyWindow }
+        .filterIsInstance<UIWindow>()
+        .firstOrNull { window -> window.isKeyWindow() }
         ?.rootViewController
 
     while (currentViewController?.presentedViewController != null) {
-        currentViewController = currentViewController?.presentedViewController
+        currentViewController = currentViewController.presentedViewController
     }
 
     return currentViewController
