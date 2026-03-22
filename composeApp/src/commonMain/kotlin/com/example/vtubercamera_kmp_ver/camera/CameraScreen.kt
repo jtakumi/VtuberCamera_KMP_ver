@@ -17,9 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
@@ -95,7 +95,7 @@ private fun CameraPreviewState(
             onClick = onLensFacingToggle,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(32.dp),
+                .padding(MaterialTheme.spacing.xl),
         ) {
             Text(stringResource(Res.string.camera_switch_button))
         }
@@ -117,7 +117,7 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = MaterialTheme.spacing.lg),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -128,7 +128,10 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
         )
         Text(
             text = stringResource(Res.string.camera_permission_granted_description),
-            modifier = Modifier.padding(top = 12.dp, bottom = 24.dp),
+            modifier = Modifier.padding(
+                top = MaterialTheme.spacing.md,
+                bottom = MaterialTheme.spacing.lg,
+            ),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
