@@ -1,5 +1,5 @@
 import SwiftUI
-import AVFoundation
+@preconcurrency import AVFoundation
 import ComposeApp
 import UIKit
 
@@ -139,6 +139,7 @@ private final class IOSCameraViewModel: ObservableObject {
 
     let avCaptureSession = AVCaptureSession()
 
+    private let sessionQueue = DispatchQueue(label: "IOSCameraViewModel.sessionQueue", qos: .userInitiated)
     private var isConfigured = false
     private var lensFacing: LensFacing = .back
     private var currentInput: AVCaptureDeviceInput?
@@ -177,9 +178,10 @@ private final class IOSCameraViewModel: ObservableObject {
     }
 
     func stopSession() {
-        guard avCaptureSession.isRunning else { return }
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.avCaptureSession.stopRunning()
+        let captureSession = avCaptureSession
+        guard captureSession.isRunning else { return }
+        sessionQueue.async {
+            captureSession.stopRunning()
         }
     }
 
@@ -204,9 +206,11 @@ private final class IOSCameraViewModel: ObservableObject {
     }
 
     private func startSession() {
-        guard configureSessionIfNeeded(), !avCaptureSession.isRunning else { return }
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.avCaptureSession.startRunning()
+        guard configureSessionIfNeeded() else { return }
+        let captureSession = avCaptureSession
+        guard !captureSession.isRunning else { return }
+        sessionQueue.async {
+            captureSession.startRunning()
         }
     }
 
