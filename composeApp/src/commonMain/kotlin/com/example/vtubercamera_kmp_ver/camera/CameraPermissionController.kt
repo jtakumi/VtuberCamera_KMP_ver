@@ -15,4 +15,8 @@ data class CameraPermissionController(
 expect fun rememberCameraPermissionController(): CameraPermissionController
 
 @Composable
-expect fun CameraPreviewHost(modifier: Modifier = Modifier)
+expect fun CameraPreviewHost(
+    modifier: Modifier = Modifier,
+    lensFacing: CameraLensFacing,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+)
