@@ -1,50 +1,101 @@
-This is a Kotlin Multiplatform project targeting Android, iOS.
+# VtuberCamera_KMP_ver
 
-## Libraries added for the camera MVP
+VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、将来の VTuber / AR / VRM 機能へつながるカメラ基盤を段階的に整備しています。
 
-The Gradle version catalog includes the baseline dependencies defined in [docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md).
+現時点では、カメラ MVP の土台作りが中心です。特に Android 側は CameraX を使ったプレビューとカメラ切り替えまで入り、iOS 側は SwiftUI + AVFoundation でネイティブ実装が進んでいます。
 
-- Common: Kotlin Coroutines, Lifecycle Compose, Kotlin Test, Turbine
+## 現在の実装状況
+
+### Android
+
+- カメラ権限確認と権限リクエスト
+- CameraX によるリアルタイムプレビュー
+- フロント / バックカメラ切り替え
+- ドキュメントファイルピッカー起動
+- Compose Multiplatform ベースのカメラ画面
+
+### iOS
+
+- SwiftUI + AVFoundation によるネイティブカメラプレビュー
+- カメラ権限確認と権限リクエスト
+- フロント / バックカメラ切り替え
+- `fileImporter` によるファイル選択
+
+### 共有コードで扱っているもの
+
+- Compose Multiplatform のアプリ入口
+- カメラ画面の基本 UI
+- `CameraViewModel` による画面状態管理
+- レンズ向き状態 (`Back` / `Front`)
+- 権限文言のリソース管理
+
+### まだ未実装の主な機能
+
+- 写真撮影
+- 撮影画像の保存 / 削除
+- フラッシュ制御
+- ズーム制御
+- ギャラリー関連機能
+- AR / VRM / Filament 連携
+
+## リポジトリ構成
+
+- [composeApp](./composeApp)
+  Kotlin Multiplatform のアプリ本体です。共通 UI と Android 実装を含みます。
+- [composeApp/src/commonMain](./composeApp/src/commonMain)
+  共有 UI、状態、テーマ、リソース定義を配置しています。
+- [composeApp/src/androidMain](./composeApp/src/androidMain)
+  Android の CameraX 実装、権限処理、`MainActivity` を配置しています。
+- [composeApp/src/iosMain](./composeApp/src/iosMain)
+  iOS 向けの KMP エントリポイントを配置しています。現状の実カメラ表示はここではなく `iosApp` 側が担っています。
+- [iosApp](./iosApp)
+  Xcode プロジェクトです。SwiftUI と AVFoundation を使った iOS ネイティブ実装があります。
+- [docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md)
+  KMP 版の実装方針と今後の拡張計画をまとめた仕様書です。
+
+## 採用ライブラリ
+
+Gradle Version Catalog で主に以下を管理しています。
+
+- 共通: Kotlin Coroutines, Compose Multiplatform, Lifecycle Compose, Kotlin Test, Turbine
 - Android: CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`), Activity Compose, ExifInterface
+- iOS: AVFoundation, SwiftUI, UIKit
 
-## Bitrise
+依存関係の詳細は [gradle/libs.versions.toml](./gradle/libs.versions.toml) を参照してください。
 
-The repository includes [bitrise.yml](./bitrise.yml) with these workflows:
+## ビルド方法
 
-- `android_debug`: assembles the Android debug app
-- `ios_debug`: builds the iOS app for the simulator
-- `primary`: runs both workflows
+### Android デバッグビルド
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+macOS / Linux:
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+```shell
+./gradlew :composeApp:assembleDebug
+```
 
-### Build and Run Android Application
+Windows:
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+```powershell
+.\gradlew.bat :composeApp:assembleDebug
+```
 
-### Build and Run iOS Application
+### iOS シミュレータ向けビルド
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
 
----
+```shell
+xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
+```
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+## 実装上の補足
+
+- Android は `composeApp` の Compose UI がそのままアプリ画面として動作します。
+- iOS は現時点で `iosApp` 側の SwiftUI 実装が実カメラ機能を担当しています。
+- `composeApp/src/iosMain` の `CameraPreviewHost` はプレースホルダーで、iOS のネイティブホスト前提です。
+- package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。
+
+## 今後の整理候補
+
+- iOS 側の実装を shared UI / shared state とどう整合させるかを明確にする
+- カメラ MVP の不足機能を段階的に追加する
+- AR / VRM 系機能を KMP 基盤へどう接続するかを別フェーズで設計する
