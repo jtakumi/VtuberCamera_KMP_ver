@@ -11,8 +11,16 @@ data class CameraPermissionController(
     val requestPermission: () -> Unit,
 )
 
+@Immutable
+data class FilePickerLauncher(
+    val launch: () -> Unit,
+)
+
 @Composable
 expect fun rememberCameraPermissionController(): CameraPermissionController
+
+@Composable
+expect fun rememberFilePickerLauncher(): FilePickerLauncher
 
 @Composable
 expect fun CameraPreviewHost(

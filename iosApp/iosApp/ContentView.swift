@@ -1,10 +1,12 @@
 import SwiftUI
 @preconcurrency import AVFoundation
 import ComposeApp
+import UniformTypeIdentifiers
 import UIKit
 
 struct ContentView: View {
     @StateObject private var viewModel = IOSCameraViewModel()
+    @State private var isFileImporterPresented = false
 
     var body: some View {
         ZStack {
@@ -13,12 +15,19 @@ struct ContentView: View {
                     CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
                         .ignoresSafeArea()
 
-                    if viewModel.canSwitchCamera, let texts = viewModel.permissionTexts {
-                        Button(texts.switchCameraButtonTitle, action: viewModel.switchCamera)
-                            .buttonStyle(.borderedProminent)
-                            .padding(.top, 16)
-                            .padding(.trailing, 16)
+                    HStack(spacing: 12) {
+                        Button("ファイルを開く") {
+                            isFileImporterPresented = true
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        if viewModel.canSwitchCamera, let texts = viewModel.permissionTexts {
+                            Button(texts.switchCameraButtonTitle, action: viewModel.switchCamera)
+                                .buttonStyle(.borderedProminent)
+                        }
                     }
+                    .padding(.top, 16)
+                    .padding(.trailing, 16)
                 }
             } else {
                 PermissionPromptView(
@@ -29,6 +38,11 @@ struct ContentView: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
+        .fileImporter(
+            isPresented: $isFileImporterPresented,
+            allowedContentTypes: [.item],
+            allowsMultipleSelection: false
+        ) { _ in }
         .onAppear {
             viewModel.refreshAuthorization()
         }

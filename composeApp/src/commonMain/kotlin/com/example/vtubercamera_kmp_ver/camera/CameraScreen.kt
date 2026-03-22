@@ -5,7 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +28,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_gra
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 
 @Composable
 fun CameraRoute(
@@ -33,6 +36,7 @@ fun CameraRoute(
     cameraViewModel: CameraViewModel = viewModel { CameraViewModel() },
 ) {
     val permissionController = rememberCameraPermissionController()
+    val filePickerLauncher = rememberFilePickerLauncher()
     val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(permissionController.isGranted, permissionController.isChecking) {
@@ -46,6 +50,7 @@ fun CameraRoute(
         modifier = modifier,
         uiState = uiState,
         onRequestPermission = permissionController.requestPermission,
+        onOpenFilePicker = filePickerLauncher.launch,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
     )
@@ -55,6 +60,7 @@ fun CameraRoute(
 fun CameraScreen(
     uiState: CameraUiState,
     onRequestPermission: () -> Unit,
+    onOpenFilePicker: () -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -69,6 +75,7 @@ fun CameraScreen(
             uiState.isPermissionChecking -> LoadingState()
             uiState.isPermissionGranted -> CameraPreviewState(
                 uiState = uiState,
+                onOpenFilePicker = onOpenFilePicker,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
             )
@@ -82,6 +89,7 @@ fun CameraScreen(
 @Composable
 private fun CameraPreviewState(
     uiState: CameraUiState,
+    onOpenFilePicker: () -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
@@ -91,13 +99,20 @@ private fun CameraPreviewState(
             lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
         )
-        Button(
-            onClick = onLensFacingToggle,
+        Row(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
                 .padding(MaterialTheme.spacing.xl),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(stringResource(Res.string.camera_switch_button))
+            Button(onClick = onOpenFilePicker) {
+                Text(stringResource(Res.string.file_picker_open_button))
+            }
+            Button(onClick = onLensFacingToggle) {
+                Text(stringResource(Res.string.camera_switch_button))
+            }
         }
     }
 }

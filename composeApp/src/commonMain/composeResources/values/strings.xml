@@ -8,4 +8,5 @@
     <string name="camera_permission_open_settings_button">設定を開く</string>
     <string name="camera_permission_launch_button">カメラを起動</string>
     <string name="camera_switch_button">カメラ切り替え</string>
+    <string name="file_picker_open_button">ファイルを開く</string>
 </resources>
