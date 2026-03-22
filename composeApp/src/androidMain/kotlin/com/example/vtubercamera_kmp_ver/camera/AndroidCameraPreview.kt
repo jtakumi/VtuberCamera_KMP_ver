@@ -49,6 +49,21 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
+actual fun rememberFilePickerLauncher(): FilePickerLauncher {
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { }
+
+    return remember(pickerLauncher) {
+        FilePickerLauncher(
+            launch = {
+                pickerLauncher.launch(arrayOf("*/*"))
+            },
+        )
+    }
+}
+
+@Composable
 actual fun CameraPreviewHost(
     modifier: Modifier,
     lensFacing: CameraLensFacing,
