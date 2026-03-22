@@ -10,7 +10,7 @@ struct ContentView: View {
         ZStack {
             if viewModel.isAuthorized {
                 ZStack(alignment: .topTrailing) {
-                    CameraPreviewView(session: viewModel.session)
+                    CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
                         .ignoresSafeArea()
 
                     if viewModel.canSwitchCamera, let texts = viewModel.permissionTexts {
@@ -84,17 +84,17 @@ private struct PermissionPromptView: View {
 }
 
 private struct CameraPreviewView: UIViewRepresentable {
-    let session: AVCaptureSession
+    let avCaptureSession: AVCaptureSession
 
     func makeUIView(context: Context) -> PreviewContainerView {
         let view = PreviewContainerView()
         view.previewLayer.videoGravity = .resizeAspectFill
-        view.previewLayer.session = session
+        view.previewLayer.session = avCaptureSession
         return view
     }
 
     func updateUIView(_ uiView: PreviewContainerView, context: Context) {
-        uiView.previewLayer.session = session
+        uiView.previewLayer.session = avCaptureSession
     }
 }
 
@@ -137,7 +137,7 @@ private final class IOSCameraViewModel: ObservableObject {
     @Published var permissionTexts: CameraPermissionTexts?
     @Published private(set) var canSwitchCamera = false
 
-    let session = AVCaptureSession()
+    let avCaptureSession = AVCaptureSession()
 
     private var isConfigured = false
     private var lensFacing: LensFacing = .back
@@ -177,9 +177,9 @@ private final class IOSCameraViewModel: ObservableObject {
     }
 
     func stopSession() {
-        guard session.isRunning else { return }
+        guard avCaptureSession.isRunning else { return }
         DispatchQueue.global(qos: .userInitiated).async {
-            self.session.stopRunning()
+            self.avCaptureSession.stopRunning()
         }
     }
 
@@ -204,9 +204,9 @@ private final class IOSCameraViewModel: ObservableObject {
     }
 
     private func startSession() {
-        guard configureSessionIfNeeded(), !session.isRunning else { return }
+        guard configureSessionIfNeeded(), !avCaptureSession.isRunning else { return }
         DispatchQueue.global(qos: .userInitiated).async {
-            self.session.startRunning()
+            self.avCaptureSession.startRunning()
         }
     }
 
@@ -246,8 +246,8 @@ private final class IOSCameraViewModel: ObservableObject {
             return false
         }
 
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
+        avCaptureSession.beginConfiguration()
+        defer { avCaptureSession.commitConfiguration() }
 
         if let currentInput, currentInput.device.uniqueID == input.device.uniqueID {
             lensFacing = resolvedLensFacing
@@ -256,18 +256,18 @@ private final class IOSCameraViewModel: ObservableObject {
         }
 
         if let currentInput {
-            session.removeInput(currentInput)
+            avCaptureSession.removeInput(currentInput)
         }
 
-        guard session.canAddInput(input) else {
-            if let currentInput, session.canAddInput(currentInput) {
-                session.addInput(currentInput)
+        guard avCaptureSession.canAddInput(input) else {
+            if let currentInput, avCaptureSession.canAddInput(currentInput) {
+                avCaptureSession.addInput(currentInput)
             }
             isConfigured = currentInput != nil
             return false
         }
 
-        session.addInput(input)
+        avCaptureSession.addInput(input)
         currentInput = input
         lensFacing = resolvedLensFacing
         isConfigured = true
