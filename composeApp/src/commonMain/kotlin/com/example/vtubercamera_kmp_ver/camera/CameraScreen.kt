@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import CameraUiState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,14 +12,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
@@ -27,9 +28,37 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_req
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 
 @Composable
-fun CameraScreen(modifier: Modifier = Modifier) {
+fun CameraRoute(
+    modifier: Modifier = Modifier,
+    cameraViewModel: CameraViewModel = viewModel { CameraViewModel() },
+) {
     val permissionController = rememberCameraPermissionController()
-    var lensFacing by remember { mutableStateOf(CameraLensFacing.Back) }
+    val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(permissionController.isGranted, permissionController.isChecking) {
+        cameraViewModel.onPermissionStateChanged(
+            isGranted = permissionController.isGranted,
+            isChecking = permissionController.isChecking,
+        )
+    }
+
+    CameraScreen(
+        modifier = modifier,
+        uiState = uiState,
+        onRequestPermission = permissionController.requestPermission,
+        onLensFacingChanged = cameraViewModel::onLensFacingChanged,
+        onLensFacingToggle = cameraViewModel::onToggleLensFacing,
+    )
+}
+
+@Composable
+fun CameraScreen(
+    uiState: CameraUiState,
+    onRequestPermission: () -> Unit,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onLensFacingToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
 
     Box(
         modifier = modifier
@@ -37,13 +66,14 @@ fun CameraScreen(modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.scrim),
     ) {
         when {
-            permissionController.isChecking -> LoadingState()
-            permissionController.isGranted -> CameraPreviewState(
-                lensFacing = lensFacing,
-                onLensFacingChanged = { lensFacing = it },
+            uiState.isPermissionChecking -> LoadingState()
+            uiState.isPermissionGranted -> CameraPreviewState(
+                uiState = uiState,
+                onLensFacingChanged = onLensFacingChanged,
+                onLensFacingToggle = onLensFacingToggle,
             )
             else -> PermissionDeniedState(
-                onRequestPermission = permissionController.requestPermission,
+                onRequestPermission = onRequestPermission,
             )
         }
     }
@@ -51,20 +81,21 @@ fun CameraScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun CameraPreviewState(
-    lensFacing: CameraLensFacing,
+    uiState: CameraUiState,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onLensFacingToggle: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         CameraPreviewHost(
             modifier = Modifier.fillMaxSize(),
-            lensFacing = lensFacing,
+            lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
         )
         Button(
-            onClick = { onLensFacingChanged(lensFacing.toggled()) },
+            onClick = onLensFacingToggle,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(16.dp),
+                .padding(32.dp),
         ) {
             Text(stringResource(Res.string.camera_switch_button))
         }
