@@ -3,8 +3,11 @@ package com.example.vtubercamera_kmp_ver
 import com.example.vtubercamera_kmp_ver.camera.VrmAvatarParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 class ComposeAppCommonTest {
 
@@ -51,7 +54,8 @@ class ComposeAppCommonTest {
         val exception = VrmAvatarParser.parse("image.png", glb).exceptionOrNull()
 
         assertNotNull(exception)
-        assertEquals("VRMファイルを選択してください。", exception.message)
+        val filePickerException = assertIs<com.example.vtubercamera_kmp_ver.camera.FilePickerException>(exception)
+        assertEquals(Res.string.vrm_error_select_file, filePickerException.messageRes)
     }
 
     private fun createGlb(json: String, binary: ByteArray): ByteArray {
