@@ -221,6 +221,8 @@ private struct IOSAvatarPreview {
 }
 
 private enum IOSVrmAvatarParser {
+    private static let supportedExtensions: Set<String> = ["vrm", "glb"]
+
     static func parse(url: URL) throws -> IOSAvatarPreview {
         let didAccess = url.startAccessingSecurityScopedResource()
         defer {
@@ -230,7 +232,7 @@ private enum IOSVrmAvatarParser {
         }
 
         let fileName = url.lastPathComponent
-        guard url.pathExtension.lowercased() == "vrm" else {
+        guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
             throw ParserError.invalidFileType
         }
 
@@ -352,13 +354,13 @@ private enum IOSVrmAvatarParser {
         var errorDescription: String? {
             switch self {
             case .invalidFileType:
-                return "VRMファイルを選択してください。"
+                return "VRM/GLBファイルを選択してください。"
             case .readFailed:
-                return "VRMファイルの読み込みに失敗しました。"
+                return "VRM/GLBファイルの読み込みに失敗しました。"
             case .invalidFormat:
-                return "VRMファイルの形式が不正です。"
+                return "VRM/GLBファイルの形式が不正です。"
             case .metadataFailed:
-                return "VRMメタデータの解析に失敗しました。"
+                return "VRM/GLBメタデータの解析に失敗しました。"
             }
         }
     }
