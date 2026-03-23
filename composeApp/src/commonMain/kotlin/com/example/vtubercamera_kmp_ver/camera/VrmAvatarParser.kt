@@ -6,6 +6,11 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.intOrNull
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_metadata_parse_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 object VrmAvatarParser {
     private const val glbHeaderMagic = 0x46546C67
@@ -16,20 +21,20 @@ object VrmAvatarParser {
 
     fun parse(fileName: String, bytes: ByteArray): Result<AvatarPreviewData> {
         if (!fileName.lowercase().endsWith(".vrm")) {
-            return Result.failure(IllegalArgumentException("VRMファイルを選択してください。"))
+            return Result.failure(FilePickerException(Res.string.vrm_error_select_file))
         }
         if (bytes.size < 20) {
-            return Result.failure(IllegalArgumentException("VRMファイルの読み込みに失敗しました。"))
+            return Result.failure(FilePickerException(Res.string.vrm_error_read_failed))
         }
 
         val magic = bytes.readIntLE(0)
         if (magic != glbHeaderMagic) {
-            return Result.failure(IllegalArgumentException("VRMファイルを選択してください。"))
+            return Result.failure(FilePickerException(Res.string.vrm_error_select_file))
         }
 
         val declaredLength = bytes.readIntLE(8)
         if (declaredLength > bytes.size || declaredLength < 20) {
-            return Result.failure(IllegalArgumentException("VRMファイルの形式が不正です。"))
+            return Result.failure(FilePickerException(Res.string.vrm_error_invalid_format))
         }
 
         var offset = 12
@@ -41,7 +46,7 @@ object VrmAvatarParser {
             val chunkStart = offset + 8
             val chunkEnd = chunkStart + chunkLength
             if (chunkLength < 0 || chunkEnd > declaredLength) {
-                return Result.failure(IllegalArgumentException("VRMファイルの形式が不正です。"))
+                return Result.failure(FilePickerException(Res.string.vrm_error_invalid_format))
             }
             when (chunkType) {
                 jsonChunkType -> jsonChunk = bytes.decodeToString(chunkStart, chunkEnd)
@@ -51,8 +56,10 @@ object VrmAvatarParser {
         }
 
         val root = jsonChunk
-            ?.let { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
-            ?: return Result.failure(IllegalArgumentException("VRMメタデータの解析に失敗しました。"))
+            ?.let { chunk ->
+                runCatching { json.parseToJsonElement(chunk) as? JsonObject }.getOrNull()
+            }
+            ?: return Result.failure(FilePickerException(Res.string.vrm_error_metadata_parse_failed))
 
         val meta = root.vrm0Meta() ?: root.vrm1Meta()
         val avatarName = meta?.string("title")
@@ -60,8 +67,8 @@ object VrmAvatarParser {
             ?: fileName.substringBeforeLast('.')
         val authorName = meta?.string("author") ?: meta?.stringArray("authors")?.firstOrNull()
         val vrmVersion = meta?.string("version")
-            ?: root.jsonObject("extensions")?.jsonObject("VRMC_vrm")?.string("specVersion")
-            ?: root.jsonObject("asset")?.string("version")
+            ?: root.childObject("extensions")?.childObject("VRMC_vrm")?.string("specVersion")
+            ?: root.childObject("asset")?.string("version")
 
         val thumbnailIndex = root.resolveThumbnailImageIndex()
         val thumbnailBytes = if (thumbnailIndex != null && binaryChunk != null) {
@@ -82,16 +89,16 @@ object VrmAvatarParser {
     }
 
     private fun JsonObject.vrm0Meta(): JsonObject? =
-        jsonObject("extensions")?.jsonObject("VRM")?.jsonObject("meta")
+        childObject("extensions")?.childObject("VRM")?.childObject("meta")
 
     private fun JsonObject.vrm1Meta(): JsonObject? =
-        jsonObject("extensions")?.jsonObject("VRMC_vrm")?.jsonObject("meta")
+        childObject("extensions")?.childObject("VRMC_vrm")?.childObject("meta")
 
     private fun JsonObject.resolveThumbnailImageIndex(): Int? {
         val vrm0Meta = vrm0Meta()
         val vrm0TextureIndex = vrm0Meta?.int("texture")
         if (vrm0TextureIndex != null) {
-            val imageIndex = jsonArray("textures")
+            val imageIndex = childArray("textures")
                 ?.getOrNull(vrm0TextureIndex)
                 ?.jsonObjectOrNull()
                 ?.int("source")
@@ -102,7 +109,7 @@ object VrmAvatarParser {
     }
 
     private fun JsonObject.extractImageBytes(imageIndex: Int, binaryChunk: ByteArray): ByteArray? {
-        val image = jsonArray("images")
+        val image = childArray("images")
             ?.getOrNull(imageIndex)
             ?.jsonObjectOrNull()
             ?: return null
@@ -110,7 +117,7 @@ object VrmAvatarParser {
         val mimeType = image.string("mimeType") ?: return null
         if (!mimeType.startsWith("image/")) return null
 
-        val bufferView = jsonArray("bufferViews")
+        val bufferView = childArray("bufferViews")
             ?.getOrNull(bufferViewIndex)
             ?.jsonObjectOrNull()
             ?: return null
@@ -121,17 +128,20 @@ object VrmAvatarParser {
         return binaryChunk.copyOfRange(byteOffset, end)
     }
 
-    private fun JsonObject.jsonObject(key: String): JsonObject? = get(key)?.jsonObjectOrNull()
+    private fun JsonObject.childObject(key: String): JsonObject? = get(key)?.jsonObjectOrNull()
 
-    private fun JsonObject.jsonArray(key: String): JsonArray? = get(key)?.jsonArrayOrNull()
+    private fun JsonObject.childArray(key: String): JsonArray? = get(key)?.jsonArrayOrNull()
 
-    private fun JsonObject.string(key: String): String? = get(key)?.jsonPrimitiveOrNull()?.contentOrNull?.takeIf { it.isNotBlank() }
+    private fun JsonObject.string(key: String): String? =
+        get(key)?.jsonPrimitiveOrNull()?.content?.takeIf { value -> value.isNotBlank() }
 
     private fun JsonObject.int(key: String): Int? = get(key)?.jsonPrimitiveOrNull()?.intOrNull
 
     private fun JsonObject.stringArray(key: String): List<String>? {
-        return jsonArray(key)
-            ?.mapNotNull { it.jsonPrimitiveOrNull()?.contentOrNull?.takeIf { value -> value.isNotBlank() } }
+        return childArray(key)
+            ?.mapNotNull { element ->
+                element.jsonPrimitiveOrNull()?.content?.takeIf { value -> value.isNotBlank() }
+            }
             ?.takeIf { it.isNotEmpty() }
     }
 
