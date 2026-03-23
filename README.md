@@ -94,6 +94,12 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 - `composeApp/src/iosMain` の `CameraPreviewHost` はプレースホルダーで、iOS のネイティブホスト前提です。
 - package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。
 
+## Dependabot 運用ポリシー
+
+- Dependabot の Pull Request では GitHub Actions で Android / iOS ビルドを自動実行します。
+- 自動マージ対象は `patch` / `minor` 相当の更新で、かつ差分が `10` ファイル以内・追加削除合計 `300` 行以内のものに限定します。
+- `major` 更新や大きな差分の更新は `manual-review-required` ラベルを付け、人間の確認を必須にします。
+
 ## 今後の整理候補
 
 - iOS 側の実装を shared UI / shared state とどう整合させるかを明確にする
