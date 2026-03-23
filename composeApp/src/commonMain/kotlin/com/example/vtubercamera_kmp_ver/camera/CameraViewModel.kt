@@ -40,10 +40,10 @@ class CameraViewModel : ViewModel() {
             when (result) {
                 is FilePickerResult.Success -> currentState.copy(
                     avatarPreview = result.avatarPreview,
-                    filePickerErrorMessage = null,
+                    filePickerErrorMessageRes = null,
                 )
                 is FilePickerResult.Error -> currentState.copy(
-                    filePickerErrorMessage = result.message,
+                    filePickerErrorMessageRes = result.messageRes,
                 )
                 FilePickerResult.Cancelled -> currentState
             }
@@ -52,7 +52,7 @@ class CameraViewModel : ViewModel() {
 
     fun onDismissFilePickerError() {
         _uiState.update { currentState ->
-            currentState.copy(filePickerErrorMessage = null)
+            currentState.copy(filePickerErrorMessageRes = null)
         }
     }
 }
