@@ -27,7 +27,7 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
-actual fun rememberFilePickerLauncher(): FilePickerLauncher {
+actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher {
     return remember {
         FilePickerLauncher(
             launch = {
@@ -41,7 +41,7 @@ actual fun rememberFilePickerLauncher(): FilePickerLauncher {
                         animated = true,
                         completion = null,
                     )
-                }
+                } ?: onFilePicked(FilePickerResult.Error("ファイルピッカーを起動できませんでした。"))
             },
         )
     }
@@ -60,6 +60,19 @@ actual fun CameraPreviewHost(
         contentAlignment = Alignment.Center,
     ) {
         Text("iOS camera preview is hosted by the native iOS app.")
+    }
+}
+
+@Composable
+actual fun AvatarPreviewOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(avatarPreview.avatarName)
     }
 }
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +25,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
@@ -36,7 +39,7 @@ fun CameraRoute(
     cameraViewModel: CameraViewModel = viewModel { CameraViewModel() },
 ) {
     val permissionController = rememberCameraPermissionController()
-    val filePickerLauncher = rememberFilePickerLauncher()
+    val filePickerLauncher = rememberFilePickerLauncher(cameraViewModel::onFilePicked)
     val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(permissionController.isGranted, permissionController.isChecking) {
@@ -51,6 +54,7 @@ fun CameraRoute(
         uiState = uiState,
         onRequestPermission = permissionController.requestPermission,
         onOpenFilePicker = filePickerLauncher.launch,
+        onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
     )
@@ -61,11 +65,11 @@ fun CameraScreen(
     uiState: CameraUiState,
     onRequestPermission: () -> Unit,
     onOpenFilePicker: () -> Unit,
+    onDismissFilePickerError: () -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -81,6 +85,19 @@ fun CameraScreen(
             )
             else -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
+            )
+        }
+
+        uiState.filePickerErrorMessage?.let { message ->
+            AlertDialog(
+                onDismissRequest = onDismissFilePickerError,
+                title = { Text(stringResource(Res.string.avatar_error_dialog_title)) },
+                text = { Text(message) },
+                confirmButton = {
+                    Button(onClick = onDismissFilePickerError) {
+                        Text(stringResource(Res.string.avatar_error_dialog_confirm))
+                    }
+                },
             )
         }
     }
@@ -113,6 +130,14 @@ private fun CameraPreviewState(
             Button(onClick = onLensFacingToggle) {
                 Text(stringResource(Res.string.camera_switch_button))
             }
+        }
+        uiState.avatarPreview?.let { avatarPreview ->
+            AvatarPreviewOverlay(
+                avatarPreview = avatarPreview,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(MaterialTheme.spacing.xl),
+            )
         }
     }
 }
