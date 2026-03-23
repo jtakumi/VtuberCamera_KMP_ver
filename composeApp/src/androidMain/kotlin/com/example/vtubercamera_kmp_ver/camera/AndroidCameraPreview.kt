@@ -45,6 +45,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import org.jetbrains.compose.resources.stringResource
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_author_label
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_version_label
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -60,15 +68,13 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         permissionGranted = context.hasCameraPermission()
     }
 
-    return remember(permissionGranted, permissionLauncher) {
-        CameraPermissionController(
-            isGranted = permissionGranted == true,
-            isChecking = permissionGranted == null,
-            requestPermission = {
-                permissionLauncher.launch(Manifest.permission.CAMERA)
-            },
-        )
-    }
+    return CameraPermissionController(
+        isGranted = permissionGranted == true,
+        isChecking = permissionGranted == null,
+        requestPermission = {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        },
+    )
 }
 
 @Composable
@@ -86,26 +92,24 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
         val result = runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 input.readBytes()
-            } ?: error("ファイルを開けませんでした。")
+            } ?: throw FilePickerException(Res.string.file_picker_read_failed)
         }.fold(
             onSuccess = { bytes ->
                 VrmAvatarParser.parse(fileName = fileName, bytes = bytes).fold(
                     onSuccess = { FilePickerResult.Success(it) },
-                    onFailure = { FilePickerResult.Error(it.message ?: "VRMファイルの読み込みに失敗しました。") },
+                    onFailure = { throwable -> throwable.toFilePickerError() },
                 )
             },
-            onFailure = { FilePickerResult.Error(it.message ?: "ファイルを開けませんでした。") },
+            onFailure = { throwable -> throwable.toFilePickerError(defaultMessageRes = Res.string.file_picker_open_failed) },
         )
         onFilePicked(result)
     }
 
-    return remember(pickerLauncher) {
-        FilePickerLauncher(
-            launch = {
-                pickerLauncher.launch(arrayOf("*/*"))
-            },
-        )
-    }
+    return FilePickerLauncher(
+        launch = {
+            pickerLauncher.launch(arrayOf("*/*"))
+        },
+    )
 }
 
 @Composable
@@ -206,7 +210,7 @@ actual fun AvatarPreviewOverlay(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "VRM",
+                        text = stringResource(Res.string.avatar_preview_vrm_badge),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -229,13 +233,13 @@ actual fun AvatarPreviewOverlay(
                 )
                 avatarPreview.authorName?.let { author ->
                     Text(
-                        text = "Author: $author",
+                        text = stringResource(Res.string.avatar_preview_author_label, author),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 avatarPreview.vrmVersion?.let { version ->
                     Text(
-                        text = "Version: $version",
+                        text = stringResource(Res.string.avatar_preview_version_label, version),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -290,5 +294,12 @@ private fun ProcessCameraProvider.hasCameraSafely(selector: CameraSelector): Boo
         false
     } catch (_: IllegalArgumentException) {
         false
+    }
+}
+
+private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose.resources.StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
+    return when (this) {
+        is FilePickerException -> FilePickerResult.Error(messageRes)
+        else -> FilePickerResult.Error(defaultMessageRes)
     }
 }
