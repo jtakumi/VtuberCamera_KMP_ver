@@ -88,7 +88,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
             return@rememberLauncherForActivityResult
         }
 
-        val fileName = context.resolveDisplayName(uri) ?: uri.lastPathSegment ?: "selected.vrm"
+        val fileName = context.resolveDisplayName(uri) ?: uri.lastPathSegment ?: "selected.glb"
         val result = runCatching {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 input.readBytes()
