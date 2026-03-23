@@ -9,11 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import org.jetbrains.compose.resources.stringResource
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.ios_camera_preview_placeholder
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -27,7 +31,7 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
-actual fun rememberFilePickerLauncher(): FilePickerLauncher {
+actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher {
     return remember {
         FilePickerLauncher(
             launch = {
@@ -41,7 +45,7 @@ actual fun rememberFilePickerLauncher(): FilePickerLauncher {
                         animated = true,
                         completion = null,
                     )
-                }
+                } ?: onFilePicked(FilePickerResult.Error(Res.string.file_picker_open_failed))
             },
         )
     }
@@ -59,7 +63,20 @@ actual fun CameraPreviewHost(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Text("iOS camera preview is hosted by the native iOS app.")
+        Text(stringResource(Res.string.ios_camera_preview_placeholder))
+    }
+}
+
+@Composable
+actual fun AvatarPreviewOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(avatarPreview.avatarName)
     }
 }
 
