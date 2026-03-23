@@ -17,8 +17,8 @@
     <string name="avatar_preview_author_label">Author: %1$s</string>
     <string name="avatar_preview_version_label">Version: %1$s</string>
     <string name="ios_camera_preview_placeholder">iOS のカメラプレビューはネイティブ iOS 側で表示されます。</string>
-    <string name="vrm_error_select_file">VRMファイルを選択してください。</string>
-    <string name="vrm_error_read_failed">VRMファイルの読み込みに失敗しました。</string>
-    <string name="vrm_error_invalid_format">VRMファイルの形式が不正です。</string>
-    <string name="vrm_error_metadata_parse_failed">VRMメタデータの解析に失敗しました。</string>
+    <string name="vrm_error_select_file">VRM/GLBファイルを選択してください。</string>
+    <string name="vrm_error_read_failed">VRM/GLBファイルの読み込みに失敗しました。</string>
+    <string name="vrm_error_invalid_format">VRM/GLBファイルの形式が不正です。</string>
+    <string name="vrm_error_metadata_parse_failed">VRM/GLBメタデータの解析に失敗しました。</string>
 </resources>
