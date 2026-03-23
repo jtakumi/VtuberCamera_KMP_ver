@@ -88,11 +88,11 @@ fun CameraScreen(
             )
         }
 
-        uiState.filePickerErrorMessage?.let { message ->
+        uiState.filePickerErrorMessageRes?.let { messageRes ->
             AlertDialog(
                 onDismissRequest = onDismissFilePickerError,
                 title = { Text(stringResource(Res.string.avatar_error_dialog_title)) },
-                text = { Text(message) },
+                text = { Text(stringResource(messageRes)) },
                 confirmButton = {
                     Button(onClick = onDismissFilePickerError) {
                         Text(stringResource(Res.string.avatar_error_dialog_confirm))
