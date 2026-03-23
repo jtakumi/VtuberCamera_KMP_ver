@@ -45,7 +45,39 @@ class ComposeAppCommonTest {
     }
 
     @Test
-    fun parseVrmAvatarRejectsNonVrmExtension() {
+        fun parseGlbAvatarExtractsMetadataAndThumbnail() {
+                val thumbnailBytes = byteArrayOf(5, 6, 7, 8)
+                val glb = createGlb(
+                        json = """
+                                {
+                                    "asset": {"version": "2.0"},
+                                    "extensions": {
+                                        "VRMC_vrm": {
+                                            "specVersion": "1.0",
+                                            "meta": {
+                                                "name": "Sample GLB Avatar",
+                                                "authors": ["OpenAI GLB"],
+                                                "thumbnailImage": 0
+                                            }
+                                        }
+                                    },
+                                    "images": [{"bufferView": 0, "mimeType": "image/png"}],
+                                    "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 4}]
+                                }
+                        """.trimIndent(),
+                        binary = thumbnailBytes,
+                )
+
+                val result = VrmAvatarParser.parse("sample.glb", glb).getOrThrow()
+
+                assertEquals("Sample GLB Avatar", result.avatarName)
+                assertEquals("OpenAI GLB", result.authorName)
+                assertEquals("1.0", result.vrmVersion)
+                assertTrue(result.thumbnailBytes!!.contentEquals(thumbnailBytes))
+        }
+
+        @Test
+        fun parseAvatarRejectsNonGlbBasedExtension() {
         val glb = createGlb(
             json = """{"asset":{"version":"2.0"}}""",
             binary = ByteArray(0),
