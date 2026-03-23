@@ -9,11 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import org.jetbrains.compose.resources.stringResource
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.ios_camera_preview_placeholder
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -41,7 +45,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
                         animated = true,
                         completion = null,
                     )
-                } ?: onFilePicked(FilePickerResult.Error("ファイルピッカーを起動できませんでした。"))
+                } ?: onFilePicked(FilePickerResult.Error(Res.string.file_picker_open_failed))
             },
         )
     }
@@ -59,7 +63,7 @@ actual fun CameraPreviewHost(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
-        Text("iOS camera preview is hosted by the native iOS app.")
+        Text(stringResource(Res.string.ios_camera_preview_placeholder))
     }
 }
 
