@@ -16,11 +16,12 @@ object VrmAvatarParser {
     private const val glbHeaderMagic = 0x46546C67
     private const val jsonChunkType = 0x4E4F534A
     private const val binaryChunkType = 0x004E4942
+    private val supportedExtensions = setOf("vrm", "glb")
 
     private val json = Json { ignoreUnknownKeys = true }
 
     fun parse(fileName: String, bytes: ByteArray): Result<AvatarPreviewData> {
-        if (!fileName.lowercase().endsWith(".vrm")) {
+        if (!fileName.hasSupportedExtension()) {
             return Result.failure(FilePickerException(Res.string.vrm_error_select_file))
         }
         if (bytes.size < 20) {
@@ -150,6 +151,11 @@ object VrmAvatarParser {
     private fun JsonElement.jsonArrayOrNull(): JsonArray? = this as? JsonArray
 
     private fun JsonElement.jsonPrimitiveOrNull(): JsonPrimitive? = this as? JsonPrimitive
+
+    private fun String.hasSupportedExtension(): Boolean {
+        val extension = substringAfterLast('.', missingDelimiterValue = "")
+        return extension.lowercase() in supportedExtensions
+    }
 
     private fun ByteArray.readIntLE(offset: Int): Int {
         return (this[offset].toInt() and 0xFF) or
