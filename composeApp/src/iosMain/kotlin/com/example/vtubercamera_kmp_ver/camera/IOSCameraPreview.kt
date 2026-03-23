@@ -2,13 +2,21 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import platform.UIKit.UIApplication
 import platform.UIKit.UIDocumentPickerMode
@@ -77,6 +85,35 @@ actual fun AvatarPreviewOverlay(
         contentAlignment = Alignment.Center,
     ) {
         Text(avatarPreview.avatarName)
+    }
+}
+
+@Composable
+actual fun AvatarBodyOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.56f)
+                .fillMaxHeight(0.48f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+            tonalElevation = 6.dp,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = avatarPreview.avatarName,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                )
+            }
+        }
     }
 }
 

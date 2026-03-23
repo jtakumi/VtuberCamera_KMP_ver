@@ -32,6 +32,13 @@ struct ContentView: View {
                     if let avatarPreview = viewModel.avatarPreview {
                         VStack {
                             Spacer()
+                            IOSAvatarBodyView(avatarPreview: avatarPreview)
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 32)
+                        }
+
+                        VStack {
+                            Spacer()
                             IOSAvatarPreviewCard(avatarPreview: avatarPreview)
                                 .padding(.leading, 16)
                                 .padding(.bottom, 24)
@@ -190,5 +197,30 @@ private struct IOSAvatarPreviewCard: View {
         .padding(16)
         .frame(maxWidth: 320, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct IOSAvatarBodyView: View {
+    let avatarPreview: IOSAvatarPreview
+
+    var body: some View {
+        Group {
+            if let thumbnail = avatarPreview.thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFit()
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 28)
+                        .fill(Color.white.opacity(0.24))
+                    Text(avatarPreview.avatarName)
+                        .font(.title2.weight(.bold))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.white)
+                        .padding(24)
+                }
+            }
+        }
+        .frame(maxWidth: 300, maxHeight: 420)
     }
 }

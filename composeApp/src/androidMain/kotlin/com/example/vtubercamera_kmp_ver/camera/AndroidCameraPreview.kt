@@ -14,10 +14,12 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -37,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -175,11 +178,7 @@ actual fun AvatarPreviewOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier,
 ) {
-    val thumbnailBitmap = remember(avatarPreview.thumbnailBytes) {
-        avatarPreview.thumbnailBytes?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }
-    }
+    val thumbnailBitmap = rememberAvatarBitmap(avatarPreview)
 
     Surface(
         modifier = modifier.fillMaxWidth(0.72f),
@@ -248,6 +247,54 @@ actual fun AvatarPreviewOverlay(
     }
 }
 
+@Composable
+actual fun AvatarBodyOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier,
+) {
+    val thumbnailBitmap = rememberAvatarBitmap(avatarPreview)
+
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        if (thumbnailBitmap != null) {
+            Image(
+                bitmap = thumbnailBitmap,
+                contentDescription = avatarPreview.avatarName,
+                modifier = Modifier
+                    .fillMaxWidth(0.68f)
+                    .fillMaxHeight(0.6f)
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(28.dp),
+                    )
+                    .graphicsLayer(alpha = 0.96f),
+                contentScale = ContentScale.Fit,
+            )
+        } else {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.56f)
+                    .fillMaxHeight(0.48f),
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
+                tonalElevation = 6.dp,
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = avatarPreview.avatarName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                    )
+                }
+            }
+        }
+    }
+}
+
 private fun Context.hasCameraPermission(): Boolean {
     return ContextCompat.checkSelfPermission(
         this,
@@ -301,5 +348,12 @@ private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose
     return when (this) {
         is FilePickerException -> FilePickerResult.Error(messageRes)
         else -> FilePickerResult.Error(defaultMessageRes)
+    }
+}
+
+@Composable
+private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) = remember(avatarPreview.thumbnailBytes) {
+    avatarPreview.thumbnailBytes?.let { bytes ->
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
     }
 }

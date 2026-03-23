@@ -54,3 +54,9 @@ expect fun AvatarPreviewOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier = Modifier,
 )
+
+@Composable
+expect fun AvatarBodyOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier = Modifier,
+)

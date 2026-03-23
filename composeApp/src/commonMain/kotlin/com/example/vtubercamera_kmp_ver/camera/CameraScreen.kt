@@ -116,6 +116,19 @@ private fun CameraPreviewState(
             lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
         )
+        uiState.avatarPreview?.let { avatarPreview ->
+            AvatarBodyOverlay(
+                avatarPreview = avatarPreview,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = MaterialTheme.spacing.lg,
+                        end = MaterialTheme.spacing.lg,
+                        top = MaterialTheme.spacing.xl * 2,
+                        bottom = MaterialTheme.spacing.xl,
+                    ),
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
