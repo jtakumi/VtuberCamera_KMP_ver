@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.camera
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import org.jetbrains.compose.resources.StringResource
 
 @Immutable
 data class CameraPermissionController(
@@ -27,9 +28,13 @@ data class AvatarPreviewData(
 
 sealed interface FilePickerResult {
     data class Success(val avatarPreview: AvatarPreviewData) : FilePickerResult
-    data class Error(val message: String) : FilePickerResult
+    data class Error(val messageRes: StringResource) : FilePickerResult
     data object Cancelled : FilePickerResult
 }
+
+class FilePickerException(
+    val messageRes: StringResource,
+) : IllegalArgumentException()
 
 @Composable
 expect fun rememberCameraPermissionController(): CameraPermissionController
