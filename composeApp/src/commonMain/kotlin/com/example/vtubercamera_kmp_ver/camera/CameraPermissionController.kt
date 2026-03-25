@@ -24,7 +24,31 @@ data class AvatarPreviewData(
     val authorName: String?,
     val vrmVersion: String?,
     val thumbnailBytes: ByteArray?,
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as AvatarPreviewData
+
+        if (fileName != other.fileName) return false
+        if (avatarName != other.avatarName) return false
+        if (authorName != other.authorName) return false
+        if (vrmVersion != other.vrmVersion) return false
+        if (!thumbnailBytes.contentEquals(other.thumbnailBytes)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = fileName.hashCode()
+        result = 31 * result + avatarName.hashCode()
+        result = 31 * result + (authorName?.hashCode() ?: 0)
+        result = 31 * result + (vrmVersion?.hashCode() ?: 0)
+        result = 31 * result + (thumbnailBytes?.contentHashCode() ?: 0)
+        return result
+    }
+}
 
 sealed interface FilePickerResult {
     data class Success(val avatarPreview: AvatarPreviewData) : FilePickerResult
