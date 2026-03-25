@@ -11,6 +11,9 @@ agent: "VRM Face Tracking Researcher"
 - カメラ入力、face tracking、表情マッピング、アバター状態更新、VRM 描画、画面表示までを 1 本の流れとして整理すること
 - Android、iOS、KMP 共有化の観点を分けて記述すること
 - 低遅延、表情追従、安定性のトレードオフを明示すること
+- 既存コードとドキュメントを確認し、今ある構成に沿った最小限で実装効果の高い変更を優先すること
+- 調査結果をワークスペース内の Markdown ファイルとして作成または更新すること
+- 既存の関連 Markdown ファイルが適切なら更新し、適切な既存ファイルがない場合は内容に即した名前で新規作成すること
 
 返却内容:
 - Goal
@@ -21,3 +24,7 @@ agent: "VRM Face Tracking Researcher"
 - Platform Notes
 - Risks And Unknowns
 - Next Implementation Steps
+
+最終応答では次も必ず示すこと:
+- 作成または更新した Markdown ファイルのパス
+- その Markdown ファイルに記録した要点の短い要約
