@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.view.TextureView
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,11 +43,13 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -53,6 +58,9 @@ import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_author_label
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_hint
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_ready
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_version_label
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
@@ -285,47 +293,114 @@ actual fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier,
 ) {
-    val thumbnailBitmap = rememberAvatarBitmap(avatarPreview)
-
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        if (thumbnailBitmap != null) {
-            Image(
-                bitmap = thumbnailBitmap,
-                contentDescription = avatarPreview.avatarName,
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.68f)
+                .fillMaxHeight(0.6f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+            tonalElevation = 6.dp,
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.68f)
-                    .fillMaxHeight(0.6f)
+                    .fillMaxSize()
+                    .graphicsLayer(alpha = 0.96f)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.78f),
+                            ),
+                        ),
+                    )
                     .border(
                         width = 2.dp,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
                         shape = RoundedCornerShape(28.dp),
-                    )
-                    .graphicsLayer(alpha = 0.96f),
-                contentScale = ContentScale.Fit,
-            )
-        } else {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.56f)
-                    .fillMaxHeight(0.48f),
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
-                tonalElevation = 6.dp,
+                    ),
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                AvatarRendererHostView(
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(MaterialTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_ready),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(MaterialTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+                ) {
                     Text(
                         text = avatarPreview.avatarName,
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = avatarPreview.fileName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun AvatarRendererHostView(modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            FrameLayout(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                addView(
+                    TextureView(context).apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        isOpaque = false
+                        alpha = 0f
+                    },
+                )
+            }
+        },
+    )
 }
 
 private fun Context.hasCameraPermission(): Boolean {
