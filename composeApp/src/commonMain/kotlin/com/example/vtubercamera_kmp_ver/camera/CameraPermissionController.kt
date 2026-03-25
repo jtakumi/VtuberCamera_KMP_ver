@@ -41,11 +41,13 @@ data class AvatarPreviewData(
     }
 
     override fun hashCode(): Int {
+        val standardPoint = 31
+        val fallbackPoint = 0
         var result = fileName.hashCode()
-        result = 31 * result + avatarName.hashCode()
-        result = 31 * result + (authorName?.hashCode() ?: 0)
-        result = 31 * result + (vrmVersion?.hashCode() ?: 0)
-        result = 31 * result + (thumbnailBytes?.contentHashCode() ?: 0)
+        result = standardPoint * result + avatarName.hashCode()
+        result = standardPoint * result + (authorName?.hashCode() ?: fallbackPoint)
+        result = standardPoint * result + (vrmVersion?.hashCode() ?: fallbackPoint)
+        result = standardPoint * result + (thumbnailBytes?.contentHashCode() ?: fallbackPoint)
         return result
     }
 }
