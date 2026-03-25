@@ -73,6 +73,7 @@ expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 )
 
 @Composable
