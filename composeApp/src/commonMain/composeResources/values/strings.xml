@@ -16,6 +16,16 @@
     <string name="avatar_preview_vrm_badge">VRM</string>
     <string name="avatar_preview_author_label">Author: %1$s</string>
     <string name="avatar_preview_version_label">Version: %1$s</string>
+    <string name="face_tracking_title">Face Tracking</string>
+    <string name="face_tracking_status_tracking">Tracking face</string>
+    <string name="face_tracking_status_searching">Searching for face</string>
+    <string name="face_tracking_label_yaw">Yaw</string>
+    <string name="face_tracking_label_pitch">Pitch</string>
+    <string name="face_tracking_label_roll">Roll</string>
+    <string name="face_tracking_label_blink_left">Blink L</string>
+    <string name="face_tracking_label_blink_right">Blink R</string>
+    <string name="face_tracking_label_jaw">Jaw</string>
+    <string name="face_tracking_label_smile">Smile</string>
     <string name="ios_camera_preview_placeholder">iOS のカメラプレビューはネイティブ iOS 側で表示されます。</string>
     <string name="vrm_error_select_file">VRM/GLBファイルを選択してください。</string>
     <string name="vrm_error_read_failed">VRM/GLBファイルの読み込みに失敗しました。</string>
