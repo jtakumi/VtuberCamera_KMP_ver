@@ -64,6 +64,7 @@ actual fun CameraPreviewHost(
     modifier: Modifier,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
     Box(
         modifier = modifier
