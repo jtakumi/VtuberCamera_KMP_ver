@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -35,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,6 +58,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_ba
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
+import java.util.concurrent.Executors
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -120,10 +123,13 @@ actual fun CameraPreviewHost(
     modifier: Modifier,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val onFaceTrackingFrameChangedState = rememberUpdatedState(onFaceTrackingFrameChanged)
     val previewView = remember {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -151,24 +157,51 @@ actual fun CameraPreviewHost(
                 return@Runnable
             }
 
+            val faceTrackingAnalyzer = AndroidFaceTrackingAnalyzer(
+                lensFacing = resolvedLensFacing,
+                onFaceFrame = { frame ->
+                    executor.execute {
+                        onFaceTrackingFrameChangedState.value(frame)
+                    }
+                },
+            )
+
             val preview = Preview.Builder()
                 .build()
                 .also { it.surfaceProvider = previewView.surfaceProvider }
+
+            val analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer) }
 
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 lifecycleOwner,
                 selector,
                 preview,
+                analysis,
             )
+
+            (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
+            previewView.tag = faceTrackingAnalyzer
         }
 
         cameraProviderFuture.addListener(listener, executor)
 
         onDispose {
+            (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
+            previewView.tag = null
+            onFaceTrackingFrameChangedState.value(null)
             if (cameraProviderFuture.isDone) {
                 cameraProviderFuture.get().unbindAll()
             }
+        }
+    }
+
+    DisposableEffect(analysisExecutor) {
+        onDispose {
+            analysisExecutor.shutdown()
         }
     }
 }
