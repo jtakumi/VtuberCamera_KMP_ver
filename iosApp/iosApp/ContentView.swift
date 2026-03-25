@@ -1,8 +1,10 @@
 import SwiftUI
 @preconcurrency import AVFoundation
+import ARKit
 import ComposeApp
 import UniformTypeIdentifiers
 import UIKit
+import SceneKit
 
 struct ContentView: View {
     @StateObject private var viewModel = IOSCameraViewModel()
@@ -12,8 +14,13 @@ struct ContentView: View {
         ZStack {
             if viewModel.isAuthorized {
                 ZStack(alignment: .topTrailing) {
-                    CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
-                        .ignoresSafeArea()
+                    if viewModel.isUsingARFaceTracking {
+                        ARFaceTrackingPreviewView(onFrameChanged: viewModel.handleFaceTrackingFrameChanged)
+                            .ignoresSafeArea()
+                    } else {
+                        CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
+                            .ignoresSafeArea()
+                    }
 
                     HStack(spacing: 12) {
                         Button("ファイルを開く") {
@@ -28,6 +35,17 @@ struct ContentView: View {
                     }
                     .padding(.top, 16)
                     .padding(.trailing, 16)
+
+                    VStack {
+                        FaceTrackingDebugOverlay(
+                            statusText: viewModel.faceTrackingStatusText,
+                            frame: viewModel.faceTrackingFrame
+                        )
+                        Spacer()
+                    }
+                    .padding(.top, 16)
+                    .padding(.leading, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let avatarPreview = viewModel.avatarPreview {
                         VStack {
@@ -154,6 +172,251 @@ private final class PreviewContainerView: UIView {
     }
 }
 
+private struct ARFaceTrackingPreviewView: UIViewRepresentable {
+    let onFrameChanged: (IOSNormalizedFaceFrame?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFrameChanged: onFrameChanged)
+    }
+
+    func makeUIView(context: Context) -> ARSCNView {
+        let view = ARSCNView(frame: .zero)
+        view.scene = SCNScene()
+        view.automaticallyUpdatesLighting = false
+        view.preferredFramesPerSecond = 60
+        view.contentMode = .scaleAspectFill
+        view.session.delegate = context.coordinator
+        context.coordinator.startSession(using: view.session)
+        return view
+    }
+
+    func updateUIView(_ uiView: ARSCNView, context: Context) {
+        context.coordinator.onFrameChanged = onFrameChanged
+        context.coordinator.resumeIfNeeded(using: uiView.session)
+    }
+
+    static func dismantleUIView(_ uiView: ARSCNView, coordinator: Coordinator) {
+        coordinator.stopSession(using: uiView.session)
+    }
+
+    final class Coordinator: NSObject, ARSessionDelegate {
+        var onFrameChanged: (IOSNormalizedFaceFrame?) -> Void
+
+        private let poseNode = SCNNode()
+        private var previousFrame: IOSNormalizedFaceFrame?
+        private var isRunning = false
+
+        init(onFrameChanged: @escaping (IOSNormalizedFaceFrame?) -> Void) {
+            self.onFrameChanged = onFrameChanged
+        }
+
+        func startSession(using session: ARSession) {
+            guard ARFaceTrackingConfiguration.isSupported else {
+                publish(nil)
+                return
+            }
+
+            let configuration = ARFaceTrackingConfiguration()
+            configuration.isLightEstimationEnabled = false
+            session.run(configuration, options: [.resetTracking, .removeExistingAnchors])
+            isRunning = true
+        }
+
+        func resumeIfNeeded(using session: ARSession) {
+            guard !isRunning else { return }
+            startSession(using: session)
+        }
+
+        func stopSession(using session: ARSession) {
+            session.pause()
+            isRunning = false
+            previousFrame = nil
+            publish(nil)
+        }
+
+        func session(_ session: ARSession, didUpdate anchors: [ARAnchor]) {
+            guard let faceAnchor = anchors.compactMap({ $0 as? ARFaceAnchor }).first else {
+                previousFrame = nil
+                publish(nil)
+                return
+            }
+
+            let pose = headPoseDegrees(from: faceAnchor)
+            let currentFrame = IOSNormalizedFaceFrame(
+                timestampMillis: Int64((session.currentFrame?.timestamp ?? 0) * 1000),
+                trackingConfidence: trackingConfidence(for: session),
+                headYawDegrees: pose.yaw,
+                headPitchDegrees: pose.pitch,
+                headRollDegrees: pose.roll,
+                leftEyeBlink: blendShapeValue(.eyeBlinkLeft, from: faceAnchor),
+                rightEyeBlink: blendShapeValue(.eyeBlinkRight, from: faceAnchor),
+                jawOpen: blendShapeValue(.jawOpen, from: faceAnchor),
+                mouthSmile: average(
+                    blendShapeValue(.mouthSmileLeft, from: faceAnchor),
+                    blendShapeValue(.mouthSmileRight, from: faceAnchor)
+                )
+            )
+
+            let smoothedFrame = smooth(previousFrame: previousFrame, currentFrame: currentFrame)
+            previousFrame = smoothedFrame
+            publish(smoothedFrame)
+        }
+
+        func session(_ session: ARSession, didFailWithError error: Error) {
+            previousFrame = nil
+            publish(nil)
+        }
+
+        func sessionWasInterrupted(_ session: ARSession) {
+            previousFrame = nil
+            publish(nil)
+        }
+
+        func sessionInterruptionEnded(_ session: ARSession) {
+            startSession(using: session)
+        }
+
+        private func publish(_ frame: IOSNormalizedFaceFrame?) {
+            DispatchQueue.main.async {
+                self.onFrameChanged(frame)
+            }
+        }
+
+        private func trackingConfidence(for session: ARSession) -> Float {
+            guard let camera = session.currentFrame?.camera else {
+                return 0
+            }
+
+            switch camera.trackingState {
+            case .normal:
+                return 1
+            case .limited:
+                return 0.55
+            case .notAvailable:
+                return 0
+            }
+        }
+
+        private func headPoseDegrees(from faceAnchor: ARFaceAnchor) -> (yaw: Float, pitch: Float, roll: Float) {
+            poseNode.simdTransform = faceAnchor.transform
+            let eulerAngles = poseNode.simdEulerAngles
+            return (
+                yaw: (-eulerAngles.y).degrees,
+                pitch: eulerAngles.x.degrees,
+                roll: (-eulerAngles.z).degrees
+            )
+        }
+
+        private func blendShapeValue(
+            _ key: ARFaceAnchor.BlendShapeLocation,
+            from faceAnchor: ARFaceAnchor
+        ) -> Float {
+            (faceAnchor.blendShapes[key]?.floatValue ?? 0).clamped(to: 0...1)
+        }
+
+        private func smooth(
+            previousFrame: IOSNormalizedFaceFrame?,
+            currentFrame: IOSNormalizedFaceFrame
+        ) -> IOSNormalizedFaceFrame {
+            guard let previousFrame else {
+                return currentFrame
+            }
+
+            return IOSNormalizedFaceFrame(
+                timestampMillis: currentFrame.timestampMillis,
+                trackingConfidence: currentFrame.trackingConfidence,
+                headYawDegrees: lerp(previousFrame.headYawDegrees, currentFrame.headYawDegrees, alpha: 0.45),
+                headPitchDegrees: lerp(previousFrame.headPitchDegrees, currentFrame.headPitchDegrees, alpha: 0.45),
+                headRollDegrees: lerp(previousFrame.headRollDegrees, currentFrame.headRollDegrees, alpha: 0.4),
+                leftEyeBlink: smoothBlink(previous: previousFrame.leftEyeBlink, current: currentFrame.leftEyeBlink),
+                rightEyeBlink: smoothBlink(previous: previousFrame.rightEyeBlink, current: currentFrame.rightEyeBlink),
+                jawOpen: smoothJaw(previous: previousFrame.jawOpen, current: currentFrame.jawOpen),
+                mouthSmile: lerp(previousFrame.mouthSmile, currentFrame.mouthSmile, alpha: 0.35)
+            )
+        }
+
+        private func smoothBlink(previous: Float, current: Float) -> Float {
+            let snapped: Float
+            switch current {
+            case 0.68...:
+                snapped = 1
+            case ...0.32:
+                snapped = 0
+            default:
+                snapped = current
+            }
+
+            let alpha: Float = snapped > previous ? 0.55 : 0.28
+            return lerp(previous, snapped, alpha: alpha).clamped(to: 0...1)
+        }
+
+        private func smoothJaw(previous: Float, current: Float) -> Float {
+            let alpha: Float = current > previous ? 0.58 : 0.24
+            return lerp(previous, current, alpha: alpha).clamped(to: 0...1)
+        }
+
+        private func lerp(_ start: Float, _ end: Float, alpha: Float) -> Float {
+            start + (end - start) * alpha
+        }
+
+        private func average(_ left: Float, _ right: Float) -> Float {
+            ((left + right) * 0.5).clamped(to: 0...1)
+        }
+    }
+}
+
+private struct FaceTrackingDebugOverlay: View {
+    let statusText: String
+    let frame: IOSNormalizedFaceFrame?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Face Tracking")
+                .font(.headline)
+            Text(statusText)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            if let frame {
+                FaceTrackingMetricRow(label: "Yaw", value: degreesLabel(frame.headYawDegrees))
+                FaceTrackingMetricRow(label: "Pitch", value: degreesLabel(frame.headPitchDegrees))
+                FaceTrackingMetricRow(label: "Roll", value: degreesLabel(frame.headRollDegrees))
+                FaceTrackingMetricRow(label: "Blink L", value: percentLabel(frame.leftEyeBlink))
+                FaceTrackingMetricRow(label: "Blink R", value: percentLabel(frame.rightEyeBlink))
+                FaceTrackingMetricRow(label: "Jaw", value: percentLabel(frame.jawOpen))
+                FaceTrackingMetricRow(label: "Smile", value: percentLabel(frame.mouthSmile))
+                FaceTrackingMetricRow(label: "Confidence", value: percentLabel(frame.trackingConfidence))
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: 220, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    private func degreesLabel(_ value: Float) -> String {
+        "\(Int(value.rounded())) deg"
+    }
+
+    private func percentLabel(_ value: Float) -> String {
+        "\(Int((value.clamped(to: 0...1) * 100).rounded()))%"
+    }
+}
+
+private struct FaceTrackingMetricRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+        }
+        .font(.caption.monospacedDigit())
+    }
+}
+
 private struct IOSAvatarPreviewCard: View {
     let avatarPreview: IOSAvatarPreview
 
@@ -222,5 +485,15 @@ private struct IOSAvatarBodyView: View {
             }
         }
         .frame(maxWidth: 300, maxHeight: 420)
+    }
+}
+
+private extension Float {
+    var degrees: Float {
+        self * 180 / .pi
+    }
+
+    func clamped(to range: ClosedRange<Float>) -> Float {
+        min(max(self, range.lowerBound), range.upperBound)
     }
 }
