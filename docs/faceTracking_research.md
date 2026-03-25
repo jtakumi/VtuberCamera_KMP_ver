@@ -118,6 +118,14 @@
 - iOSのARKit経路は実機必須です。シミュレータでは評価できません。
 - full-body表示は頭部追従だけでも成立しますが、視線、眉、口角がないと「人形感」が残ります。
 
+### iOS Implementation Update
+- iOS の本線は ARKit Face Tracking とし、front camera では AVFoundation を主線から外して ARSession を使う実装に寄せる。
+- shared の中心は tracker API ではなく NormalizedFaceFrame と AvatarRigState に置き、platform 側は生のトラッカー出力をその契約へ正規化する責務に留める。
+- renderer は顔貼り付け AR ではなく、カメラ背景の上に全身 VRM を固定表示する構成を維持する。
+- iOS の最大リスクは VRM runtime renderer 未確定であり、長期本命は Filament 系、短期スパイクは SceneKit が候補のまま。
+- 今回の実装では iosApp 側に ARKit face tracking の最小縦切りを追加し、ARFaceAnchor から yaw、pitch、roll、blink、jaw、smile を正規化して debug overlay に表示するところまで通した。
+- 非対応端末 fallback はまだ AVFoundation preview 止まりで、MediaPipe 接続と shared AvatarRigState 連携は次段階の実装対象。
+
 ### Next Implementation Steps
 1. まず表示方式を確定する
 - 画面固定の全身アバターを前提にする
