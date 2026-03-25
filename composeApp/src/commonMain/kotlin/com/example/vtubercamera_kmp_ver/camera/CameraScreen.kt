@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
@@ -31,6 +35,16 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_gra
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_left
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_right
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_jaw
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_pitch
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_roll
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_smile
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_yaw
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_searching
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_tracking
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 
 @Composable
@@ -55,6 +69,7 @@ fun CameraRoute(
         onRequestPermission = permissionController.requestPermission,
         onOpenFilePicker = filePickerLauncher.launch,
         onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
+        onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
     )
@@ -66,6 +81,7 @@ fun CameraScreen(
     onRequestPermission: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onDismissFilePickerError: () -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -80,6 +96,7 @@ fun CameraScreen(
             uiState.isPermissionGranted -> CameraPreviewState(
                 uiState = uiState,
                 onOpenFilePicker = onOpenFilePicker,
+                onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
             )
@@ -107,6 +124,7 @@ fun CameraScreen(
 private fun CameraPreviewState(
     uiState: CameraUiState,
     onOpenFilePicker: () -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
@@ -115,6 +133,7 @@ private fun CameraPreviewState(
             modifier = Modifier.fillMaxSize(),
             lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
+            onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
         uiState.avatarPreview?.let { avatarPreview ->
             AvatarBodyOverlay(
@@ -152,8 +171,104 @@ private fun CameraPreviewState(
                     .padding(MaterialTheme.spacing.xl),
             )
         }
+        FaceTrackingOverlay(
+            faceTracking = uiState.faceTracking,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(
+                    start = MaterialTheme.spacing.xl,
+                    top = MaterialTheme.spacing.xl * 5,
+                ),
+        )
     }
 }
+
+@Composable
+private fun FaceTrackingOverlay(
+    faceTracking: FaceTrackingUiState,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(MaterialTheme.spacing.lg),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Column(
+            modifier = Modifier.padding(MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+        ) {
+            Text(
+                text = stringResource(Res.string.face_tracking_title),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(
+                    if (faceTracking.isTracking) {
+                        Res.string.face_tracking_status_tracking
+                    } else {
+                        Res.string.face_tracking_status_searching
+                    },
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            faceTracking.frame?.let { frame ->
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_yaw),
+                    value = "${frame.headYawDegrees.roundToInt()} deg",
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_pitch),
+                    value = "${frame.headPitchDegrees.roundToInt()} deg",
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_roll),
+                    value = "${frame.headRollDegrees.roundToInt()} deg",
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_blink_left),
+                    value = frame.leftEyeBlink.asPercentLabel(),
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_blink_right),
+                    value = frame.rightEyeBlink.asPercentLabel(),
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_jaw),
+                    value = frame.jawOpen.asPercentLabel(),
+                )
+                FaceTrackingMetricRow(
+                    label = stringResource(Res.string.face_tracking_label_smile),
+                    value = frame.mouthSmile.asPercentLabel(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FaceTrackingMetricRow(
+    label: String,
+    value: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+}
+
+private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"
 
 @Composable
 private fun LoadingState() {
