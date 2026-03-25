@@ -35,6 +35,17 @@ class CameraViewModel : ViewModel() {
         }
     }
 
+    fun onFaceTrackingFrameChanged(frame: NormalizedFaceFrame?) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                faceTracking = FaceTrackingUiState(
+                    isTracking = frame != null,
+                    frame = frame,
+                ),
+            )
+        }
+    }
+
     fun onFilePicked(result: FilePickerResult) {
         _uiState.update { currentState ->
             when (result) {
