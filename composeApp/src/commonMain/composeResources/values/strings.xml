@@ -16,6 +16,9 @@
     <string name="avatar_preview_vrm_badge">VRM</string>
     <string name="avatar_preview_author_label">Author: %1$s</string>
     <string name="avatar_preview_version_label">Version: %1$s</string>
+    <string name="avatar_renderer_host_title">Avatar Renderer Host</string>
+    <string name="avatar_renderer_host_ready">Android surface reserved for the VRM renderer.</string>
+    <string name="avatar_renderer_host_hint">Next step: attach avatar rig updates and draw the selected model here.</string>
     <string name="face_tracking_title">Face Tracking</string>
     <string name="face_tracking_status_tracking">Tracking face</string>
     <string name="face_tracking_status_searching">Searching for face</string>
