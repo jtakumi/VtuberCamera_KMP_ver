@@ -34,6 +34,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.exifinterface)
+            implementation(libs.mlkit.face.detection)
         }
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)

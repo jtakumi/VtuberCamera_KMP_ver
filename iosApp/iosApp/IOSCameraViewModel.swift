@@ -1,5 +1,6 @@
 import SwiftUI
 @preconcurrency import AVFoundation
+import ARKit
 import ComposeApp
 
 @MainActor
@@ -32,12 +33,14 @@ final class IOSCameraViewModel: ObservableObject {
     @Published private(set) var canSwitchCamera = false
     @Published private(set) var avatarPreview: IOSAvatarPreview?
     @Published private(set) var fileErrorMessage: String?
+    @Published private(set) var faceTrackingFrame: IOSNormalizedFaceFrame?
 
     let avCaptureSession = AVCaptureSession()
+    let isARFaceTrackingSupported = ARFaceTrackingConfiguration.isSupported
 
     private let sessionQueue = DispatchQueue(label: "IOSCameraViewModel.sessionQueue", qos: .userInitiated)
     private var isConfigured = false
-    private var lensFacing: LensFacing = .back
+    private var lensFacing: LensFacing = .front
     private var currentInput: AVCaptureDeviceInput?
     private let permissionTextsLoader = CameraPermissionTextsLoader()
 
@@ -50,6 +53,20 @@ final class IOSCameraViewModel: ObservableObject {
         authorizationStatus == .authorized
     }
 
+    var isUsingARFaceTracking: Bool {
+        isAuthorized && lensFacing == .front && isARFaceTrackingSupported
+    }
+
+    var faceTrackingStatusText: String {
+        if isUsingARFaceTracking {
+            return faceTrackingFrame == nil ? "ARKit: 顔を検出中" : "ARKit: 追跡中"
+        }
+        if lensFacing == .front && !isARFaceTrackingSupported {
+            return "TrueDepth 非対応: AVFoundation preview を継続中"
+        }
+        return "前面カメラで ARKit face tracking を有効化"
+    }
+
     var isFileErrorPresented: Bool {
         fileErrorMessage != nil
     }
@@ -58,7 +75,7 @@ final class IOSCameraViewModel: ObservableObject {
         authorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
         refreshCameraCapabilities()
         if isAuthorized {
-            startSession()
+            updateCameraPipeline()
         } else {
             stopSession()
         }
@@ -98,8 +115,13 @@ final class IOSCameraViewModel: ObservableObject {
         fileErrorMessage = nil
     }
 
+    func handleFaceTrackingFrameChanged(_ frame: IOSNormalizedFaceFrame?) {
+        faceTrackingFrame = frame
+    }
+
     func stopSession() {
         let captureSession = avCaptureSession
+        faceTrackingFrame = nil
         guard captureSession.isRunning else { return }
         sessionQueue.async {
             captureSession.stopRunning()
@@ -120,7 +142,7 @@ final class IOSCameraViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.authorizationStatus = AVCaptureDevice.authorizationStatus(for: .video)
                 if granted {
-                    self.startSession()
+                    self.updateCameraPipeline()
                 }
             }
         }
@@ -140,7 +162,28 @@ final class IOSCameraViewModel: ObservableObject {
         let nextLensFacing = lensFacing.toggled
         guard availableLensFacings().contains(nextLensFacing) else { return }
         lensFacing = nextLensFacing
+        updateCameraPipeline()
+    }
+
+    private func updateCameraPipeline() {
+        guard isAuthorized else {
+            stopSession()
+            return
+        }
+
+        if isUsingARFaceTracking {
+            let captureSession = avCaptureSession
+            faceTrackingFrame = nil
+            guard captureSession.isRunning else { return }
+            sessionQueue.async {
+                captureSession.stopRunning()
+            }
+            return
+        }
+
+        faceTrackingFrame = nil
         _ = configureSession(for: lensFacing)
+        startSession()
     }
 
     @discardableResult
@@ -255,4 +298,16 @@ final class IOSCameraViewModel: ObservableObject {
         )
         return discoverySession.devices.first
     }
+}
+
+struct IOSNormalizedFaceFrame {
+    let timestampMillis: Int64
+    let trackingConfidence: Float
+    let headYawDegrees: Float
+    let headPitchDegrees: Float
+    let headRollDegrees: Float
+    let leftEyeBlink: Float
+    let rightEyeBlink: Float
+    let jawOpen: Float
+    let mouthSmile: Float
 }

@@ -24,7 +24,33 @@ data class AvatarPreviewData(
     val authorName: String?,
     val vrmVersion: String?,
     val thumbnailBytes: ByteArray?,
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as AvatarPreviewData
+
+        if (fileName != other.fileName) return false
+        if (avatarName != other.avatarName) return false
+        if (authorName != other.authorName) return false
+        if (vrmVersion != other.vrmVersion) return false
+        if (!thumbnailBytes.contentEquals(other.thumbnailBytes)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        val standardPoint = 31
+        val fallbackPoint = 0
+        var result = fileName.hashCode()
+        result = standardPoint * result + avatarName.hashCode()
+        result = standardPoint * result + (authorName?.hashCode() ?: fallbackPoint)
+        result = standardPoint * result + (vrmVersion?.hashCode() ?: fallbackPoint)
+        result = standardPoint * result + (thumbnailBytes?.contentHashCode() ?: fallbackPoint)
+        return result
+    }
+}
 
 sealed interface FilePickerResult {
     data class Success(val avatarPreview: AvatarPreviewData) : FilePickerResult
@@ -47,10 +73,17 @@ expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 )
 
 @Composable
 expect fun AvatarPreviewOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier = Modifier,
+)
+
+@Composable
+expect fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier = Modifier,
 )

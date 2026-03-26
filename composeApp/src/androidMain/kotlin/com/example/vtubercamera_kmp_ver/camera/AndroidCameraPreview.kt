@@ -4,20 +4,26 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.view.TextureView
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -33,13 +39,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -48,11 +58,15 @@ import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_author_label
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_hint
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_ready
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_renderer_host_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_version_label
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
+import java.util.concurrent.Executors
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -117,10 +131,13 @@ actual fun CameraPreviewHost(
     modifier: Modifier,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val onFaceTrackingFrameChangedState = rememberUpdatedState(onFaceTrackingFrameChanged)
     val previewView = remember {
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
@@ -148,24 +165,51 @@ actual fun CameraPreviewHost(
                 return@Runnable
             }
 
+            val faceTrackingAnalyzer = AndroidFaceTrackingAnalyzer(
+                lensFacing = resolvedLensFacing,
+                onFaceFrame = { frame ->
+                    executor.execute {
+                        onFaceTrackingFrameChangedState.value(frame)
+                    }
+                },
+            )
+
             val preview = Preview.Builder()
                 .build()
                 .also { it.surfaceProvider = previewView.surfaceProvider }
+
+            val analysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer) }
 
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 lifecycleOwner,
                 selector,
                 preview,
+                analysis,
             )
+
+            (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
+            previewView.tag = faceTrackingAnalyzer
         }
 
         cameraProviderFuture.addListener(listener, executor)
 
         onDispose {
+            (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
+            previewView.tag = null
+            onFaceTrackingFrameChangedState.value(null)
             if (cameraProviderFuture.isDone) {
                 cameraProviderFuture.get().unbindAll()
             }
+        }
+    }
+
+    DisposableEffect(analysisExecutor) {
+        onDispose {
+            analysisExecutor.shutdown()
         }
     }
 }
@@ -175,11 +219,7 @@ actual fun AvatarPreviewOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier,
 ) {
-    val thumbnailBitmap = remember(avatarPreview.thumbnailBytes) {
-        avatarPreview.thumbnailBytes?.let { bytes ->
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-        }
-    }
+    val thumbnailBitmap = rememberAvatarBitmap(avatarPreview)
 
     Surface(
         modifier = modifier.fillMaxWidth(0.72f),
@@ -248,6 +288,121 @@ actual fun AvatarPreviewOverlay(
     }
 }
 
+@Composable
+actual fun AvatarBodyOverlay(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier,
+) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.68f)
+                .fillMaxHeight(0.6f),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.28f),
+            tonalElevation = 6.dp,
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(alpha = 0.96f)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.94f),
+                                MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                                MaterialTheme.colorScheme.scrim.copy(alpha = 0.78f),
+                            ),
+                        ),
+                    )
+                    .border(
+                        width = 2.dp,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(28.dp),
+                    ),
+            ) {
+                AvatarRendererHostView(
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(MaterialTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+                ) {
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_ready),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(MaterialTheme.spacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+                ) {
+                    Text(
+                        text = avatarPreview.avatarName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = avatarPreview.fileName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = stringResource(Res.string.avatar_renderer_host_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AvatarRendererHostView(modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            FrameLayout(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+                addView(
+                    TextureView(context).apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        isOpaque = false
+                        alpha = 0f
+                    },
+                )
+            }
+        },
+    )
+}
+
 private fun Context.hasCameraPermission(): Boolean {
     return ContextCompat.checkSelfPermission(
         this,
@@ -301,5 +456,12 @@ private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose
     return when (this) {
         is FilePickerException -> FilePickerResult.Error(messageRes)
         else -> FilePickerResult.Error(defaultMessageRes)
+    }
+}
+
+@Composable
+private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) = remember(avatarPreview.thumbnailBytes) {
+    avatarPreview.thumbnailBytes?.let { bytes ->
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
     }
 }
