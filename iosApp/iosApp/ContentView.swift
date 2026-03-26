@@ -13,56 +13,12 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             if viewModel.isAuthorized {
-                ZStack(alignment: .topTrailing) {
-                    if viewModel.isUsingARFaceTracking {
-                        ARFaceTrackingPreviewView(onFrameChanged: viewModel.handleFaceTrackingFrameChanged)
-                            .ignoresSafeArea()
-                    } else {
-                        CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
-                            .ignoresSafeArea()
-                    }
-
-                    HStack(spacing: 12) {
-                        Button("ファイルを開く") {
-                            isFileImporterPresented = true
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        if viewModel.canSwitchCamera, let texts = viewModel.permissionTexts {
-                            Button(texts.switchCameraButtonTitle, action: viewModel.switchCamera)
-                                .buttonStyle(.borderedProminent)
-                        }
-                    }
-                    .padding(.top, 16)
-                    .padding(.trailing, 16)
-
-                    VStack {
-                        FaceTrackingDebugOverlay(
-                            statusText: viewModel.faceTrackingStatusText,
-                            frame: viewModel.faceTrackingFrame
-                        )
-                        Spacer()
-                    }
-                    .padding(.top, 16)
-                    .padding(.leading, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if let avatarPreview = viewModel.avatarPreview {
-                        VStack {
-                            Spacer()
-                            IOSAvatarBodyView(avatarPreview: avatarPreview)
-                                .padding(.horizontal, 24)
-                                .padding(.bottom, 32)
-                        }
-
-                        VStack {
-                            Spacer()
-                            IOSAvatarPreviewCard(avatarPreview: avatarPreview)
-                                .padding(.leading, 16)
-                                .padding(.bottom, 24)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
+                if viewModel.isUsingARFaceTracking {
+                    ARFaceTrackingPreviewView(onFrameChanged: viewModel.handleFaceTrackingFrameChanged)
+                        .ignoresSafeArea()
+                } else {
+                    CameraPreviewView(avCaptureSession: viewModel.avCaptureSession)
+                        .ignoresSafeArea()
                 }
             } else {
                 PermissionPromptView(
@@ -70,6 +26,49 @@ struct ContentView: View {
                     texts: viewModel.permissionTexts,
                     onPrimaryAction: viewModel.handlePrimaryAction,
                 )
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Spacer()
+                    Button("ファイルを開く") {
+                        isFileImporterPresented = true
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    if viewModel.isAuthorized, viewModel.canSwitchCamera, let texts = viewModel.permissionTexts {
+                        Button(texts.switchCameraButtonTitle, action: viewModel.switchCamera)
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+
+                if viewModel.isAuthorized {
+                    FaceTrackingDebugOverlay(
+                        statusText: viewModel.faceTrackingStatusText,
+                        frame: viewModel.faceTrackingFrame
+                    )
+                }
+
+                Spacer()
+            }
+            .padding(.top, 16)
+            .padding(.horizontal, 16)
+
+            if let avatarPreview = viewModel.avatarPreview {
+                VStack {
+                    Spacer()
+                    IOSAvatarBodyView(avatarPreview: avatarPreview)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 32)
+                }
+
+                VStack {
+                    Spacer()
+                    IOSAvatarPreviewCard(avatarPreview: avatarPreview)
+                        .padding(.leading, 16)
+                        .padding(.bottom, 24)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .background(Color.black.ignoresSafeArea())
