@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobile Architecture Review"
+  short_description: "Find architectural improvement opportunities in Android/iOS code"
+  default_prompt: "Review Android and iOS code and point out architecture-level improvement opportunities with prioritized actionable fixes."
