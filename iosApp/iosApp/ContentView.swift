@@ -6,6 +6,15 @@ import UniformTypeIdentifiers
 import UIKit
 import SceneKit
 
+
+private enum AppColors {
+    static let background = Color.black
+    static let textSecondary = Color.secondary
+    static let avatarFallbackFill = Color.white.opacity(0.12)
+    static let avatarBodyFallbackFill = Color.white.opacity(0.24)
+    static let avatarFallbackText = Color.white
+}
+
 struct ContentView: View {
     @StateObject private var viewModel = IOSCameraViewModel()
     @State private var isFileImporterPresented = false
@@ -71,7 +80,7 @@ struct ContentView: View {
                 }
             }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(AppColors.background.ignoresSafeArea())
         .fileImporter(
             isPresented: $isFileImporterPresented,
             allowedContentTypes: [.item],
@@ -115,7 +124,7 @@ private struct PermissionPromptView: View {
                 Text(descriptionText(for: texts))
                     .font(.body)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                 Button(primaryButtonTitle(for: texts), action: onPrimaryAction)
                     .buttonStyle(.borderedProminent)
             }
@@ -374,7 +383,7 @@ private struct FaceTrackingDebugOverlay: View {
                 .font(.headline)
             Text(statusText)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
 
             if let frame {
                 FaceTrackingMetricRow(label: "Yaw", value: degreesLabel(frame.headYawDegrees))
@@ -408,7 +417,7 @@ private struct FaceTrackingMetricRow: View {
     var body: some View {
         HStack {
             Text(label)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AppColors.textSecondary)
             Spacer(minLength: 12)
             Text(value)
         }
@@ -429,10 +438,10 @@ private struct IOSAvatarPreviewCard: View {
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.white.opacity(0.12))
+                            .fill(AppColors.avatarFallbackFill)
                         Text("VRM")
                             .font(.headline.weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AppColors.avatarFallbackText)
                     }
                 }
             }
@@ -444,7 +453,7 @@ private struct IOSAvatarPreviewCard: View {
                     .font(.headline)
                 Text(avatarPreview.fileName)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AppColors.textSecondary)
                 if let authorName = avatarPreview.authorName {
                     Text("Author: \(authorName)")
                         .font(.subheadline)
@@ -474,11 +483,11 @@ private struct IOSAvatarBodyView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 28)
-                        .fill(Color.white.opacity(0.24))
+                        .fill(AppColors.avatarBodyFallbackFill)
                     Text(avatarPreview.avatarName)
                         .font(.title2.weight(.bold))
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(AppColors.avatarFallbackText)
                         .padding(24)
                 }
             }

@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
@@ -8,6 +9,13 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+private val AppColorScheme = darkColorScheme(
+    background = AppColors.Background,
+    surface = AppColors.OverlaySurface,
+    onSurfaceVariant = AppColors.OverlayTextSecondary,
+    scrim = AppColors.Background,
+)
 
 @Immutable
 data class AppSpacing(
@@ -27,7 +35,9 @@ val MaterialTheme.spacing: AppSpacing
 
 @Composable
 fun VtuberCameraTheme(content: @Composable () -> Unit) {
-    MaterialTheme {
+    MaterialTheme(
+        colorScheme = AppColorScheme,
+    ) {
         CompositionLocalProvider(
             LocalAppSpacing provides AppSpacing(),
             content = content,
