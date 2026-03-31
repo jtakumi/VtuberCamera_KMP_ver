@@ -17,7 +17,19 @@ data class NormalizedFaceFrame(
 )
 
 @Immutable
+data class FaceTrackingDisplayState(
+    val headYawLabel: String,
+    val headPitchLabel: String,
+    val headRollLabel: String,
+    val leftEyeBlinkLabel: String,
+    val rightEyeBlinkLabel: String,
+    val jawOpenLabel: String,
+    val mouthSmileLabel: String,
+)
+
+@Immutable
 data class FaceTrackingUiState(
     val isTracking: Boolean = false,
     val frame: NormalizedFaceFrame? = null,
+    val display: FaceTrackingDisplayState? = null,
 )

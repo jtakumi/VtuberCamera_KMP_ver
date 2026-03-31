@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,7 +26,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.theme.spacing
-import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
@@ -215,34 +213,34 @@ private fun FaceTrackingOverlay(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            faceTracking.frame?.let { frame ->
+            faceTracking.display?.let { display ->
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_yaw),
-                    value = "${frame.headYawDegrees.roundToInt()} deg",
+                    value = display.headYawLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_pitch),
-                    value = "${frame.headPitchDegrees.roundToInt()} deg",
+                    value = display.headPitchLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_roll),
-                    value = "${frame.headRollDegrees.roundToInt()} deg",
+                    value = display.headRollLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_blink_left),
-                    value = frame.leftEyeBlink.asPercentLabel(),
+                    value = display.leftEyeBlinkLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_blink_right),
-                    value = frame.rightEyeBlink.asPercentLabel(),
+                    value = display.rightEyeBlinkLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_jaw),
-                    value = frame.jawOpen.asPercentLabel(),
+                    value = display.jawOpenLabel,
                 )
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_smile),
-                    value = frame.mouthSmile.asPercentLabel(),
+                    value = display.mouthSmileLabel,
                 )
             }
         }
@@ -270,7 +268,6 @@ private fun FaceTrackingMetricRow(
     }
 }
 
-private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"
 
 @Composable
 private fun LoadingState() {
