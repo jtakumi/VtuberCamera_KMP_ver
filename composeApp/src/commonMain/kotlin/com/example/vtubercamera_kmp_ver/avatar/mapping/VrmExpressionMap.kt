@@ -30,7 +30,9 @@ object VrmExpressionMap {
 
     /**
      * Resolves the best runtime expression name from a model's supported names.
-     * First match wins so callers should keep [availableNames] ordered by their engine preference.
+     * [availableNames] is treated as an unordered membership set; priority is determined solely
+     * by the alias list order returned by [aliasesFor] — the first alias that is present in
+     * [availableNames] wins.
      */
     fun resolve(
         expression: AvatarExpressionId,
