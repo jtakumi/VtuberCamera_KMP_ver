@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import CameraUiState
 import androidx.lifecycle.ViewModel
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +42,7 @@ class CameraViewModel : ViewModel() {
                 faceTracking = FaceTrackingUiState(
                     isTracking = frame != null,
                     frame = frame,
+                    display = frame?.toDisplayState(),
                 ),
             )
         }
@@ -67,3 +69,16 @@ class CameraViewModel : ViewModel() {
         }
     }
 }
+
+private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
+    FaceTrackingDisplayState(
+        headYawLabel = "${headYawDegrees.roundToInt()} deg",
+        headPitchLabel = "${headPitchDegrees.roundToInt()} deg",
+        headRollLabel = "${headRollDegrees.roundToInt()} deg",
+        leftEyeBlinkLabel = leftEyeBlink.asPercentLabel(),
+        rightEyeBlinkLabel = rightEyeBlink.asPercentLabel(),
+        jawOpenLabel = jawOpen.asPercentLabel(),
+        mouthSmileLabel = mouthSmile.asPercentLabel(),
+    )
+
+private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"
