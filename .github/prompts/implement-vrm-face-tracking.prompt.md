@@ -7,6 +7,7 @@ agent: "agent"
 [Avatar Control Domain Context](../instructions/avatar-domain.instructions.md) を前提に、次の実装タスクを進めてください: $ARGUMENTS
 
 必須条件:
+- 実装前に `../skills/mobile-coding-conventions/SKILL.md` を参照し、Kotlin / Swift / KMP の実装規約を確認したうえで変更すること
 - 調査だけで止めず、実際にコードを変更して前進させること
 - 出力結果はワークスペース内の Markdown ファイルとして作成または更新すること
 - 既存の関連 Markdown ファイルが適切なら更新し、適切な既存ファイルがない場合は内容に即した名前で新規作成すること
