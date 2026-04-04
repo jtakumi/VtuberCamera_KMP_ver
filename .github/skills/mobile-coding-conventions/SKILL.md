@@ -1,6 +1,6 @@
 ---
 name: mobile-coding-conventions
-description: 'Guide Kotlin and Swift implementation with repo coding conventions. Use when writing Android, iOS, or KMP code and you need checks for Kotlin official naming, file organization, formatting, idiomatic language usage, string resources, null safety, MVVM, ViewModel or ObservableObject responsibilities, Jetpack Compose, SwiftUI, error handling, and final newline.'
+description: 'Guide Kotlin and Swift implementation with repo coding conventions. Use when writing Android, iOS, or KMP code and you need checks for Kotlin official naming, file organization, formatting, idiomatic language usage, Swift API naming and documentation design, string resources, null safety, MVVM, ViewModel or ObservableObject responsibilities, Jetpack Compose, SwiftUI, error handling, and final newline.'
 argument-hint: '実装対象、Android/iOS/KMP、確認したい観点を指定してください'
 user-invocable: true
 ---
@@ -11,6 +11,7 @@ user-invocable: true
 
 - Kotlin / Swift の公式ドキュメントに沿った基本スタイルの確認
 - Kotlin 公式コーディング規約に沿った source file 構成、命名、整形、KDoc、idiomatic な書き方の確認
+- Swift API Design Guidelines に沿った命名、argument label、DocC、mutating / nonmutating API、protocol / Boolean 命名の確認
 - 文字列リソース化、null safe、異常系考慮を含む実装チェック
 - Android と iOS それぞれの MVVM 責務分離の確認
 - Jetpack Compose / SwiftUI ベースの UI 実装方針の確認
@@ -22,6 +23,7 @@ user-invocable: true
 - UI とロジックの責務分離が崩れていないか確認したいとき
 - 文字列の直書き、`!!`、状態配置ミス、異常系漏れを防ぎたいとき
 - Kotlin のファイル名、命名、trailing comma、式形式、immutable collection などを公式ガイドに合わせたいとき
+- Swift の API 名、引数ラベル、Boolean / protocol 命名、DocC コメント、default parameter を公式ガイドに合わせたいとき
 - Jetpack Compose / SwiftUI を前提にした実装レビュー観点を使いたいとき
 
 ## Decision Points
@@ -76,6 +78,61 @@ user-invocable: true
    - lambda は短く非ネストなら `it` を検討し、複雑な場合は明示 parameter に切り替え、複数の labeled return を避ける
    - declaration site の trailing comma を推奨し、複数同型 primitive や Boolean を取る呼び出しでは named argument を検討する
    - open-ended range の loop は `0..<n` を優先し、高階関数と loop は可読性とコストの両方で選ぶ
+
+10. Swift の naming と API design をどう揃えるか
+   - use site の明確さを最優先し、短さより clarity を優先する
+   - type / protocol は UpperCamelCase、property / method / parameter / enum case は lowerCamelCase にする
+   - parameter や associated type は型名ではなく役割で命名し、曖昧な `data`、`value`、`manager` の乱用を避ける
+   - fluent に読める base name と argument label を選び、意味が分からなくなる unlabeled call を避ける
+   - mutating と nonmutating の pair は `sort` / `sorted`、`formUnion` / `union` のように意味と副作用が対で分かる命名にする
+
+11. Swift の documentation と API surface をどう揃えるか
+   - public な型や意味のある宣言には DocC コメントを書き、summary から始める
+   - method / initializer / subscript / property は「何をするか」「何を返すか」「何にアクセスするか」を summary で表す
+   - default parameter は method family の乱立より優先し、よく使う既定値を後ろ側の parameter に寄せる
+   - Boolean property / method は `is`、`has`、assertion として読める名前にする
+   - capability を表す protocol は `able`、`ible`、`ing` で終える候補を検討し、もの自体を表す protocol は名詞にする
+
+## Swift Official Style Checks
+
+### API Design Fundamentals
+
+- use site の clarity を最優先し、brevity を目的化しない
+- declaration 単体ではなく実際の呼び出し形を見て API 名を評価する
+- 迷う API はまず DocC summary を書き、自然に説明できるかで設計を見直す
+- free function より method / property を優先し、明確な `self` がない場合や慣習的な関数記法だけ例外にする
+
+### Naming And Argument Labels
+
+- type / protocol は UpperCamelCase、それ以外は lowerCamelCase にする
+- acronym は Swift の case convention に合わせて `utf8Bytes`、`isRepresentableAsASCII` のように統一する
+- 型名の繰り返しや不要語を省きつつ、役割が伝わる単語は省略しない
+- first argument が文法上 base name の続きになるなら label を省略し、そうでなければ label を付ける
+- preposition を含む意味なら `remove(at:)`、`move(from:to:)` のように label に役割を持たせる
+- 弱い型情報の parameter には role を補う語を付け、`addObserver(_:forKeyPath:)` のように use site を明確にする
+
+### Mutation, Booleans, And Protocols
+
+- 副作用のない API は名詞句や assertion、副作用のある API は命令形の動詞句で読む
+- mutating / nonmutating の pair は `reverse` / `reversed`、`stripNewlines` / `strippingNewlines` のように一貫させる
+- Boolean property / method は `isEmpty`、`contains(_:)` のように assertion として読める形にする
+- capability を表す protocol は `ProgressReporting` や `Equatable` のように、ものを表す protocol は `Collection` のように命名する
+- return type だけで overload を分けず、曖昧な overload set を避ける
+
+### Parameters And Defaults
+
+- parameter 名は documentation を自然な文として読めるように選ぶ
+- default parameter を overload 群より優先し、一般的な利用で不要な情報を隠す
+- default を持つ parameter は原則として後ろ側に置く
+- closure parameter や tuple member も API の一部として名前を付ける
+- unconstrained polymorphism や `Any` を扱う overload は曖昧さがないか特に確認する
+
+### Documentation
+
+- public な declaration には DocC コメントを書き、summary を 1 文断片で始める
+- function / method は何をするかと何を返すか、initializer は何を作るか、subscript は何にアクセスするかを書く
+- 必要に応じて `- Parameter:`、`- Returns:`、`- Throws:`、`- Note:` など認識される markup を使う
+- summary で API の核心が伝わらないなら、設計自体を見直す候補と考える
 
 ## Kotlin Official Style Checks
 
@@ -136,6 +193,8 @@ user-invocable: true
    - KMP では `commonMain` と platform source set でファイル suffix の付け方を確認する
    - 単一式 function の expression body、`val` 優先、immutable collection interface、default parameter、named argument の活用余地を確認する
    - public / shared API と platform type 周りでは明示型、KDoc、visibility の明確さを確認する
+   - Swift は use site で読んだときの明確さ、base name と argument label の自然さ、mutating / nonmutating の対称性を確認する
+   - Swift の Boolean / protocol / factory / initializer 命名、DocC summary、default parameter の配置を確認する
 
 3. 文字列を洗い出す
    - 画面表示、エラー表示、ボタン文言、プレースホルダ、空状態の文言を確認する
@@ -163,14 +222,19 @@ user-invocable: true
    - 命名、責務、リソース参照、state 配置に矛盾がないか見直す
    - Kotlin の不要な `: Unit`、semicolon、冗長な overload、mutable 型宣言が残っていないか見直す
    - formatter で崩れないか、trailing comma と改行位置が一定か確認する
+   - Swift の DocC summary、argument label、mutating / nonmutating pair、Boolean / protocol 命名に不自然さがないか見直す
 
 ## Quality Checks
 
 - Kotlin / Swift の書き方が公式ガイドラインと既存コードスタイルから大きく逸脱していない
 - Kotlin の package / directory、ファイル名、class layout、overload 配置が公式ガイドに沿っている
 - Kotlin の命名、modifier 順、annotation 位置、space / 改行ルールが崩れていない
-- public / shared API の型、KDoc、visibility が必要な範囲で明示されている
+- public / shared API の型、KDoc / DocC、visibility が必要な範囲で明示されている
 - expression body、default parameter、immutable collection など idiomatic Kotlin の選択ができている
+- Swift の base name と argument label が use site で自然に読める
+- Swift の Boolean / protocol / mutating API 命名が副作用や役割を正しく表している
+- Swift の DocC summary と markup が public API の契約説明に使えている
+- Swift の default parameter と overload 設計が過剰な API family を避けている
 - ユーザー向け文字列がリソース参照になっている
 - `!!` や強制アンラップを安易に使っていない
 - Android ではロジックが ViewModel にあり、UI は表示責務に留まっている
@@ -186,6 +250,9 @@ user-invocable: true
 - mutable である必要がない値を `var` や mutable collection で宣言しない
 - 不要な `: Unit`、semicolon、冗長な overload、過剰な scope function 連鎖を残さない
 - platform type を public API に推論任せで流さない
+- Swift API を declaration だけで良しとせず、call site の自然さを確認する
+- Swift で役割が不明な unlabeled parameter、Boolean 名、protocol 名を放置しない
+- Swift で return type だけに依存した overload や method family の乱立を作らない
 - 文字列の直書きを残さない
 - `!!` や強制アンラップを常用しない
 - Android の UI 層にロジックを寄せすぎない
@@ -200,10 +267,11 @@ user-invocable: true
 - Target: Android / iOS / KMP のどこを実装するか
 - UI framework: Jetpack Compose / SwiftUI のどちらを使うか
 - Kotlin style check: source file 構成、命名、整形、idiomatic Kotlin の確認結果
+- Swift style check: API naming、argument label、DocC、mutating / nonmutating 設計の確認結果
 - State placement: ViewModel / ObservableObject / View の責務分担
 - Resource check: 文字列リソース化の有無
 - Null safety check: `!!` / 強制アンラップの排除方針
-- KDoc/API check: public / shared API の型、visibility、ドキュメント確認結果
+- Documentation/API check: public / shared API の型、visibility、KDoc / DocC の確認結果
 - Error paths: 想定した異常系
 - Final checklist: 実装前後に確認した項目
 
@@ -213,3 +281,4 @@ user-invocable: true
 - `/mobile-coding-conventions iOS の SwiftUI 画面で state の置き場所を確認しながら実装したい`
 - `/mobile-coding-conventions KMP で UI とロジックの分離、null safe、異常系考慮をチェックしながらコードを書いて`
 - `/mobile-coding-conventions KMP の Kotlin ファイル構成、命名、expression body、trailing comma を公式規約ベースで確認しながら実装して`
+- `/mobile-coding-conventions iOS の SwiftUI 実装で API 名、argument label、DocC、mutating / nonmutating の命名を公式規約ベースで確認して`
