@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobile Coding Conventions"
+  short_description: "Android/iOS/KMP coding rules"
+  default_prompt: "Use $mobile-coding-conventions to review or implement Android, iOS, or KMP code using this repo's mobile coding conventions."
