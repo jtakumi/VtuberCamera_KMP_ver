@@ -1,32 +1,74 @@
-# Project Guidelines
+---
+description: "Use when explaining the VtuberCamera_KMP_ver repository as a whole, onboarding someone to the codebase, summarizing project structure, or answering where major functionality lives. Keep repository-level explanations aligned with current implementation status, platform split, and the difference between implemented code and future plans."
+name: "Repository Overview Guidance"
+---
+# Repository Overview Guidance
 
-## Code Style
+- リポジトリ全体を説明するときは、最初にプロダクト目的を短く示す。
+- このリポジトリは Android / iOS 向けの VTuber camera 基盤を Kotlin Multiplatform で整備しているが、現時点の中心は camera MVP であることを明示する。
+- AR、VRM、face tracking、avatar control は将来拡張の文脈で触れ、実装済みのように言わない。
 
-- Kotlin と Swift の基本的な書き方は、それぞれの公式ドキュメントと標準ガイドラインを優先する。
-- 既存コードの命名、責務分離、記法に合わせ、不要な独自流儀を増やさない。
-- ファイル末尾には空行を入れる。
+## Current Reality First
 
-## UI And Architecture
+- 説明の基準は現行コードと README を優先し、調査メモや設計 docs は計画や候補として区別する。
+- 実装済み事項と未実装事項を分けて書く。
+- 仕様書や research 文書の内容を、そのまま現在の挙動として扱わない。
 
-- UI は Android では Jetpack Compose、iOS では SwiftUI を前提に実装する。
-- アーキテクチャは MVVM を前提にする。
-- Android ではロジックを ViewModel に置き、UI は表示とイベント送出に集中させる。
-- iOS では一時的な UI state は View に置き、意味のある画面 state は ObservableObject に置く。
+## Default Explanation Order
 
-## Strings And Resources
+1. プロダクト目的
+2. 現在の platform split
+3. 主要ディレクトリと責務
+4. 現在できること
+5. まだ未実装の主機能
+6. 必要ならビルドや確認方法
 
-- ユーザーに表示される文字列は直書きせず、必ずリソースから参照する。
-- ボタン文言、エラー文言、空状態メッセージ、ラベル、説明文をハードコードしない。
+## Platform Split
 
-## Null Safety And Error Handling
+- `composeApp` は KMP アプリ本体で、shared UI と Android 実装を含む。
+- Android の実カメラ実装は `composeApp` 側にあり、CameraX を使う。
+- iOS の実カメラ実装は現時点で `iosApp` 側にあり、SwiftUI + AVFoundation を使う。
+- `composeApp/src/iosMain` は iOS 向け KMP エントリポイントだが、現在の実カメラ実装の中心ではない。
 
-- Kotlin の `!!` や Swift の強制アンラップは可能な限り避け、null safe な分岐、safe call、guard、default 値を優先する。
-- 非 null 前提が必要な場合は、その条件がコード上で明確になる形にする。
-- 正常系だけでなく、権限拒否、入力不正、読み込み失敗、空データ、パース失敗、依存 API 失敗などの異常系を必ず考慮する。
-- 失敗時は握りつぶさず、状態遷移、ユーザー通知、リトライ可否のいずれかを明確にする。
+## High-Value Directories To Mention
 
-## Responsibility Checks
+- `composeApp/src/commonMain`: 共有 UI、状態、リソース
+- `composeApp/src/androidMain`: Android の CameraX 実装と権限処理
+- `composeApp/src/iosMain`: iOS 向け shared 側の入口
+- `iosApp`: iOS ネイティブ実装と Xcode プロジェクト
+- `docs`: 実装方針、調査、設計メモ
+- `gradle/libs.versions.toml`: 主要依存関係の定義
 
-- Android の UI 層に業務ロジックや状態遷移を持ち込まない。
-- iOS の View に長寿命 state や画面意味を持つロジックを抱え込ませない。
-- Compose / SwiftUI では state-driven な構造を崩さず、描画コードとロジックを分離する。
+## Tech Stack To Mention
+
+- 共通技術としては Kotlin Multiplatform、Compose Multiplatform、Material 3、AndroidX Lifecycle Compose、Kotlin Coroutines、kotlinx.serialization を起点にする。
+- Android 技術としては CameraX、Activity Compose、ExifInterface を挙げる。
+- Android の現行 face tracking 文脈では、ML Kit Face Detection を採用済みの縦切りとして扱う。
+- iOS 技術としては SwiftUI、AVFoundation、UIKit、UniformTypeIdentifiers を挙げる。
+- テスト文脈では `kotlin.test` と Turbine を説明候補にする。
+- 技術スタックを説明するときも、現在採用しているものと、MediaPipe、ARKit、Filament、VRM など将来候補のものを混ぜない。
+
+## Explanation Rules
+
+- Android と iOS で実装位置が非対称であることを隠さない。
+- 「shared でできていること」と「platform ごとに持っていること」を分けて説明する。
+- repo overview では、細部の class 名よりも責務分割と現在地を優先する。
+- README と矛盾しない要約を優先する。
+- 実装状況に不確実さがある場合は、断定せず確認前提で述べる。
+
+## If The User Asks For Current Features
+
+- Android では camera preview、権限確認、フロント / バック切替が主な実装済み要素であることを起点にする。
+- iOS でも camera preview、権限確認、フロント / バック切替、ファイル選択の流れを説明候補にする。
+- 写真撮影、保存 / 削除、フラッシュ、ズーム、AR / VRM 連携は未実装または別フェーズとして扱う。
+
+## If The User Asks For Architecture
+
+- KMP の shared UI / state と platform-specific camera 実装の分担を先に説明する。
+- iOS は完全 shared 化されていない現状を明示する。
+- face tracking や avatar control の話題に入る場合は、必要に応じて avatar-domain instructions の観点も併用する。
+
+## If The User Asks For Implementation
+
+- 実装タスクに入る場合は、まず `mobile-coding-conventions` スキルを参照し、このリポジトリの Kotlin / Swift / KMP 実装規約に沿う。
+- とくに命名、ファイル構成、文字列リソース化、null safe、MVVM の責務分離、Compose / SwiftUI の実装方針、異常系考慮をそのスキルの観点で確認する。
