@@ -37,21 +37,30 @@ object VrmExtensionParser {
             throw VrmAssetParseException(VrmAssetParseFailureKind.InvalidFormat)
         }
 
-        var offset = 12
+        val declaredLengthLong = declaredLength.toLong()
+        var offset = 12L
         var jsonChunk: String? = null
         var binaryChunk: ByteArray? = null
-        while (offset + 8 <= declaredLength) {
-            val chunkLength = bytes.readIntLE(offset)
-            val chunkType = bytes.readIntLE(offset + 4)
-            val chunkStart = offset + 8
-            val chunkEnd = chunkStart + chunkLength
-            if (chunkLength < 0 || chunkEnd > declaredLength) {
+        while (offset <= declaredLengthLong - 8L) {
+            val chunkHeaderOffset = offset.toInt()
+            val chunkLength = bytes.readIntLE(chunkHeaderOffset)
+            val chunkType = bytes.readIntLE(chunkHeaderOffset + 4)
+            if (chunkLength < 0) {
                 throw VrmAssetParseException(VrmAssetParseFailureKind.InvalidFormat)
             }
 
+            val chunkStart = offset + 8L
+            val chunkLengthLong = chunkLength.toLong()
+            if (chunkLengthLong > declaredLengthLong - chunkStart) {
+                throw VrmAssetParseException(VrmAssetParseFailureKind.InvalidFormat)
+            }
+            val chunkEnd = chunkStart + chunkLengthLong
+            val chunkStartInt = chunkStart.toInt()
+            val chunkEndInt = chunkEnd.toInt()
+
             when (chunkType) {
-                jsonChunkType -> jsonChunk = bytes.decodeToString(chunkStart, chunkEnd)
-                binaryChunkType -> binaryChunk = bytes.copyOfRange(chunkStart, chunkEnd)
+                jsonChunkType -> jsonChunk = bytes.decodeToString(chunkStartInt, chunkEndInt)
+                binaryChunkType -> binaryChunk = bytes.copyOfRange(chunkStartInt, chunkEndInt)
             }
             offset = chunkEnd
         }
