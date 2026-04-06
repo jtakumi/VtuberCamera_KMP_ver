@@ -330,10 +330,21 @@ object VrmExtensionParser {
         return ParsedFloat3(x = x, y = y, z = z)
     }
 
+    private fun String.lowercaseAsciiOnly(): String = buildString(length) {
+        for (char in this@lowercaseAsciiOnly) {
+            append(
+                when (char) {
+                    in 'A'..'Z' -> (char.code + ('a'.code - 'A'.code)).toChar()
+                    else -> char
+                }
+            )
+        }
+    }
+
     private fun String.normalizeExpressionName(): String {
         val trimmedName = trim()
         if (trimmedName.isEmpty()) return trimmedName
-        return expressionAliases[trimmedName.lowercase()] ?: trimmedName
+        return expressionAliases[trimmedName.lowercaseAsciiOnly()] ?: trimmedName
     }
 
     private val expressionAliases: Map<String, String> = mapOf(
