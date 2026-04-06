@@ -372,10 +372,17 @@ internal data class VrmGlbDocument(
             ?: return null
         val byteOffset = bufferView.int("byteOffset") ?: 0
         val byteLength = bufferView.int("byteLength") ?: return null
-        val end = byteOffset + byteLength
         val bytes = binaryChunk ?: return null
-        if (byteOffset < 0 || end > bytes.size) return null
-        return bytes.copyOfRange(byteOffset, end)
+        if (byteOffset < 0 || byteLength < 0) return null
+
+        val startLong = byteOffset.toLong()
+        val lengthLong = byteLength.toLong()
+        val endLong = startLong + lengthLong
+        if (endLong > bytes.size.toLong()) return null
+
+        val start = startLong.toInt()
+        val end = endLong.toInt()
+        return bytes.copyOfRange(start, end)
     }
 }
 
