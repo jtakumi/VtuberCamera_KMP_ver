@@ -76,10 +76,29 @@ internal object VrmSpecNormalizer {
         z = z,
     )
 
+    private fun asciiLowercaseChar(char: Char): Char = when (char) {
+        in 'A'..'Z' -> (char.code + ('a'.code - 'A'.code)).toChar()
+        else -> char
+    }
+
+    private fun asciiLowercase(value: String): String = buildString(value.length) {
+        value.forEach { char -> append(asciiLowercaseChar(char)) }
+    }
+
+    private fun lowercaseAsciiFirstChar(value: String): String {
+        if (value.isEmpty()) return value
+        val firstChar = asciiLowercaseChar(value[0])
+        if (firstChar == value[0]) return value
+        return buildString(value.length) {
+            append(firstChar)
+            append(value, 1, value.length)
+        }
+    }
+
     private fun normalizeHumanoidBoneName(rawName: String): String {
         val trimmedName = rawName.trim()
         if (trimmedName.isEmpty()) return trimmedName
-        return humanoidBoneAliases[trimmedName.lowercase()] ?: trimmedName.replaceFirstChar { char -> char.lowercase() }
+        return humanoidBoneAliases[asciiLowercase(trimmedName)] ?: lowercaseAsciiFirstChar(trimmedName)
     }
 
     private val humanoidBoneAliases: Map<String, String> = mapOf(
