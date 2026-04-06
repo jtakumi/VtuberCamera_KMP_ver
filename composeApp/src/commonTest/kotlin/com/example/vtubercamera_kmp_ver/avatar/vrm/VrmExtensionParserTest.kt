@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.avatar.vrm
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 
 class VrmExtensionParserTest {
@@ -156,6 +157,18 @@ class VrmExtensionParserTest {
         assertEquals("expression", descriptor.lookAt?.type)
         assertNotNull(descriptor.lookAt?.offsetFromHeadBone)
         assertEquals(listOf(13), descriptor.firstPerson?.meshAnnotationIndices)
+    }
+
+    @Test
+    fun parseDocumentReturnsMalformedJsonAsMetadataFailed() {
+        val glb = createGlb(
+            json = "{ this is not valid json !!!",
+            binary = byteArrayOf(),
+        )
+
+        val result = VrmExtensionParser.parseDocument(glb)
+        val exception = assertFailsWith<VrmAssetParseException> { result.getOrThrow() }
+        assertEquals(VrmAssetParseFailureKind.MetadataFailed, exception.kind)
     }
 
     private fun createGlb(json: String, binary: ByteArray): ByteArray {

@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.avatar.vrm
 
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -65,9 +66,14 @@ object VrmExtensionParser {
             offset = chunkEnd
         }
 
-        val root = jsonChunk
-            ?.let { chunk -> json.parseToJsonElement(chunk) as? JsonObject }
-            ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
+        val root = jsonChunk?.let { chunk ->
+            try {
+                json.parseToJsonElement(chunk) as? JsonObject
+                    ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
+            } catch (e: SerializationException) {
+                throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
+            }
+        } ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
 
         VrmGlbDocument(
             root = root,
