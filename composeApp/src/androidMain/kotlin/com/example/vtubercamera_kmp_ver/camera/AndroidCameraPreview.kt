@@ -465,3 +465,49 @@ private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) = remember(av
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
     }
 }
+
+@Composable
+actual fun rememberCameraRepositories(
+    permissionController: CameraPermissionController,
+): CameraRepositories {
+    return remember(permissionController) {
+        val previewState = kotlinx.coroutines.flow.MutableStateFlow<PreviewState>(PreviewState.Preparing)
+        CameraRepositories(
+            cameraRepository = object : CameraRepository {
+                override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
+                    previewState.value = PreviewState.Showing
+                    return Result.success(lensFacing)
+                }
+
+                override suspend fun stopPreview() {
+                    previewState.value = PreviewState.Preparing
+                }
+
+                override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
+                    previewState.value = PreviewState.Preparing
+                    return Result.success(current.toggled())
+                }
+
+                override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
+                    return Result.success(preferred)
+                }
+
+                override fun observePreviewState(): kotlinx.coroutines.flow.Flow<PreviewState> = previewState
+            },
+            permissionRepository = object : PermissionRepository {
+                override suspend fun checkCameraPermission(): PermissionState {
+                    return when {
+                        permissionController.isChecking -> PermissionState.Unknown
+                        permissionController.isGranted -> PermissionState.Granted
+                        else -> PermissionState.Denied
+                    }
+                }
+
+                override suspend fun requestCameraPermission(): PermissionState {
+                    permissionController.requestPermission()
+                    return checkCameraPermission()
+                }
+            },
+        )
+    }
+}
