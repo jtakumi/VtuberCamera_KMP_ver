@@ -194,8 +194,8 @@ class CameraViewModel(
                 val error = (previewState as? PreviewState.Error)?.error
                 currentState.copy(
                     previewState = previewState,
-                    errorState = error ?: currentState.errorState,
-                    message = error?.toMessage() ?: currentState.message,
+                    errorState = error,
+                    message = error?.toMessage(),
                 )
             }
         }
