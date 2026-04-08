@@ -32,6 +32,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_t
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_left
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_right
@@ -96,6 +97,8 @@ fun CameraScreen(
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val previewError = uiState.previewState as? PreviewState.Error
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -106,8 +109,8 @@ fun CameraScreen(
             uiState.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
             )
-            uiState.previewState is PreviewState.Error -> CameraErrorState(
-                error = (uiState.previewState as PreviewState.Error).error,
+            previewError != null -> CameraErrorState(
+                error = previewError.error,
                 onRetryPreview = onRetryPreview,
             )
             uiState.isPermissionGranted -> CameraPreviewState(
@@ -309,7 +312,10 @@ private fun CameraMessageBanner(
         shape = RoundedCornerShape(MaterialTheme.spacing.md),
     ) {
         Text(
-            text = message.text,
+            text = stringResource(
+                message.messageRes,
+                *message.formatArgs.toTypedArray(),
+            ),
             modifier = Modifier.padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.sm,
@@ -375,13 +381,7 @@ private fun CameraErrorState(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = when (error) {
-                CameraError.PermissionDenied -> "Camera permission denied"
-                CameraError.CameraUnavailable -> "Camera unavailable"
-                CameraError.PreviewInitializationFailed -> "Preview initialization failed"
-                CameraError.LensSwitchFailed -> "Lens switch failed"
-                CameraError.Unknown -> "Unknown camera error"
-            },
+            text = stringResource(error.toCameraMessage().messageRes),
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center,
         )
@@ -389,7 +389,7 @@ private fun CameraErrorState(
             onClick = onRetryPreview,
             modifier = Modifier.padding(top = MaterialTheme.spacing.lg),
         ) {
-            Text("Retry")
+            Text(stringResource(Res.string.camera_retry_button))
         }
     }
 }
