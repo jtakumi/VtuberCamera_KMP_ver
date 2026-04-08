@@ -137,6 +137,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 @Composable
 actual fun CameraPreviewHost(
     modifier: Modifier,
+    cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -157,9 +158,20 @@ actual fun CameraPreviewHost(
     )
 
     DisposableEffect(lensFacing) {
-        val resolved = sessionManager.startPreview(lensFacing).getOrNull()
-        if (resolved != null && resolved != lensFacing) {
-            onLensFacingChanged(resolved)
+        sessionManager.startPreview(lensFacing) { result ->
+            result
+                .onSuccess { resolvedLens ->
+                    if (resolvedLens != lensFacing) {
+                        onLensFacingChanged(resolvedLens)
+                    }
+                    cameraRepository.onPlatformPreviewStarted(resolvedLens)
+                }
+                .onFailure {
+                    cameraRepository.onPlatformPreviewError(
+                        lensFacing = lensFacing,
+                        error = CameraError.PreviewInitializationFailed,
+                    )
+                }
         }
 
         onDispose {
@@ -319,13 +331,16 @@ private class IOSCameraSessionManager {
         to.bindPreviewLayer(previewLayer)
     }
 
-    fun startPreview(requestedLensFacing: CameraLensFacing): Result<CameraLensFacing> {
+    fun startPreview(
+        requestedLensFacing: CameraLensFacing,
+        onComplete: (Result<CameraLensFacing>) -> Unit,
+    ) {
         val resolvedLens = resolveAvailableLens(requestedLensFacing)
-            ?: return Result.failure(IllegalStateException("No available camera lens"))
+            ?: return onComplete(Result.failure(IllegalStateException("No available camera lens")))
         val device = cameraDevice(resolvedLens.toDevicePosition())
-            ?: return Result.failure(IllegalStateException("Resolved camera device is unavailable"))
+            ?: return onComplete(Result.failure(IllegalStateException("Resolved camera device is unavailable")))
         val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null)
-            ?: return Result.failure(IllegalStateException("Failed to create camera input"))
+            ?: return onComplete(Result.failure(IllegalStateException("Failed to create camera input")))
 
         dispatch_async(sessionQueue) {
             session.beginConfiguration()
@@ -337,17 +352,28 @@ private class IOSCameraSessionManager {
                     currentInput = restoredInput
                 }
                 session.commitConfiguration()
+                dispatch_async(dispatch_get_main_queue()) {
+                    onComplete(Result.failure(IllegalStateException("Failed to add camera input")))
+                }
                 return@dispatch_async
             }
             session.addInput(input)
             currentInput = input
             session.commitConfiguration()
 
-            if (!session.running) {
-                session.startRunning()
+            val started = runCatching {
+                if (!session.running) {
+                    session.startRunning()
+                }
+            }
+
+            dispatch_async(dispatch_get_main_queue()) {
+                started.fold(
+                    onSuccess = { onComplete(Result.success(resolvedLens)) },
+                    onFailure = { onComplete(Result.failure(it)) },
+                )
             }
         }
-        return Result.success(resolvedLens)
     }
 
     fun stopPreview() {
@@ -380,14 +406,18 @@ actual fun rememberCameraRepositories(
         val previewState = kotlinx.coroutines.flow.MutableStateFlow<PreviewState>(PreviewState.Preparing)
         CameraRepositories(
             cameraRepository = object : CameraRepository {
+                private var pendingLensFacing: CameraLensFacing? = null
+
                 override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
                     val resolvedLens = resolveAvailableLens(lensFacing)
                         ?: return Result.failure(IllegalStateException("No available camera lens"))
-                    previewState.value = PreviewState.Showing
+                    pendingLensFacing = resolvedLens
+                    previewState.value = PreviewState.Preparing
                     return Result.success(resolvedLens)
                 }
 
                 override suspend fun stopPreview() {
+                    pendingLensFacing = null
                     previewState.value = PreviewState.Preparing
                 }
 
@@ -395,9 +425,10 @@ actual fun rememberCameraRepositories(
                     previewState.value = PreviewState.Preparing
                     val targetLens = current.toggled()
                     if (cameraDevice(targetLens.toDevicePosition()) == null) {
+                        previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
                         return Result.failure(IllegalStateException("Requested lens is unavailable"))
                     }
-                    previewState.value = PreviewState.Showing
+                    pendingLensFacing = targetLens
                     return Result.success(targetLens)
                 }
 
@@ -408,6 +439,20 @@ actual fun rememberCameraRepositories(
                 }
 
                 override fun observePreviewState(): kotlinx.coroutines.flow.Flow<PreviewState> = previewState
+
+                override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
+                    if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
+                        pendingLensFacing = lensFacing
+                        previewState.value = PreviewState.Showing
+                    }
+                }
+
+                override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
+                    if (pendingLensFacing == lensFacing) {
+                        pendingLensFacing = null
+                        previewState.value = PreviewState.Error(error)
+                    }
+                }
             },
             permissionRepository = object : PermissionRepository {
                 private fun currentPermissionState(): PermissionState {
