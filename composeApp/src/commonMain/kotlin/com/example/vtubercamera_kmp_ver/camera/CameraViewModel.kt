@@ -48,33 +48,15 @@ class CameraViewModel(
 
     fun onRequestPermission() {
         viewModelScope.launch {
-            val permissionState = permissionRepository.requestCameraPermission()
             _uiState.update { state ->
                 state.copy(
-                    permissionState = permissionState,
-                    errorState = if (permissionState == PermissionState.Denied) {
-                        CameraError.PermissionDenied
-                    } else {
-                        null
-                    },
-                    previewState = if (permissionState == PermissionState.Denied) {
-                        PreviewState.Error(CameraError.PermissionDenied)
-                    } else {
-                        state.previewState
-                    },
-                    message = if (permissionState == PermissionState.Denied) {
-                        CameraMessage(CameraMessageType.Error, "Camera permission is denied")
-                    } else {
-                        null
-                    },
+                    permissionState = PermissionState.Unknown,
+                    errorState = null,
+                    message = null,
+                    previewState = state.previewState,
                 )
             }
-            if (permissionState == PermissionState.Granted) {
-                val startResult = cameraRepository.startPreview(_uiState.value.lensFacing)
-                if (startResult.isFailure) {
-                    setError(CameraError.PreviewInitializationFailed)
-                }
-            }
+            permissionRepository.requestCameraPermission()
         }
     }
 
