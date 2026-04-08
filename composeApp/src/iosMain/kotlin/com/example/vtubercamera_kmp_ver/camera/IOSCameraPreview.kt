@@ -280,17 +280,21 @@ actual fun rememberCameraRepositories(
                 override fun observePreviewState(): kotlinx.coroutines.flow.Flow<PreviewState> = previewState
             },
             permissionRepository = object : PermissionRepository {
-                override suspend fun checkCameraPermission(): PermissionState {
-                    return when {
-                        permissionController.isChecking -> PermissionState.Unknown
-                        permissionController.isGranted -> PermissionState.Granted
+                private fun currentPermissionState(): PermissionState {
+                    return when (AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)) {
+                        AVAuthorizationStatusAuthorized -> PermissionState.Granted
+                        AVAuthorizationStatusNotDetermined -> PermissionState.Unknown
                         else -> PermissionState.Denied
                     }
                 }
 
+                override suspend fun checkCameraPermission(): PermissionState {
+                    return currentPermissionState()
+                }
+
                 override suspend fun requestCameraPermission(): PermissionState {
                     permissionController.requestPermission()
-                    return checkCameraPermission()
+                    return currentPermissionState()
                 }
             },
         )
