@@ -103,15 +103,7 @@ class CameraViewModel(
                     previewState = PreviewState.Error(CameraError.PermissionDenied),
                     message = CameraMessage(
                         type = CameraMessageType.Error,
-<<<<<<< HEAD
                         messageRes = Res.string.camera_error_permission_denied,
-                    )
-                } else {
-                    null
-                },
-            )
-=======
-                        text = "Camera permission is denied",
                     ),
                 )
                 PermissionState.Granted -> currentState.copy(
@@ -136,7 +128,6 @@ class CameraViewModel(
             viewModelScope.launch {
                 startCameraPreview()
             }
->>>>>>> 1fe92214730d9f7ffd73e80dcc3af3a7082ce5c8
         }
     }
 
