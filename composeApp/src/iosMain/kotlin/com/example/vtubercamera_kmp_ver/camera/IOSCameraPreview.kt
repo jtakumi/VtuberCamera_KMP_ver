@@ -237,8 +237,13 @@ private class IOSCameraSessionManager {
             ?: return Result.failure(IllegalStateException("Failed to create camera input"))
 
         session.beginConfiguration()
-        currentInput?.let { session.removeInput(it) }
+        val previousInput = currentInput
+        previousInput?.let { session.removeInput(it) }
         if (!session.canAddInput(input)) {
+            previousInput?.takeIf { session.canAddInput(it) }?.let { restoredInput ->
+                session.addInput(restoredInput)
+                currentInput = restoredInput
+            }
             session.commitConfiguration()
             return Result.failure(IllegalStateException("Unable to attach camera input to session"))
         }
