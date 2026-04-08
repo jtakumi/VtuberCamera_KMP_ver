@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlinx.cinterop.readValue
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
 import platform.AVFoundation.AVCaptureDevice
@@ -33,6 +36,7 @@ import platform.AVFoundation.AVCaptureSession
 import platform.AVFoundation.AVCaptureVideoPreviewLayer
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
+import platform.CoreGraphics.CGRectZero
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerMode
@@ -111,7 +115,7 @@ actual fun CameraPreviewHost(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
     val sessionManager = remember { IOSCameraSessionManager() }
-    val previewView = remember { UIView() }
+    val previewView = remember { CameraPreviewView() }
 
     UIKitView(
         modifier = modifier.fillMaxSize(),
@@ -180,6 +184,24 @@ actual fun AvatarBodyOverlay(
     }
 }
 
+private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
+    private var hostedPreviewLayer: AVCaptureVideoPreviewLayer? = null
+
+    fun bindPreviewLayer(previewLayer: AVCaptureVideoPreviewLayer) {
+        if (hostedPreviewLayer !== previewLayer || previewLayer.superlayer != layer) {
+            previewLayer.removeFromSuperlayer()
+            layer.addSublayer(previewLayer)
+            hostedPreviewLayer = previewLayer
+        }
+        setNeedsLayout()
+    }
+
+    override fun layoutSubviews() {
+        super.layoutSubviews()
+        hostedPreviewLayer?.frame = bounds
+    }
+}
+
 private fun currentPresentedViewController(): UIViewController? {
     var currentViewController = UIApplication.sharedApplication.windows
         .filterIsInstance<UIWindow>()
@@ -198,12 +220,12 @@ private class IOSCameraSessionManager {
     private val previewLayer = AVCaptureVideoPreviewLayer(session = session)
     private var currentInput: AVCaptureDeviceInput? = null
 
-    fun bindPreview(to view: UIView) {
-        if (previewLayer.superlayer == null) {
-            previewLayer.videoGravity = "AVLayerVideoGravityResizeAspectFill"
-            view.layer.addSublayer(previewLayer)
-        }
-        previewLayer.frame = view.bounds
+    init {
+        previewLayer.videoGravity = "AVLayerVideoGravityResizeAspectFill"
+    }
+
+    fun bindPreview(to: CameraPreviewView) {
+        to.bindPreviewLayer(previewLayer)
     }
 
     fun startPreview(requestedLensFacing: CameraLensFacing): CameraLensFacing {
