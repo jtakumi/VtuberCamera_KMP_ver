@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_switching_lens
 
 class CameraViewModel(
     private val cameraRepository: CameraRepository,
@@ -68,7 +72,7 @@ class CameraViewModel(
                     errorState = null,
                     message = CameraMessage(
                         type = CameraMessageType.Guide,
-                        text = "Retrying camera preview...",
+                        messageRes = Res.string.camera_error_retrying_preview,
                     ),
                 )
             }
@@ -117,7 +121,7 @@ class CameraViewModel(
                 message = if (permissionState == PermissionState.Denied) {
                     CameraMessage(
                         type = CameraMessageType.Error,
-                        text = "Camera permission is denied",
+                        messageRes = Res.string.camera_error_permission_denied,
                     )
                 } else {
                     null
@@ -134,7 +138,7 @@ class CameraViewModel(
                     previewState = PreviewState.Preparing,
                     message = CameraMessage(
                         type = CameraMessageType.Guide,
-                        text = "Switching camera lens...",
+                        messageRes = Res.string.camera_error_switching_lens,
                     ),
                 )
             }
@@ -195,7 +199,7 @@ class CameraViewModel(
                 currentState.copy(
                     previewState = previewState,
                     errorState = error,
-                    message = error?.toMessage(),
+                    message = error?.toCameraMessage(),
                 )
             }
         }
@@ -206,24 +210,10 @@ class CameraViewModel(
             currentState.copy(
                 previewState = PreviewState.Error(error),
                 errorState = error,
-                message = error.toMessage(),
+                message = error.toCameraMessage(),
             )
         }
     }
-}
-
-private fun CameraError.toMessage(): CameraMessage {
-    val text = when (this) {
-        CameraError.PermissionDenied -> "Camera permission is denied"
-        CameraError.CameraUnavailable -> "Camera device is unavailable"
-        CameraError.PreviewInitializationFailed -> "Failed to initialize camera preview"
-        CameraError.LensSwitchFailed -> "Failed to switch camera lens"
-        CameraError.Unknown -> "Unknown camera error"
-    }
-    return CameraMessage(
-        type = CameraMessageType.Error,
-        text = text,
-    )
 }
 
 private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
