@@ -1,6 +1,13 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import kotlinx.coroutines.flow.Flow
+import org.jetbrains.compose.resources.StringResource
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_lens_switch_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_preview_initialization_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unavailable
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
 
 enum class PermissionState {
     Unknown,
@@ -31,8 +38,25 @@ enum class CameraMessageType {
 
 data class CameraMessage(
     val type: CameraMessageType,
-    val text: String,
+    val messageRes: StringResource,
+    val formatArgs: List<Any> = emptyList(),
 )
+
+fun CameraError.toCameraMessage(): CameraMessage {
+    val messageRes = when (this) {
+        CameraError.PermissionDenied -> Res.string.camera_error_permission_denied
+        CameraError.CameraUnavailable -> Res.string.camera_error_unavailable
+        CameraError.PreviewInitializationFailed -> {
+            Res.string.camera_error_preview_initialization_failed
+        }
+        CameraError.LensSwitchFailed -> Res.string.camera_error_lens_switch_failed
+        CameraError.Unknown -> Res.string.camera_error_unknown
+    }
+    return CameraMessage(
+        type = CameraMessageType.Error,
+        messageRes = messageRes,
+    )
+}
 
 interface CameraRepository {
     suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing>
