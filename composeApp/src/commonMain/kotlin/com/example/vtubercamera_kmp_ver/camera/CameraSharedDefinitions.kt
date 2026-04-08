@@ -68,6 +68,10 @@ interface CameraRepository {
     suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing>
 
     fun observePreviewState(): Flow<PreviewState>
+
+    fun onPlatformPreviewStarted(lensFacing: CameraLensFacing)
+
+    fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError)
 }
 
 interface PermissionRepository {
