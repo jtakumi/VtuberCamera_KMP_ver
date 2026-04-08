@@ -130,8 +130,8 @@ actual fun CameraPreviewHost(
     )
 
     DisposableEffect(lensFacing) {
-        val resolved = sessionManager.startPreview(lensFacing)
-        if (resolved != lensFacing) {
+        val resolved = sessionManager.startPreview(lensFacing).getOrNull()
+        if (resolved != null && resolved != lensFacing) {
             onLensFacingChanged(resolved)
         }
 
@@ -228,28 +228,28 @@ private class IOSCameraSessionManager {
         to.bindPreviewLayer(previewLayer)
     }
 
-    fun startPreview(requestedLensFacing: CameraLensFacing): CameraLensFacing {
+    fun startPreview(requestedLensFacing: CameraLensFacing): Result<CameraLensFacing> {
         val resolvedLens = resolveAvailableLens(requestedLensFacing)
-        val position = when (resolvedLens) {
-            CameraLensFacing.Front -> AVCaptureDevicePositionFront
-            CameraLensFacing.Back -> AVCaptureDevicePositionBack
-        }
-        val device = cameraDevice(position) ?: return requestedLensFacing
+            ?: return Result.failure(IllegalStateException("No available camera lens"))
+        val device = cameraDevice(resolvedLens.toDevicePosition())
+            ?: return Result.failure(IllegalStateException("Resolved camera device is unavailable"))
         val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null) as? AVCaptureDeviceInput
-            ?: return requestedLensFacing
+            ?: return Result.failure(IllegalStateException("Failed to create camera input"))
 
         session.beginConfiguration()
         currentInput?.let { session.removeInput(it) }
-        if (session.canAddInput(input)) {
-            session.addInput(input)
-            currentInput = input
+        if (!session.canAddInput(input)) {
+            session.commitConfiguration()
+            return Result.failure(IllegalStateException("Unable to attach camera input to session"))
         }
+        session.addInput(input)
+        currentInput = input
         session.commitConfiguration()
 
         if (!session.running) {
             session.startRunning()
         }
-        return resolvedLens
+        return Result.success(resolvedLens)
     }
 
     fun stopPreview() {
@@ -258,18 +258,17 @@ private class IOSCameraSessionManager {
         }
     }
 
-    private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing {
-        val requestedDevice = cameraDevice(
-            if (requested == CameraLensFacing.Front) AVCaptureDevicePositionFront else AVCaptureDevicePositionBack,
-        )
-        if (requestedDevice != null) return requested
-        return requested.toggled()
-    }
+    private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing? {
+        if (cameraDevice(requested.toDevicePosition()) != null) {
+            return requested
+        }
 
-    private fun cameraDevice(position: platform.AVFoundation.AVCaptureDevicePosition): AVCaptureDevice? {
-        return AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo)
-            .filterIsInstance<AVCaptureDevice>()
-            .firstOrNull { it.position == position }
+        val fallback = requested.toggled()
+        return if (cameraDevice(fallback.toDevicePosition()) != null) {
+            fallback
+        } else {
+            null
+        }
     }
 }
 
@@ -282,8 +281,10 @@ actual fun rememberCameraRepositories(
         CameraRepositories(
             cameraRepository = object : CameraRepository {
                 override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
+                    val resolvedLens = resolveAvailableLens(lensFacing)
+                        ?: return Result.failure(IllegalStateException("No available camera lens"))
                     previewState.value = PreviewState.Showing
-                    return Result.success(lensFacing)
+                    return Result.success(resolvedLens)
                 }
 
                 override suspend fun stopPreview() {
@@ -292,11 +293,18 @@ actual fun rememberCameraRepositories(
 
                 override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
                     previewState.value = PreviewState.Preparing
-                    return Result.success(current.toggled())
+                    val targetLens = current.toggled()
+                    if (cameraDevice(targetLens.toDevicePosition()) == null) {
+                        return Result.failure(IllegalStateException("Requested lens is unavailable"))
+                    }
+                    previewState.value = PreviewState.Showing
+                    return Result.success(targetLens)
                 }
 
                 override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
-                    return Result.success(preferred)
+                    val resolvedLens = resolveAvailableLens(preferred)
+                        ?: return Result.failure(IllegalStateException("No available camera lens"))
+                    return Result.success(resolvedLens)
                 }
 
                 override fun observePreviewState(): kotlinx.coroutines.flow.Flow<PreviewState> = previewState
@@ -321,4 +329,28 @@ actual fun rememberCameraRepositories(
             },
         )
     }
+}
+
+private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing? {
+    if (cameraDevice(requested.toDevicePosition()) != null) {
+        return requested
+    }
+
+    val fallback = requested.toggled()
+    return if (cameraDevice(fallback.toDevicePosition()) != null) {
+        fallback
+    } else {
+        null
+    }
+}
+
+private fun CameraLensFacing.toDevicePosition() = when (this) {
+    CameraLensFacing.Front -> AVCaptureDevicePositionFront
+    CameraLensFacing.Back -> AVCaptureDevicePositionBack
+}
+
+private fun cameraDevice(position: platform.AVFoundation.AVCaptureDevicePosition): AVCaptureDevice? {
+    return AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo)
+        .filterIsInstance<AVCaptureDevice>()
+        .firstOrNull { it.position == position }
 }
