@@ -1,4 +1,7 @@
-@file:OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
+@file:OptIn(
+    kotlinx.cinterop.BetaInteropApi::class,
+    kotlinx.cinterop.ExperimentalForeignApi::class,
+)
 
 package com.example.vtubercamera_kmp_ver.camera
 
@@ -18,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,7 +29,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readValue
+import kotlinx.cinterop.usePinned
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
 import platform.AVFoundation.AVCaptureDevice
@@ -36,19 +42,29 @@ import platform.AVFoundation.AVCaptureSession
 import platform.AVFoundation.AVCaptureVideoPreviewLayer
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
+import platform.AVFoundation.authorizationStatusForMediaType
+import platform.AVFoundation.requestAccessForMediaType
 import platform.CoreGraphics.CGRectZero
+import platform.Foundation.NSData
+import platform.Foundation.NSURL
+import platform.Foundation.create
+import platform.Foundation.getBytes
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
+import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
+import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 import platform.darwin.dispatch_queue_create
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -89,7 +105,14 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 
 @Composable
 actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher {
-    return remember {
+    val onFilePickedState = rememberUpdatedState(onFilePicked)
+    val pickerDelegate = remember {
+        IOSDocumentPickerDelegate { result ->
+            onFilePickedState.value(result)
+        }
+    }
+
+    return remember(pickerDelegate) {
         FilePickerLauncher(
             launch = {
                 currentPresentedViewController()?.let { viewController ->
@@ -97,12 +120,15 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
                         documentTypes = listOf("public.item"),
                         inMode = UIDocumentPickerMode.UIDocumentPickerModeImport,
                     )
+                    pickerViewController.delegate = pickerDelegate
+                    pickerViewController.allowsMultipleSelection = false
+                    pickerViewController.shouldShowFileExtensions = true
                     viewController.presentViewController(
                         viewControllerToPresent = pickerViewController,
                         animated = true,
                         completion = null,
                     )
-                } ?: onFilePicked(FilePickerResult.Error(Res.string.file_picker_open_failed))
+                } ?: onFilePickedState.value(FilePickerResult.Error(Res.string.file_picker_open_failed))
             },
         )
     }
@@ -203,6 +229,27 @@ private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
     }
 }
 
+private class IOSDocumentPickerDelegate(
+    private val onFilePicked: (FilePickerResult) -> Unit,
+) : NSObject(), UIDocumentPickerDelegateProtocol {
+    override fun documentPicker(
+        controller: UIDocumentPickerViewController,
+        didPickDocumentsAtURLs: List<*>,
+    ) {
+        val selectedUrl = didPickDocumentsAtURLs.firstOrNull() as? NSURL
+        if (selectedUrl == null) {
+            onFilePicked(FilePickerResult.Error(Res.string.file_picker_read_failed))
+            return
+        }
+
+        onFilePicked(selectedUrl.toFilePickerResult())
+    }
+
+    override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
+        onFilePicked(FilePickerResult.Cancelled)
+    }
+}
+
 private fun currentPresentedViewController(): UIViewController? {
     var currentViewController = UIApplication.sharedApplication.windows
         .filterIsInstance<UIWindow>()
@@ -214,6 +261,47 @@ private fun currentPresentedViewController(): UIViewController? {
     }
 
     return currentViewController
+}
+
+private fun NSURL.toFilePickerResult(): FilePickerResult {
+    val fileName = lastPathComponent ?: "selected.glb"
+    val didAccessResource = startAccessingSecurityScopedResource()
+
+    return try {
+        val data = NSData.create(contentsOfURL = this)
+            ?: throw FilePickerException(Res.string.file_picker_read_failed)
+        VrmAvatarParser.parse(fileName = fileName, bytes = data.toByteArray()).fold(
+            onSuccess = { avatarPreview -> FilePickerResult.Success(avatarPreview) },
+            onFailure = { throwable -> throwable.toFilePickerError() },
+        )
+    } catch (throwable: Throwable) {
+        throwable.toFilePickerError()
+    } finally {
+        if (didAccessResource) {
+            stopAccessingSecurityScopedResource()
+        }
+    }
+}
+
+private fun NSData.toByteArray(): ByteArray {
+    val byteCount = length().toInt()
+    if (byteCount == 0) {
+        return ByteArray(0)
+    }
+
+    return ByteArray(byteCount).apply {
+        usePinned { pinned ->
+            getBytes(pinned.addressOf(0), length())
+        }
+    }
+}
+
+private fun Throwable.toFilePickerError(): FilePickerResult.Error {
+    val messageRes = when (this) {
+        is FilePickerException -> messageRes
+        else -> Res.string.vrm_error_read_failed
+    }
+    return FilePickerResult.Error(messageRes)
 }
 
 private class IOSCameraSessionManager {
@@ -236,7 +324,7 @@ private class IOSCameraSessionManager {
             ?: return Result.failure(IllegalStateException("No available camera lens"))
         val device = cameraDevice(resolvedLens.toDevicePosition())
             ?: return Result.failure(IllegalStateException("Resolved camera device is unavailable"))
-        val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null) as? AVCaptureDeviceInput
+        val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null)
             ?: return Result.failure(IllegalStateException("Failed to create camera input"))
 
         dispatch_async(sessionQueue) {

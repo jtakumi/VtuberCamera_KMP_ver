@@ -4,63 +4,50 @@
 
 - 対象ブランチ: `codex/find-missing-implementations-for-mvp-proposal`
 - 比較基準: `main...HEAD`
-- 主な変更領域: shared `CameraViewModel` / repository 抽象化、iOS エントリポイントの Compose 化、iOS `iosMain` actual 実装の追加
+- 主な変更領域: shared `CameraViewModel` / repository 抽象化、iOS エントリポイントの Compose 化、iOS の unavailable lens handling と capture-session queue 追加
 
 ## Change intent
 
 この変更の目的は、カメラ MVP の shared 状態管理を `CameraViewModel` と repository 抽象に寄せつつ、iOS 側も Compose ベースの画面に統合することです。
 
+## Updates since previous snapshot
+
+- `CameraViewModel.onPermissionStateChanged()` で、権限が `Granted` に遷移したときに `startCameraPreview()` を再実行するようになった。
+- iOS 側では、利用できないレンズを事前に解決する処理と、`AVCaptureSession.startRunning()` / `stopRunning()` を専用 serial queue で扱う処理が追加された。
+
 ## Recommended reading order
 
 1. `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt`
 2. `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt`
-3. `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt`
-4. `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt`
+3. `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt`
+4. `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt`
 5. `iosApp/iosApp/ContentView.swift`
 
 ## Data flow summary
 
 1. `CameraRoute` が `CameraPermissionController` と platform ごとの repositories を生成し、`CameraViewModel` に注入する。
-2. `CameraViewModel.initialize()` が権限確認、初期レンズ解決、プレビュー開始を行い、`uiState` を更新する。
+2. `CameraViewModel.initialize()` と `onPermissionStateChanged()` が権限確認、初期レンズ解決、プレビュー開始を行い、`uiState` を更新する。
 3. `CameraScreen` は `uiState.permissionState` と `uiState.previewState` を見て、ロード中、権限拒否、プレビュー表示、エラー表示を切り替える。
-4. レンズ切替、ファイル選択、顔トラッキング更新は各 platform 実装と ViewModel を経由して shared state に反映される想定になっている。
+4. shared の `previewState` / retry / error 制御は `CameraRepository` 経由だが、実際の preview 起動は platform ごとの `CameraPreviewHost` でも別途動いており、この二重経路がレビューの要点になっている。
+5. iOS のファイル選択は Compose 側の `rememberFilePickerLauncher()` から `onFilePicked(...)` に結果を戻す想定だが、そのハンドオフがまだ実装されていない。
 
 ## Affected features
 
-- Android / iOS の初回権限許可フロー
-- Android / iOS のカメラプレビュー開始
-- フロント / バック切替
+- Android / iOS の初回権限許可後のプレビュー復帰
+- Android / iOS のカメラプレビュー開始 / retry / レンズ切替
+- iOS の unavailable lens fallback
 - iOS のファイル選択とアバタープレビュー
 - preview error / retry UI
 
 ## Findings
 
-### 1. 権限許可後にライブプレビューへ遷移できない可能性が高い
-
-- 重大度: High
-- Why it matters: 初回起動で権限ボタンを押して許可しても、画面が denied / error のまま残り、カメラの主導線が壊れる可能性がある。
-- Evidence:
-  - `CameraRoute` では `CameraPermissionController` のその時点の値から repository を作り、その repository を使う `CameraViewModel` は `viewModel { ... }` で長寿命化されている。
-  - Android / iOS の `PermissionRepository.requestCameraPermission()` は OS ダイアログを出した直後に `checkCameraPermission()` を返しており、非同期で反映される最終結果を待っていない。
-  - `CameraViewModel.onRequestPermission()` は即時返却値が `Granted` のときしか `startPreview()` を呼ばない。
-  - `CameraViewModel.onPermissionStateChanged()` は permission state を更新するだけで、`Granted` 遷移時に preview 開始を補完していない。
-- Scenario: 初回起動で権限未許可の状態から「許可する」を押して OS ダイアログで許可する。
-- Recommendation: permission state を snapshot ではなく live state / flow として ViewModel に渡すか、`onPermissionStateChanged()` の `Granted` 遷移で preview 開始と既存 error state の解除を行うべき。
-
-対象箇所:
-
-- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt:53-68`
-- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:25-73`
-- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:113-139`
-- `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt:470-508`
-- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:255-293`
-
-### 2. iOS のファイル選択が実質的に壊れている
+### 1. iOS のファイル選択が依然として実質的に壊れている
 
 - 重大度: High
 - Why it matters: iOS で現在成立していたファイル選択フローが失われ、アバターファイルの読み込み結果が shared state に反映されない。
 - Evidence:
   - 新しい `rememberFilePickerLauncher()` は `UIDocumentPickerViewController` を生成して表示するだけで、delegate や callback がなく、成功・キャンセル・失敗結果を `onFilePicked(...)` に返していない。
+  - `CameraRoute` は `rememberFilePickerLauncher(cameraViewModel::onFilePicked)` を前提に組まれているが、iOS 実装からは `CameraViewModel.onFilePicked(...)` が呼ばれない。
   - `ContentView.swift` は Compose host のみを表示する構成に置き換わり、以前の SwiftUI `fileImporter` フローを経由しなくなっている。
   - README では iOS の現行機能として `fileImporter` によるファイル選択を明示しているため、回帰になる。
 - Scenario: iOS でファイル選択ボタンを押し、任意のファイルを選んで戻る。
@@ -68,37 +55,42 @@
 
 対象箇所:
 
-- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:86-100`
-- `iosApp/iosApp/ContentView.swift:5-16`
+- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt:53-81`
+- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:175-188`
+- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:91-108`
+- `iosApp/iosApp/ContentView.swift:5-17`
 - `README.md:17-22`
 
-### 3. preview error / retry UI が実際の platform 失敗と接続されていない
+### 2. preview error / retry UI が実際の platform 失敗とまだ接続されていない
 
 - 重大度: Medium
-- Why it matters: 今回追加された preview error / retry UI は shared state に依存しているが、platform 実装が実際の起動失敗を state に返していないため、失敗時に blank preview のままになる可能性がある。
+- Why it matters: 今回追加された preview error / retry UI は shared state に依存しているが、実際の platform 起動失敗が state に反映されないため、失敗時に blank preview / stuck loading のままになる可能性がある。
 - Evidence:
-  - Android の `CameraPreviewHost` は selector 不可時に `unbindAll()` して戻るが、repository の `startPreview()` / `switchLens()` は常に `Result.success(...)` を返している。
-  - iOS でも session/input の構成失敗余地がある一方、repository は常に success を返す。
-  - `CameraViewModel` の error 処理は repository result と preview state flow に依存しているため、platform failure が shared error state に上がらない。
-- Scenario: 使用不可レンズ、シミュレータ、入力構成失敗などで実 preview が起動できない環境で実行する。
-- Recommendation: 実際の lens 解決と preview 起動結果を `CameraRepository` が返し、失敗時は `PreviewState.Error(...)` を emit する構造に寄せるべき。
+  - `CameraViewModel` の `startCameraPreview()` / `onRetryPreview()` は repository の戻り値と `observePreviewState()` にだけ依存しており、platform 側の host で起きた失敗を直接拾えない。
+  - iOS の repository `startPreview()` は `PreviewState.Showing` を先に emit したうえで success を返すが、実際の `IOSCameraSessionManager.startPreview()` は `dispatch_async(...)` で非同期に session 構成を行い、`session.canAddInput(input)` が false でも失敗を呼び出し元へ返していない。
+  - Android でも `CameraPreviewHost` は `hasCameraSafely(selector)` 失敗時に `unbindAll()` して戻る一方、repository の `startPreview()` / `switchLens()` / `resolveInitialLens()` は依然として常に success を返している。
+- Scenario: 使用不可レンズ、シミュレータ、`AVCaptureDeviceInput` / `bindToLifecycle` の構成失敗などで実 preview が起動できない環境で実行する。
+- Recommendation: preview 起動の成否判定を host 側の副作用から repository / shared state に一本化し、失敗時は `PreviewState.Error(...)` と具体的な error reason を emit する構造に寄せるべき。
 
 対象箇所:
 
-- `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt:163-186`
-- `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt:470-496`
-- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:209-235`
-- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:255-281`
-- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:25-47`
+- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:56-74`
+- `composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt:196-220`
+- `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt:153-198`
+- `composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt:470-495`
+- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:133-143`
+- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:234-262`
+- `composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt:295-323`
 
 ## Residual risks
 
-- 実機 / Simulator での確認は未実施のため、AVFoundation / CameraX の実ランタイム差分は未検証。
+- 実機 / Simulator での確認は未実施のため、AVFoundation / CameraX の実ランタイム差分と serial queue 化による副作用は未検証。
 - iOS 側は `ContentView.swift` を全面差し替えしているため、ファイル選択以外にも native SwiftUI 側が持っていた細かな UX が失われている可能性がある。
 
 ## Testing gaps
 
-- Android / iOS の初回権限許可フロー
+- Android / iOS の初回権限許可後に preview へ復帰するフロー
 - Android / iOS の権限拒否後の再試行フロー
 - iOS のファイル選択成功 / キャンセル / 失敗
-- 使用不可レンズやシミュレータでの preview 起動失敗時の UI
+- iOS の unavailable lens fallback と session queue 上での start / stop
+- 使用不可レンズ、シミュレータ、session 構成失敗時の preview error / retry UI
