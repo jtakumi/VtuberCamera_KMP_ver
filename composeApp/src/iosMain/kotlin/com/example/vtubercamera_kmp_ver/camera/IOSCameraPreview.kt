@@ -46,6 +46,7 @@ import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
+import platform.darwin.dispatch_queue_create
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 
@@ -218,6 +219,8 @@ private fun currentPresentedViewController(): UIViewController? {
 private class IOSCameraSessionManager {
     private val session = AVCaptureSession()
     private val previewLayer = AVCaptureVideoPreviewLayer(session = session)
+    // Serialize capture-session work off the main thread to avoid UI stalls.
+    private val sessionQueue = dispatch_queue_create("com.example.vtubercamera.camera.session", null)
     private var currentInput: AVCaptureDeviceInput? = null
 
     init {
@@ -236,30 +239,34 @@ private class IOSCameraSessionManager {
         val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null) as? AVCaptureDeviceInput
             ?: return Result.failure(IllegalStateException("Failed to create camera input"))
 
-        session.beginConfiguration()
-        val previousInput = currentInput
-        previousInput?.let { session.removeInput(it) }
-        if (!session.canAddInput(input)) {
-            previousInput?.takeIf { session.canAddInput(it) }?.let { restoredInput ->
-                session.addInput(restoredInput)
-                currentInput = restoredInput
+        dispatch_async(sessionQueue) {
+            session.beginConfiguration()
+            val previousInput = currentInput
+            previousInput?.let { session.removeInput(it) }
+            if (!session.canAddInput(input)) {
+                previousInput?.takeIf { session.canAddInput(it) }?.let { restoredInput ->
+                    session.addInput(restoredInput)
+                    currentInput = restoredInput
+                }
+                session.commitConfiguration()
+                return@dispatch_async
             }
+            session.addInput(input)
+            currentInput = input
             session.commitConfiguration()
-            return Result.failure(IllegalStateException("Unable to attach camera input to session"))
-        }
-        session.addInput(input)
-        currentInput = input
-        session.commitConfiguration()
 
-        if (!session.running) {
-            session.startRunning()
+            if (!session.running) {
+                session.startRunning()
+            }
         }
         return Result.success(resolvedLens)
     }
 
     fun stopPreview() {
-        if (session.running) {
-            session.stopRunning()
+        dispatch_async(sessionQueue) {
+            if (session.running) {
+                session.stopRunning()
+            }
         }
     }
 
