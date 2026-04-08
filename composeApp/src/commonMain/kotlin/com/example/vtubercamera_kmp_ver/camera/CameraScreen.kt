@@ -74,6 +74,7 @@ fun CameraRoute(
 
     CameraScreen(
         modifier = modifier,
+        cameraRepository = repositories.cameraRepository,
         uiState = uiState,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
@@ -87,6 +88,7 @@ fun CameraRoute(
 
 @Composable
 fun CameraScreen(
+    cameraRepository: CameraRepository,
     uiState: CameraUiState,
     onRequestPermission: () -> Unit,
     onRetryPreview: () -> Unit,
@@ -114,6 +116,7 @@ fun CameraScreen(
                 onRetryPreview = onRetryPreview,
             )
             uiState.isPermissionGranted -> CameraPreviewState(
+                cameraRepository = cameraRepository,
                 uiState = uiState,
                 onOpenFilePicker = onOpenFilePicker,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
@@ -149,6 +152,7 @@ fun CameraScreen(
 
 @Composable
 private fun CameraPreviewState(
+    cameraRepository: CameraRepository,
     uiState: CameraUiState,
     onOpenFilePicker: () -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -158,6 +162,7 @@ private fun CameraPreviewState(
     Box(modifier = Modifier.fillMaxSize()) {
         CameraPreviewHost(
             modifier = Modifier.fillMaxSize(),
+            cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
