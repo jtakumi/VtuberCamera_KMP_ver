@@ -71,6 +71,7 @@ expect fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 @Composable
 expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
+    cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
