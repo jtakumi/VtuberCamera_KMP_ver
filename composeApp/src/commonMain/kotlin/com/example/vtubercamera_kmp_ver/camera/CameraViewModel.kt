@@ -32,18 +32,7 @@ class CameraViewModel(
             _uiState.update { it.copy(permissionState = permissionState) }
 
             if (permissionState == PermissionState.Granted) {
-                val initialLensResult = cameraRepository.resolveInitialLens(_uiState.value.lensFacing)
-                if (initialLensResult.isFailure) {
-                    setError(CameraError.CameraUnavailable)
-                    return@launch
-                }
-
-                val initialLens = initialLensResult.getOrDefault(_uiState.value.lensFacing)
-                _uiState.update { it.copy(lensFacing = initialLens) }
-                val startResult = cameraRepository.startPreview(initialLens)
-                if (startResult.isFailure) {
-                    setError(CameraError.PreviewInitializationFailed)
-                }
+                startCameraPreview()
             } else if (permissionState == PermissionState.Denied) {
                 setError(CameraError.PermissionDenied)
             }
@@ -105,28 +94,49 @@ class CameraViewModel(
             isGranted -> PermissionState.Granted
             else -> PermissionState.Denied
         }
+        val previousPermissionState = _uiState.value.permissionState
         _uiState.update { currentState ->
-            currentState.copy(
-                permissionState = permissionState,
-                errorState = if (permissionState == PermissionState.Denied) {
-                    CameraError.PermissionDenied
-                } else {
-                    null
-                },
-                previewState = if (permissionState == PermissionState.Denied) {
-                    PreviewState.Error(CameraError.PermissionDenied)
-                } else {
-                    currentState.previewState
-                },
-                message = if (permissionState == PermissionState.Denied) {
-                    CameraMessage(
+            when (permissionState) {
+                PermissionState.Denied -> currentState.copy(
+                    permissionState = permissionState,
+                    errorState = CameraError.PermissionDenied,
+                    previewState = PreviewState.Error(CameraError.PermissionDenied),
+                    message = CameraMessage(
                         type = CameraMessageType.Error,
+<<<<<<< HEAD
                         messageRes = Res.string.camera_error_permission_denied,
                     )
                 } else {
                     null
                 },
             )
+=======
+                        text = "Camera permission is denied",
+                    ),
+                )
+                PermissionState.Granted -> currentState.copy(
+                    permissionState = permissionState,
+                    errorState = null,
+                    message = null,
+                    previewState = PreviewState.Preparing,
+                )
+                PermissionState.Unknown -> currentState.copy(
+                    permissionState = permissionState,
+                    errorState = null,
+                    message = null,
+                    previewState = if (currentState.previewState is PreviewState.Error) {
+                        PreviewState.Preparing
+                    } else {
+                        currentState.previewState
+                    },
+                )
+            }
+        }
+        if (permissionState == PermissionState.Granted && previousPermissionState != PermissionState.Granted) {
+            viewModelScope.launch {
+                startCameraPreview()
+            }
+>>>>>>> 1fe92214730d9f7ffd73e80dcc3af3a7082ce5c8
         }
     }
 
@@ -202,6 +212,20 @@ class CameraViewModel(
                     message = error?.toCameraMessage(),
                 )
             }
+        }
+    }
+
+    private suspend fun startCameraPreview() {
+        val initialLensResult = cameraRepository.resolveInitialLens(_uiState.value.lensFacing)
+        if (initialLensResult.isFailure) {
+            setError(CameraError.CameraUnavailable)
+            return
+        }
+        val initialLens = initialLensResult.getOrDefault(_uiState.value.lensFacing)
+        _uiState.update { it.copy(lensFacing = initialLens) }
+        val startResult = cameraRepository.startPreview(initialLens)
+        if (startResult.isFailure) {
+            setError(CameraError.PreviewInitializationFailed)
         }
     }
 
