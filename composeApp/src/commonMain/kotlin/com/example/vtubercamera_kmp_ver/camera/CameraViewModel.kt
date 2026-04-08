@@ -65,12 +65,13 @@ class CameraViewModel(
                     ),
                 )
             }
-            val result = cameraRepository.startPreview(_uiState.value.lensFacing)
-            if (result.isFailure) {
-                setError(CameraError.PreviewInitializationFailed)
-            } else {
-                _uiState.update { it.copy(message = null) }
-            }
+            cameraRepository.startPreview(_uiState.value.lensFacing)
+                .onSuccess { resolvedLens ->
+                    _uiState.update { it.copy(lensFacing = resolvedLens, message = null) }
+                }
+                .onFailure {
+                    setError(CameraError.PreviewInitializationFailed)
+                }
         }
     }
 
@@ -78,9 +79,6 @@ class CameraViewModel(
         _uiState.update { currentState ->
             currentState.copy(
                 lensFacing = lensFacing,
-                previewState = PreviewState.Showing,
-                errorState = null,
-                message = null,
             )
         }
     }
@@ -214,10 +212,13 @@ class CameraViewModel(
         }
         val initialLens = initialLensResult.getOrDefault(_uiState.value.lensFacing)
         _uiState.update { it.copy(lensFacing = initialLens) }
-        val startResult = cameraRepository.startPreview(initialLens)
-        if (startResult.isFailure) {
-            setError(CameraError.PreviewInitializationFailed)
-        }
+        cameraRepository.startPreview(initialLens)
+            .onSuccess { resolvedLens ->
+                _uiState.update { it.copy(lensFacing = resolvedLens) }
+            }
+            .onFailure {
+                setError(CameraError.PreviewInitializationFailed)
+            }
     }
 
     private fun setError(error: CameraError) {
