@@ -158,20 +158,18 @@ actual fun CameraPreviewHost(
     )
 
     DisposableEffect(lensFacing) {
-        sessionManager.startPreview(lensFacing) { result ->
-            result
-                .onSuccess { resolvedLens ->
-                    if (resolvedLens != lensFacing) {
-                        onLensFacingChanged(resolvedLens)
-                    }
-                    cameraRepository.onPlatformPreviewStarted(resolvedLens)
+        sessionManager.startPreview(lensFacing) { resolvedLens, error ->
+            if (error == null) {
+                if (resolvedLens != lensFacing) {
+                    onLensFacingChanged(resolvedLens)
                 }
-                .onFailure {
-                    cameraRepository.onPlatformPreviewError(
-                        lensFacing = lensFacing,
-                        error = CameraError.PreviewInitializationFailed,
-                    )
-                }
+                cameraRepository.onPlatformPreviewStarted(resolvedLens)
+            } else {
+                cameraRepository.onPlatformPreviewError(
+                    lensFacing = resolvedLens,
+                    error = CameraError.PreviewInitializationFailed,
+                )
+            }
         }
 
         onDispose {
@@ -333,14 +331,14 @@ private class IOSCameraSessionManager {
 
     fun startPreview(
         requestedLensFacing: CameraLensFacing,
-        onComplete: (Result<CameraLensFacing>) -> Unit,
+        onComplete: (resolvedLens: CameraLensFacing, error: Throwable?) -> Unit,
     ) {
         val resolvedLens = resolveAvailableLens(requestedLensFacing)
-            ?: return onComplete(Result.failure(IllegalStateException("No available camera lens")))
+            ?: return onComplete(requestedLensFacing, IllegalStateException("No available camera lens"))
         val device = cameraDevice(resolvedLens.toDevicePosition())
-            ?: return onComplete(Result.failure(IllegalStateException("Resolved camera device is unavailable")))
+            ?: return onComplete(resolvedLens, IllegalStateException("Resolved camera device is unavailable"))
         val input = AVCaptureDeviceInput.deviceInputWithDevice(device, error = null)
-            ?: return onComplete(Result.failure(IllegalStateException("Failed to create camera input")))
+            ?: return onComplete(resolvedLens, IllegalStateException("Failed to create camera input"))
 
         dispatch_async(sessionQueue) {
             session.beginConfiguration()
@@ -353,7 +351,7 @@ private class IOSCameraSessionManager {
                 }
                 session.commitConfiguration()
                 dispatch_async(dispatch_get_main_queue()) {
-                    onComplete(Result.failure(IllegalStateException("Failed to add camera input")))
+                    onComplete(resolvedLens, IllegalStateException("Failed to add camera input"))
                 }
                 return@dispatch_async
             }
@@ -369,8 +367,8 @@ private class IOSCameraSessionManager {
 
             dispatch_async(dispatch_get_main_queue()) {
                 started.fold(
-                    onSuccess = { onComplete(Result.success(resolvedLens)) },
-                    onFailure = { onComplete(Result.failure(it)) },
+                    onSuccess = { onComplete(resolvedLens, null) },
+                    onFailure = { onComplete(resolvedLens, it) },
                 )
             }
         }
