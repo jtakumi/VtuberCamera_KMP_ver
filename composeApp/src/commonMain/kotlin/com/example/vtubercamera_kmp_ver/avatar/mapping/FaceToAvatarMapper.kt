@@ -7,7 +7,7 @@ import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.camera.NormalizedFaceFrame
 
 /**
- * Clamp policy for raw tracker values to avoid invalid avatar outputs.
+ * 生のトラッカー値を制限し、不正なアバター出力にならないようにする設定。
  */
 data class AvatarMappingClampConfig(
     val yawRangeDegrees: ClosedFloatingPointRange<Float> = -40f..40f,
@@ -23,7 +23,7 @@ data class FaceToAvatarMapperConfig(
 )
 
 /**
- * Pure shared mapper that translates face-tracking frame data into [AvatarRenderState].
+ * 顔トラッキングのフレーム情報を [AvatarRenderState] に変換する副作用のない共有マッパー。
  */
 class FaceToAvatarMapper(
     private val config: FaceToAvatarMapperConfig = FaceToAvatarMapperConfig(),

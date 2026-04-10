@@ -71,4 +71,4 @@ name: "Repository Overview Guidance"
 ## If The User Asks For Implementation
 
 - 実装タスクに入る場合は、まず `mobile-coding-conventions` スキルを参照し、このリポジトリの Kotlin / Swift / KMP 実装規約に沿う。
-- とくに命名、ファイル構成、文字列リソース化、null safe、MVVM の責務分離、Compose / SwiftUI の実装方針、異常系考慮をそのスキルの観点で確認する。
+- とくにメソッド直前コメント、命名整合性、ファイル構成、文字列リソース化、null safe、MVVM の責務分離、Compose / SwiftUI の実装方針、異常系考慮、error の握りつぶし防止をそのスキルの観点で確認する。

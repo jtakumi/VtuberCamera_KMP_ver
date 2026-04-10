@@ -13,7 +13,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permissi
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_switching_lens
 
-// Coordinates shared camera state, permission transitions, preview startup, and file-picking results.
+// 共有のカメラ状態、権限遷移、プレビュー開始、ファイル選択結果をまとめて制御する。
 class CameraViewModel(
     private val cameraRepository: CameraRepository,
     private val permissionRepository: PermissionRepository,
@@ -27,6 +27,7 @@ class CameraViewModel(
         }
     }
 
+    // 画面初期化時に権限状態を確認し、必要ならプレビュー開始やエラー反映を行う。
     fun initialize() {
         viewModelScope.launch {
             val permissionState = permissionRepository.checkCameraPermission()
@@ -40,6 +41,7 @@ class CameraViewModel(
         }
     }
 
+    // カメラ権限の再要求フローを開始し、UI の一時状態を整える。
     fun onRequestPermission() {
         viewModelScope.launch {
             _uiState.update { state ->
@@ -54,6 +56,7 @@ class CameraViewModel(
         }
     }
 
+    // プレビュー再試行時の案内メッセージを出しつつ開始処理をやり直す。
     fun onRetryPreview() {
         viewModelScope.launch {
             _uiState.update {
@@ -76,6 +79,7 @@ class CameraViewModel(
         }
     }
 
+    // 実際に選択されたレンズ向きを UI 状態へ反映する。
     fun onLensFacingChanged(lensFacing: CameraLensFacing) {
         _uiState.update { currentState ->
             currentState.copy(
@@ -84,6 +88,7 @@ class CameraViewModel(
         }
     }
 
+    // ネイティブ側から受け取った権限状態の変化を UI 状態へ反映する。
     fun onPermissionStateChanged(
         isGranted: Boolean,
         isChecking: Boolean,
@@ -130,6 +135,7 @@ class CameraViewModel(
         }
     }
 
+    // 前後カメラの切り替え要求を発行し、切り替え中の状態を表示する。
     fun onToggleLensFacing() {
         viewModelScope.launch {
             val currentLens = _uiState.value.lensFacing
@@ -159,6 +165,7 @@ class CameraViewModel(
         }
     }
 
+    // 顔トラッキング結果を画面表示用の状態へ変換して保持する。
     fun onFaceTrackingFrameChanged(frame: NormalizedFaceFrame?) {
         _uiState.update { currentState ->
             currentState.copy(
@@ -171,6 +178,7 @@ class CameraViewModel(
         }
     }
 
+    // ファイルピッカーの結果に応じてアバタープレビューやエラーを更新する。
     fun onFilePicked(result: FilePickerResult) {
         _uiState.update { currentState ->
             when (result) {
@@ -186,12 +194,14 @@ class CameraViewModel(
         }
     }
 
+    // ファイル選択エラー表示を閉じる。
     fun onDismissFilePickerError() {
         _uiState.update { currentState ->
             currentState.copy(filePickerErrorMessageRes = null)
         }
     }
 
+    // リポジトリのプレビュー状態を監視して UI 状態へ同期する。
     private suspend fun observePreviewState() {
         cameraRepository.observePreviewState().collect { previewState ->
             _uiState.update { currentState ->
@@ -205,6 +215,7 @@ class CameraViewModel(
         }
     }
 
+    // 利用可能な初期レンズを解決したうえでカメラプレビュー開始を依頼する。
     private suspend fun startCameraPreview() {
         val initialLensResult = cameraRepository.resolveInitialLens(_uiState.value.lensFacing)
         if (initialLensResult.isFailure) {
@@ -222,6 +233,7 @@ class CameraViewModel(
             }
     }
 
+    // カメラ関連エラーを UI のエラー表示状態へ集約して反映する。
     private fun setError(error: CameraError) {
         _uiState.update { currentState ->
             currentState.copy(
@@ -233,9 +245,11 @@ class CameraViewModel(
     }
 }
 
+// リポジトリ由来の例外から共通のカメラエラー種別を取り出す。
 private fun Throwable?.toCameraError(fallback: CameraError): CameraError =
     (this as? CameraRepositoryException)?.error ?: fallback
 
+// 顔トラッキングの生データを画面表示用ラベル付き状態へ変換する。
 private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
     FaceTrackingDisplayState(
         headYawLabel = "${headYawDegrees.roundToInt()} deg",
@@ -247,4 +261,5 @@ private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
         mouthSmileLabel = mouthSmile.asPercentLabel(),
     )
 
+// 0 から 1 の値をパーセント表記へ整形する。
 private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"

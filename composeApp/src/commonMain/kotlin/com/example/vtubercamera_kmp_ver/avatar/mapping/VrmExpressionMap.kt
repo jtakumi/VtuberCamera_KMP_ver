@@ -1,7 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.mapping
 
 /**
- * Canonical expression ids used by shared mapper.
+ * 共有マッパーが使う標準の表情 ID。
  */
 enum class AvatarExpressionId {
     BlinkLeft,
@@ -16,8 +16,8 @@ enum class VrmSpecVersion {
 }
 
 /**
- * VRM 0.x and 1.0 have different naming conventions; this map keeps renderer integration simple
- * by exposing a canonical id and ordered aliases.
+ * VRM 0.x と 1.0 では表情名の流儀が異なるため、
+ * 標準 ID と優先順付きの別名一覧を公開してレンダラー側の扱いを単純にする。
  */
 object VrmExpressionMap {
     fun aliasesFor(
@@ -29,10 +29,9 @@ object VrmExpressionMap {
     }
 
     /**
-     * Resolves the best runtime expression name from a model's supported names.
-     * [availableNames] is treated as an unordered membership set; priority is determined solely
-     * by the alias list order returned by [aliasesFor] — the first alias that is present in
-     * [availableNames] wins.
+     * モデルが対応している表情名の中から、実行時に使う最適な名前を解決する。
+     * [availableNames] は順不同の集合として扱い、優先度は [aliasesFor] が返す別名リストの順序だけで決まる。
+     * そのため、[availableNames] に含まれる最初の別名が採用される。
      */
     fun resolve(
         expression: AvatarExpressionId,

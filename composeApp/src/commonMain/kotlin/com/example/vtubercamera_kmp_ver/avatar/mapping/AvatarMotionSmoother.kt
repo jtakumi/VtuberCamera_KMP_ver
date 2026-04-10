@@ -7,9 +7,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Shared smoothing strategy used by mapper.
+ * マッパーで使う共有の平滑化設定。
  *
- * `trackingAlpha` is used while tracking is stable, `lostAlpha` while decaying to neutral.
+ * `trackingAlpha` は安定して追跡できている間、`lostAlpha` はニュートラルへ戻している間に使う。
  */
 data class AvatarMotionSmoothingConfig(
     val trackingAlpha: Float = 0.45f,

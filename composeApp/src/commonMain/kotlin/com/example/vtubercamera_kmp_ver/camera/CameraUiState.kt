@@ -2,7 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import org.jetbrains.compose.resources.StringResource
 
-// Holds the full shared state rendered by the camera route.
+// カメラ画面で描画する共有 UI 状態をまとめて保持する。
 data class CameraUiState(
     val lensFacing: CameraLensFacing = CameraLensFacing.Back,
     val permissionState: PermissionState = PermissionState.Unknown,

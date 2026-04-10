@@ -1,6 +1,6 @@
 ---
 name: mobile-coding-conventions
-description: Guide Android, iOS, and KMP implementation with this repo's mobile coding conventions. Use when writing, reviewing, or refactoring Kotlin or Swift code and you need checks for official naming and formatting, source file organization, string resources, null safety, MVVM or ObservableObject responsibilities, Jetpack Compose or SwiftUI patterns, error handling, and final newline.
+description: Guide Android, iOS, and KMP implementation with this repo's mobile coding conventions. Use when writing, reviewing, or refactoring Kotlin or Swift code and you need checks for official naming and formatting, source file organization, method comments, naming consistency, swallowed errors, string resources, null safety, MVVM or ObservableObject responsibilities, Jetpack Compose or SwiftUI patterns, error handling, and final newline.
 ---
 
 # Mobile Coding Conventions
@@ -17,7 +17,10 @@ Use this skill to keep Kotlin and Swift code aligned with official style guidanc
 3. Check cross-cutting rules before style nits:
    - user-visible strings come from resources
    - nullability and failure states are handled explicitly
+   - methods have a short comment above them when the function's role or side effects need explanation
+   - package, file, type, and method names describe the same responsibility
    - UI state and business logic are owned by the correct layer
+   - caught errors are not silently ignored
 4. Apply platform-specific review:
    - Kotlin/KMP: file organization, naming, formatting, idiomatic Kotlin, public/shared API clarity
    - Swift/iOS: API naming, argument labels, DocC, state ownership, SwiftUI-friendly structure
@@ -29,6 +32,9 @@ Use this skill to keep Kotlin and Swift code aligned with official style guidanc
 - Swift / iOS conventions
 - String resource usage
 - Null safety and error handling
+- Method-level intent comments
+- Naming consistency across package, file, type, and method boundaries
+- Swallowed error prevention
 - MVVM and state ownership
 - Compose / SwiftUI implementation shape
 - Final hygiene checks such as trailing newline
