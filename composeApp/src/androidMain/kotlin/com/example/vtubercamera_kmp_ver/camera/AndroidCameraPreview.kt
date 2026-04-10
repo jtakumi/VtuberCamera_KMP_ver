@@ -84,18 +84,29 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
     ) { granted ->
         permissionGranted = granted
     }
+    val controller = remember {
+        CameraPermissionController(
+            isGranted = false,
+            isChecking = true,
+            requestPermissionAction = {},
+        )
+    }
 
     LaunchedEffect(context) {
         permissionGranted = context.hasCameraPermission()
     }
 
-    return CameraPermissionController(
-        isGranted = permissionGranted == true,
-        isChecking = permissionGranted == null,
-        requestPermission = {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        },
-    )
+    LaunchedEffect(permissionGranted) {
+        controller.update(
+            isGranted = permissionGranted == true,
+            isChecking = permissionGranted == null,
+        )
+    }
+
+    controller.updateRequestPermissionAction {
+        permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
+    return controller
 }
 
 @Composable
