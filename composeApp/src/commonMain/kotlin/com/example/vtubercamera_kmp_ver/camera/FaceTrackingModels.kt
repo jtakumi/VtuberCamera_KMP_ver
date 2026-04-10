@@ -2,7 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.runtime.Immutable
 
-// Platform tracker output normalized into the shared avatar-mapping contract.
+// プラットフォーム側のトラッキング結果を、共有のアバターマッピング仕様に合わせて正規化したもの。
 @Immutable
 data class NormalizedFaceFrame(
     val timestampMillis: Long,
