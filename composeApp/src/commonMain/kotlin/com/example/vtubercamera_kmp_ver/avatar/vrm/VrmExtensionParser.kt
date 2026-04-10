@@ -34,11 +34,14 @@ object VrmExtensionParser {
         }
 
         val declaredLength = bytes.readIntLE(8)
+        // GLB ヘッダーにはファイル全体のサイズが入るため、途中で切れているデータや明らかに不正な値を弾く。
         if (declaredLength > bytes.size || declaredLength < 20) {
             throw VrmAssetParseException(VrmAssetParseFailureKind.InvalidFormat)
         }
 
         val declaredLengthLong = declaredLength.toLong()
+        // 12 バイトのヘッダー以降は、GLB のチャンクが
+        // [length(4)][type(4)][payload(length)] の並びで続く。
         var offset = 12L
         var jsonChunk: String? = null
         var binaryChunk: ByteArray? = null
@@ -52,6 +55,7 @@ object VrmExtensionParser {
 
             val chunkStart = offset + 8L
             val chunkLengthLong = chunkLength.toLong()
+            // チャンク長で示された payload が GLB 全体サイズをはみ出していないか先に確認する。
             if (chunkLengthLong > declaredLengthLong - chunkStart) {
                 throw VrmAssetParseException(VrmAssetParseFailureKind.InvalidFormat)
             }
@@ -60,9 +64,11 @@ object VrmExtensionParser {
             val chunkEndInt = chunkEnd.toInt()
 
             when (chunkType) {
+                // VRM のメタデータは JSON チャンク、メッシュやテクスチャの生データは BIN チャンクに入る。
                 jsonChunkType -> jsonChunk = bytes.decodeToString(chunkStartInt, chunkEndInt)
                 binaryChunkType -> binaryChunk = bytes.copyOfRange(chunkStartInt, chunkEndInt)
             }
+            // 現在の payload の直後を、次のチャンクヘッダー開始位置として扱う。
             offset = chunkEnd
         }
 
