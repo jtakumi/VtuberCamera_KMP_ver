@@ -16,6 +16,9 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - Kotlin / Swift の公式ドキュメントに沿った基本スタイルの確認
 - Kotlin 公式コーディング規約に沿った source file 構成、命名、整形、KDoc、idiomatic な書き方の確認
 - Swift API Design Guidelines に沿った命名、argument label、DocC、mutating / nonmutating API、protocol / Boolean 命名の確認
+- メソッド名の上に機能が分かるコメントを置けているかの確認
+- パッケージ名、型名、メソッド名、責務の命名が一貫しているかの確認
+- error や exception の握りつぶしがないかの確認
 - 文字列リソース化、null safe、異常系考慮を含む実装チェック
 - Android と iOS それぞれの MVVM 責務分離の確認
 - Jetpack Compose / SwiftUI ベースの UI 実装方針の確認
@@ -69,6 +72,7 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - `const` や deeply immutable な top-level / object `val` のみ screaming snake case を使う
 - public API と private 実装詳細が対になる場合は backing property に `_` prefix を使う
 - 略語は 2 文字なら `IO`、3 文字以上なら `Xml` や `Http` のように先頭だけ大文字にする
+- package 名、ファイル名、class 名、method 名が同じ責務やドメインを指しているか確認し、階層と命名の乖離を放置しない
 - public な shared API や Java interop の platform type を返す宣言では Kotlin 型を明示し、安定した契約を保つ
 
 ### 9. Kotlin の formatting と idiomatic use をどう揃えるか
@@ -82,6 +86,19 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - lambda は短く非ネストなら `it` を検討し、複雑な場合は明示 parameter に切り替え、複数の labeled return を避ける
 - declaration site の trailing comma を推奨し、複数同型 primitive や Boolean を取る呼び出しでは named argument を検討する
 - open-ended range の loop は `0..<n` を優先し、高階関数と loop は可読性とコストの両方で選ぶ
+
+### 10. メソッドコメントをどう書くか
+
+- method や function の直前には、その機能や責務がひと目で分かるコメントを書く
+- 実装詳細の逐語説明ではなく、「何をするか」「いつ使うか」「失敗時にどう振る舞うか」を短く示す
+- 名前だけで意図が伝わる場合でも、呼び出し条件や副作用が分かりにくいなら補足コメントを付ける
+- public API は KDoc / DocC を優先し、internal / private でも意図が読み取りにくい method には簡潔な説明を置く
+
+### 11. error の握りつぶしをどう防ぐか
+
+- `catch` した error / exception を無言で捨てず、少なくともログ、状態更新、再送出、Result への変換のいずれかで扱う
+- `runCatching`、`onFailure`、callback の failure branch、Swift の `try?` や `catch` でも同様に、失敗が観測可能か確認する
+- 一時回避で握りつぶす場合は理由と影響範囲をコメントで明示し、恒久化しない
 
 ## Swift Checks
 
@@ -123,6 +140,7 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - function / method は何をするかと何を返すか、initializer は何を作るか、subscript は何にアクセスするかを書く
 - 必要に応じて `- Parameter:`、`- Returns:`、`- Throws:`、`- Note:` など認識される markup を使う
 - summary で API の核心が伝わらないなら、設計自体を見直す候補と考える
+- method の直前コメントや DocC で、機能、利用条件、副作用、失敗時の扱いが読み取れる状態を保つ
 
 ## Kotlin Checks
 
@@ -140,6 +158,7 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - constant だけ screaming snake case を使い、mutable object reference には camelCase を使う
 - backing property は `_name` 形式にする
 - `Manager`、`Wrapper`、`Util` のような意味の薄い命名を避ける
+- package、directory、file、type、function の名前が同じ責務やドメインを指すようにそろえる
 - shared / public API、platform type を扱う property / function は型を明示する
 
 ### Formatting
@@ -168,6 +187,7 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - `@param` と `@return` は長い補足が必要な場合だけ使い、通常は本文中で `[parameter]` を参照する
 - library 的に扱う shared API では visibility、return type、property type を明示する
 - override を除く public member は必要に応じて KDoc を付け、契約や失敗条件を曖昧にしない
+- public 以外でも、責務や副作用が読み取りにくい method には直前コメントを付けて機能を説明する
 
 ## Recommended Procedure
 
@@ -181,10 +201,12 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - 既存コードの命名と整形が大きく崩れないように合わせる
    - Kotlin は package / directory、ファイル名、class layout、modifier 順、annotation 位置、trailing comma を確認する
    - KMP では `commonMain` と platform source set でファイル suffix の付け方を確認する
-   - 単一式 function の expression body、`val` 優先、immutable collection interface、default parameter、named argument の活用余地を確認する
-   - public / shared API と platform type 周りでは明示型、KDoc、visibility の明確さを確認する
-   - Swift は use site で読んだときの明確さ、base name と argument label の自然さ、mutating / nonmutating の対称性を確認する
-   - Swift の Boolean / protocol / factory / initializer 命名、DocC summary、default parameter の配置を確認する
+- 単一式 function の expression body、`val` 優先、immutable collection interface、default parameter、named argument の活用余地を確認する
+- public / shared API と platform type 周りでは明示型、KDoc、visibility の明確さを確認する
+- method の直前コメントで機能と責務が読み取れるか確認する
+- package、file、type、method の命名が責務と一致し、レイヤーやドメインのズレがないか確認する
+- Swift は use site で読んだときの明確さ、base name と argument label の自然さ、mutating / nonmutating の対称性を確認する
+- Swift の Boolean / protocol / factory / initializer 命名、DocC summary、default parameter の配置を確認する
 
 3. 文字列を洗い出す
    - 画面表示、エラー表示、ボタン文言、プレースホルダ、空状態の文言を確認する
@@ -197,9 +219,10 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - SwiftUI View は描画と user action の橋渡しに集中させる
 
 5. null safe と異常系を実装する
-   - `!!` や強制アンラップを避ける
-   - null、空、失敗、例外、権限拒否などの分岐を明示する
-   - 成功時だけでなく失敗時の戻り先、表示、ログを決める
+- `!!` や強制アンラップを避ける
+- null、空、失敗、例外、権限拒否などの分岐を明示する
+- 成功時だけでなく失敗時の戻り先、表示、ログを決める
+- error / exception を catch したら、握りつぶさずログ、状態更新、再送出、Result 変換などで扱いを残す
 
 6. MVVM と declarative UI の前提を崩していないか確認する
    - View がロジック過多になっていないか確認する
@@ -207,4 +230,6 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - Compose / SwiftUI らしい state-driven な構造になっているか確認する
 
 7. 仕上げを確認する
-   - ファイル末尾に空行を入れる
+- ファイル末尾に空行を入れる
+- method コメントが責務と失敗時の扱いを説明できているか見直す
+- package 名と method 名、class 名が乖離していないか見直す
