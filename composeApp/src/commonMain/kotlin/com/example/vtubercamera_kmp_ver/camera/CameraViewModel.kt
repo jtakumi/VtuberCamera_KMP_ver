@@ -13,6 +13,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permissi
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_switching_lens
 
+// Coordinates shared camera state, permission transitions, preview startup, and file-picking results.
 class CameraViewModel(
     private val cameraRepository: CameraRepository,
     private val permissionRepository: PermissionRepository,
