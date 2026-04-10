@@ -13,7 +13,15 @@ import androidx.compose.ui.unit.dp
 private val AppColorScheme = darkColorScheme(
     background = AppColors.Background,
     surface = AppColors.OverlaySurface,
+    surfaceVariant = AppColors.SurfaceVariant,
+    onSurface = AppColors.OnSurface,
     onSurfaceVariant = AppColors.OverlayTextSecondary,
+    primary = AppColors.Primary,
+    onPrimary = AppColors.OnPrimary,
+    errorContainer = AppColors.ErrorContainer,
+    onErrorContainer = AppColors.OnErrorContainer,
+    secondaryContainer = AppColors.SecondaryContainer,
+    onSecondaryContainer = AppColors.OnSecondaryContainer,
     scrim = AppColors.Background,
 )
 
