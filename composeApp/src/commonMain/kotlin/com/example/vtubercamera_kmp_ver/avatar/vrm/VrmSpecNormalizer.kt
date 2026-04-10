@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.avatar.vrm
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 
 internal object VrmSpecNormalizer {
+    // 解析済み VRM 拡張情報を実行時利用向けの共通ディスクリプタへ正規化する。
     fun normalize(
         extension: ParsedVrmExtension,
         assetVersion: String?,
@@ -32,17 +33,20 @@ internal object VrmSpecNormalizer {
         )
     }
 
+    // VRM メタ情報をランタイム用メタモデルへ変換する。
     private fun ParsedVrmMeta.toRuntimeMeta(): VrmRuntimeMeta = VrmRuntimeMeta(
         avatarName = avatarName,
         authors = authors,
         version = version,
     )
 
+    // ヒューマノイドボーン定義を正規化済みのバインディングへ変換する。
     private fun ParsedHumanoidBone.toRuntimeBinding(): VrmHumanoidBoneBinding = VrmHumanoidBoneBinding(
         boneName = normalizeHumanoidBoneName(name),
         nodeIndex = nodeIndex,
     )
 
+    // 表情定義をランタイムで扱う表情記述へ変換する。
     private fun ParsedVrmExpression.toRuntimeExpression(): VrmExpressionDescriptor = VrmExpressionDescriptor(
         runtimeName = runtimeName,
         displayName = displayName,
@@ -54,37 +58,44 @@ internal object VrmSpecNormalizer {
         overrideMouth = overrideMouth,
     )
 
+    // モーフターゲットのバインド情報を実行時形式へ変換する。
     private fun ParsedMorphTargetBind.toRuntimeBind(): VrmMorphTargetBind = VrmMorphTargetBind(
         nodeIndex = nodeIndex,
         morphTargetIndex = morphTargetIndex,
         weight = weight,
     )
 
+    // LookAt 設定をランタイム用の視線追従定義へ変換する。
     private fun ParsedLookAt.toRuntimeLookAt(): VrmLookAtDescriptor = VrmLookAtDescriptor(
         type = type,
         offsetFromHeadBone = offsetFromHeadBone?.toRuntimeFloat3(),
     )
 
+    // 一人称表示設定をランタイム用ディスクリプタへ変換する。
     private fun ParsedFirstPerson.toRuntimeFirstPerson(): VrmFirstPersonDescriptor = VrmFirstPersonDescriptor(
         firstPersonBone = firstPersonBone,
         meshAnnotationIndices = meshAnnotationIndices,
     )
 
+    // パース済み 3 次元ベクトルを共通 Float3 モデルへ詰め替える。
     private fun ParsedFloat3.toRuntimeFloat3(): VrmFloat3 = VrmFloat3(
         x = x,
         y = y,
         z = z,
     )
 
+    // ASCII の英大文字を英小文字へ変換する。
     private fun asciiLowercaseChar(char: Char): Char = when (char) {
         in 'A'..'Z' -> (char.code + ('a'.code - 'A'.code)).toChar()
         else -> char
     }
 
+    // 文字列全体を ASCII ベースで小文字化する。
     private fun asciiLowercase(value: String): String = buildString(value.length) {
         value.forEach { char -> append(asciiLowercaseChar(char)) }
     }
 
+    // 文字列先頭だけを ASCII ベースで小文字化する。
     private fun lowercaseAsciiFirstChar(value: String): String {
         if (value.isEmpty()) return value
         val firstChar = asciiLowercaseChar(value[0])
@@ -95,6 +106,7 @@ internal object VrmSpecNormalizer {
         }
     }
 
+    // VRM ごとの差異を吸収してヒューマノイドボーン名を正規化する。
     private fun normalizeHumanoidBoneName(rawName: String): String {
         val trimmedName = rawName.trim()
         if (trimmedName.isEmpty()) return trimmedName
