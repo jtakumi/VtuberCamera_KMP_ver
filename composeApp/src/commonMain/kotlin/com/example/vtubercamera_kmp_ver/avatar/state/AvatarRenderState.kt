@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
 
-// `Lost` keeps the last avatar state available while the mapper decays back to neutral.
+// `Lost` は、マッパーがニュートラルへ戻していく間も直前のアバター状態を保持する。
 enum class AvatarTrackingStatus {
     NotTracked,
     Tracking,
