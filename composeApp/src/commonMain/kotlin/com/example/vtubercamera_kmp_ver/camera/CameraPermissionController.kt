@@ -9,7 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.StringResource
 
-// Holds the latest camera permission state and delegates permission requests for the current screen.
+// 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
 @Stable
 class CameraPermissionController(
     isGranted: Boolean,
@@ -41,13 +41,13 @@ class CameraPermissionController(
     }
 }
 
-// Exposes a platform file picker trigger to shared UI code.
+// 共有 UI から呼び出せるように、プラットフォーム側のファイルピッカー起動処理を公開する。
 @Stable
 data class FilePickerLauncher(
     val launch: () -> Unit,
 )
 
-// Describes the avatar metadata shown after a file has been selected and parsed successfully.
+// ファイル選択と解析が成功したあとに表示するアバターのメタデータ。
 @Immutable
 data class AvatarPreviewData(
     val fileName: String,
@@ -89,7 +89,7 @@ sealed interface FilePickerResult {
     data object Cancelled : FilePickerResult
 }
 
-// Carries a localized validation or IO error from platform file picking back to shared state.
+// プラットフォーム側のファイル選択で発生した検証エラーや IO エラーを、共有状態へローカライズ済みで返す。
 class FilePickerException(
     val messageRes: StringResource,
 ) : IllegalArgumentException()
