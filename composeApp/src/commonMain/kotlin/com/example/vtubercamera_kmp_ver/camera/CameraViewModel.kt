@@ -70,7 +70,7 @@ class CameraViewModel(
                     _uiState.update { it.copy(lensFacing = resolvedLens, message = null) }
                 }
                 .onFailure {
-                    setError(CameraError.PreviewInitializationFailed)
+                    setError(it.toCameraError(CameraError.PreviewInitializationFailed))
                 }
         }
     }
@@ -207,7 +207,7 @@ class CameraViewModel(
     private suspend fun startCameraPreview() {
         val initialLensResult = cameraRepository.resolveInitialLens(_uiState.value.lensFacing)
         if (initialLensResult.isFailure) {
-            setError(CameraError.CameraUnavailable)
+            setError(initialLensResult.exceptionOrNull().toCameraError(CameraError.CameraUnavailable))
             return
         }
         val initialLens = initialLensResult.getOrDefault(_uiState.value.lensFacing)
@@ -217,7 +217,7 @@ class CameraViewModel(
                 _uiState.update { it.copy(lensFacing = resolvedLens) }
             }
             .onFailure {
-                setError(CameraError.PreviewInitializationFailed)
+                setError(it.toCameraError(CameraError.PreviewInitializationFailed))
             }
     }
 
@@ -231,6 +231,9 @@ class CameraViewModel(
         }
     }
 }
+
+private fun Throwable?.toCameraError(fallback: CameraError): CameraError =
+    (this as? CameraRepositoryException)?.error ?: fallback
 
 private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
     FaceTrackingDisplayState(

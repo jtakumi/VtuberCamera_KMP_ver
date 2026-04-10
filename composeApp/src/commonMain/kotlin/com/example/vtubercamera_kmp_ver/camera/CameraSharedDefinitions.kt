@@ -58,6 +58,8 @@ fun CameraError.toCameraMessage(): CameraMessage {
     )
 }
 
+class CameraRepositoryException(val error: CameraError) : Exception(error.name)
+
 interface CameraRepository {
     suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing>
 

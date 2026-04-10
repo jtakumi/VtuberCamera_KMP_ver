@@ -408,7 +408,7 @@ actual fun rememberCameraRepositories(
 
                 override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
                     val resolvedLens = resolveAvailableLens(lensFacing)
-                        ?: return Result.failure(IllegalStateException("No available camera lens"))
+                        ?: return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
                     pendingLensFacing = resolvedLens
                     previewState.value = PreviewState.Preparing
                     return Result.success(resolvedLens)
@@ -424,7 +424,7 @@ actual fun rememberCameraRepositories(
                     val targetLens = current.toggled()
                     if (cameraDevice(targetLens.toDevicePosition()) == null) {
                         previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
-                        return Result.failure(IllegalStateException("Requested lens is unavailable"))
+                        return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
                     }
                     pendingLensFacing = targetLens
                     return Result.success(targetLens)
@@ -432,7 +432,7 @@ actual fun rememberCameraRepositories(
 
                 override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
                     val resolvedLens = resolveAvailableLens(preferred)
-                        ?: return Result.failure(IllegalStateException("No available camera lens"))
+                        ?: return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
                     return Result.success(resolvedLens)
                 }
 
