@@ -64,6 +64,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_fail
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 
 @Composable
+// カメラ権限の現在状態を監視し、権限要求処理を組み立てたコントローラーを保持する。
 actual fun rememberCameraPermissionController(): CameraPermissionController {
     val controller = remember {
         CameraPermissionController(
@@ -110,6 +111,7 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 }
 
 @Composable
+// iOS のドキュメントピッカーを起動するランチャーを生成する。
 actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher {
     val onFilePickedState = rememberUpdatedState(onFilePicked)
     val pickerDelegate = remember {
@@ -141,6 +143,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 }
 
 @Composable
+// Compose 上に iOS カメラプレビューを表示し、レンズ切り替えと開始停止を管理する。
 actual fun CameraPreviewHost(
     modifier: Modifier,
     cameraRepository: CameraRepository,
@@ -186,6 +189,7 @@ actual fun CameraPreviewHost(
 }
 
 @Composable
+// 選択中アバターの簡易プレビューを重ねて表示する。
 actual fun AvatarPreviewOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier,
@@ -199,6 +203,7 @@ actual fun AvatarPreviewOverlay(
 }
 
 @Composable
+// カメラ画面の下部にアバター本体用のオーバーレイを表示する。
 actual fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
     modifier: Modifier,
@@ -231,6 +236,7 @@ actual fun AvatarBodyOverlay(
 private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
     private var hostedPreviewLayer: AVCaptureVideoPreviewLayer? = null
 
+    // AVFoundation のプレビュー層を UIKit ビューへ紐付ける。
     fun bindPreviewLayer(previewLayer: AVCaptureVideoPreviewLayer) {
         if (hostedPreviewLayer !== previewLayer || previewLayer.superlayer != layer) {
             previewLayer.removeFromSuperlayer()
@@ -240,6 +246,7 @@ private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
         setNeedsLayout()
     }
 
+    // ビューのサイズ変更に合わせてプレビュー層の描画範囲を更新する。
     override fun layoutSubviews() {
         super.layoutSubviews()
         hostedPreviewLayer?.frame = bounds
@@ -250,6 +257,7 @@ private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
 private class IOSDocumentPickerDelegate(
     private val onFilePicked: (FilePickerResult) -> Unit,
 ) : NSObject(), UIDocumentPickerDelegateProtocol {
+    // ユーザーが選択したファイル URL を共有形式へ変換して返す。
     override fun documentPicker(
         controller: UIDocumentPickerViewController,
         didPickDocumentsAtURLs: List<*>,
@@ -263,11 +271,13 @@ private class IOSDocumentPickerDelegate(
         onFilePicked(selectedUrl.toFilePickerResult())
     }
 
+    // ドキュメントピッカーのキャンセル結果を呼び出し元へ通知する。
     override fun documentPickerWasCancelled(controller: UIDocumentPickerViewController) {
         onFilePicked(FilePickerResult.Cancelled)
     }
 }
 
+// 現在画面上に表示中の UIViewController をたどって取得する。
 private fun currentPresentedViewController(): UIViewController? {
     var currentViewController = UIApplication.sharedApplication.windows
         .filterIsInstance<UIWindow>()
@@ -281,6 +291,7 @@ private fun currentPresentedViewController(): UIViewController? {
     return currentViewController
 }
 
+// 選択されたファイル URL を読み込み、アバタープレビュー結果へ変換する。
 private fun NSURL.toFilePickerResult(): FilePickerResult {
     val fileName = lastPathComponent ?: "selected.glb"
     val didAccessResource = startAccessingSecurityScopedResource()
@@ -301,6 +312,7 @@ private fun NSURL.toFilePickerResult(): FilePickerResult {
     }
 }
 
+// NSData を Kotlin の ByteArray へコピー変換する。
 private fun NSData.toByteArray(): ByteArray {
     val byteCount = length().toInt()
     if (byteCount == 0) {
@@ -314,6 +326,7 @@ private fun NSData.toByteArray(): ByteArray {
     }
 }
 
+// ファイル読み込み時の例外を UI 表示用のエラー型へ変換する。
 private fun Throwable.toFilePickerError(): FilePickerResult.Error {
     val messageRes = when (this) {
         is FilePickerException -> messageRes
@@ -334,10 +347,12 @@ private class IOSCameraSessionManager {
         previewLayer.videoGravity = "AVLayerVideoGravityResizeAspectFill"
     }
 
+    // プレビュー層を表示用ビューへ接続する。
     fun bindPreview(to: CameraPreviewView) {
         to.bindPreviewLayer(previewLayer)
     }
 
+    // 指定レンズでカメラ入力を構成し、プレビュー開始結果をコールバックする。
     fun startPreview(
         requestedLensFacing: CameraLensFacing,
         onComplete: (resolvedLens: CameraLensFacing, error: Throwable?) -> Unit,
@@ -383,6 +398,7 @@ private class IOSCameraSessionManager {
         }
     }
 
+    // 実行中のカメラプレビューを停止する。
     fun stopPreview() {
         dispatch_async(sessionQueue) {
             if (session.running) {
@@ -391,6 +407,7 @@ private class IOSCameraSessionManager {
         }
     }
 
+    // 要求レンズが使えない場合は利用可能な別レンズへフォールバックする。
     private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing? {
         if (cameraDevice(requested.toDevicePosition()) != null) {
             return requested
@@ -406,6 +423,7 @@ private class IOSCameraSessionManager {
 }
 
 @Composable
+// iOS 実装のカメラ関連リポジトリ群を生成して Compose に保持する。
 actual fun rememberCameraRepositories(
     permissionController: CameraPermissionController,
 ): CameraRepositories {
@@ -415,6 +433,7 @@ actual fun rememberCameraRepositories(
             cameraRepository = object : CameraRepository {
                 private var pendingLensFacing: CameraLensFacing? = null
 
+                // プレビュー開始前の状態を整え、利用可能なレンズを解決する。
                 override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
                     val resolvedLens = resolveAvailableLens(lensFacing)
                         ?: return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
@@ -423,11 +442,13 @@ actual fun rememberCameraRepositories(
                     return Result.success(resolvedLens)
                 }
 
+                // プレビュー停止に合わせて内部状態を初期化する。
                 override suspend fun stopPreview() {
                     pendingLensFacing = null
                     previewState.value = PreviewState.Preparing
                 }
 
+                // 現在と反対側のレンズへ切り替え可能か確認して反映する。
                 override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
                     previewState.value = PreviewState.Preparing
                     val targetLens = current.toggled()
@@ -439,14 +460,17 @@ actual fun rememberCameraRepositories(
                     return Result.success(targetLens)
                 }
 
+                // 初回表示時に利用できるレンズを決定する。
                 override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
                     val resolvedLens = resolveAvailableLens(preferred)
                         ?: return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
                     return Result.success(resolvedLens)
                 }
 
+                // プレビュー状態の変更を監視する Flow を返す。
                 override fun observePreviewState(): kotlinx.coroutines.flow.Flow<PreviewState> = previewState
 
+                // ネイティブ側でプレビュー開始が完了したことを状態へ反映する。
                 override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
                     if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
                         pendingLensFacing = lensFacing
@@ -454,6 +478,7 @@ actual fun rememberCameraRepositories(
                     }
                 }
 
+                // ネイティブ側のプレビュー開始失敗を状態へ反映する。
                 override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
                     if (pendingLensFacing == lensFacing) {
                         pendingLensFacing = null
@@ -462,6 +487,7 @@ actual fun rememberCameraRepositories(
                 }
             },
             permissionRepository = object : PermissionRepository {
+                // 現在の iOS カメラ権限状態を共通の PermissionState へ変換する。
                 private fun currentPermissionState(): PermissionState {
                     return when (AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)) {
                         AVAuthorizationStatusAuthorized -> PermissionState.Granted
@@ -470,10 +496,12 @@ actual fun rememberCameraRepositories(
                     }
                 }
 
+                // 現在のカメラ権限状態を確認する。
                 override suspend fun checkCameraPermission(): PermissionState {
                     return currentPermissionState()
                 }
 
+                // カメラ権限要求を実行し、その後の状態を返す。
                 override suspend fun requestCameraPermission(): PermissionState {
                     permissionController.requestPermission()
                     return currentPermissionState()
@@ -483,6 +511,7 @@ actual fun rememberCameraRepositories(
     }
 }
 
+// 指定レンズが使えない場合に代替レンズを含めて利用可否を解決する。
 private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing? {
     if (cameraDevice(requested.toDevicePosition()) != null) {
         return requested
@@ -496,11 +525,13 @@ private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing?
     }
 }
 
+// 共通のレンズ向きを AVFoundation のデバイス向きへ変換する。
 private fun CameraLensFacing.toDevicePosition() = when (this) {
     CameraLensFacing.Front -> AVCaptureDevicePositionFront
     CameraLensFacing.Back -> AVCaptureDevicePositionBack
 }
 
+// 指定位置に対応する iOS カメラデバイスを取得する。
 private fun cameraDevice(position: platform.AVFoundation.AVCaptureDevicePosition): AVCaptureDevice? {
     return AVCaptureDevice.devicesWithMediaType(AVMediaTypeVideo)
         .filterIsInstance<AVCaptureDevice>()
