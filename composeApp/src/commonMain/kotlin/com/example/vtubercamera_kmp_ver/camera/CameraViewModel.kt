@@ -13,7 +13,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permissi
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_switching_lens
 
-// Coordinates shared camera state, permission transitions, preview startup, and file-picking results.
+// 共有のカメラ状態、権限遷移、プレビュー開始、ファイル選択結果をまとめて制御する。
 class CameraViewModel(
     private val cameraRepository: CameraRepository,
     private val permissionRepository: PermissionRepository,
