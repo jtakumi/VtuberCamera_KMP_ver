@@ -18,11 +18,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -68,39 +65,48 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
-    var isGranted by remember { mutableStateOf(false) }
-    var isChecking by remember { mutableStateOf(true) }
+    val controller = remember {
+        CameraPermissionController(
+            isGranted = false,
+            isChecking = true,
+            requestPermissionAction = {},
+        )
+    }
 
     LaunchedEffect(Unit) {
         val status = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
-        isGranted = status == AVAuthorizationStatusAuthorized
-        isChecking = false
-    }
-
-    return remember(isGranted, isChecking) {
-        CameraPermissionController(
-            isGranted = isGranted,
-            isChecking = isChecking,
-            requestPermission = {
-                val current = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
-                if (current == AVAuthorizationStatusAuthorized) {
-                    isGranted = true
-                    isChecking = false
-                } else if (current != AVAuthorizationStatusNotDetermined) {
-                    isGranted = false
-                    isChecking = false
-                } else {
-                    isChecking = true
-                    AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
-                        dispatch_async(dispatch_get_main_queue()) {
-                            isGranted = granted
-                            isChecking = false
-                        }
-                    }
-                }
-            },
+        controller.update(
+            isGranted = status == AVAuthorizationStatusAuthorized,
+            isChecking = false,
         )
     }
+
+    controller.updateRequestPermissionAction {
+        val current = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
+        if (current == AVAuthorizationStatusAuthorized) {
+            controller.update(
+                isGranted = true,
+                isChecking = false,
+            )
+        } else if (current != AVAuthorizationStatusNotDetermined) {
+            controller.update(
+                isGranted = false,
+                isChecking = false,
+            )
+        } else {
+            controller.update(isChecking = true)
+            AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
+                dispatch_async(dispatch_get_main_queue()) {
+                    controller.update(
+                        isGranted = granted,
+                        isChecking = false,
+                    )
+                }
+            }
+        }
+    }
+
+    return controller
 }
 
 @Composable
@@ -221,6 +227,7 @@ actual fun AvatarBodyOverlay(
     }
 }
 
+// Hosts the AVFoundation preview layer inside a UIKit view managed from Compose.
 private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
     private var hostedPreviewLayer: AVCaptureVideoPreviewLayer? = null
 
@@ -239,6 +246,7 @@ private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
     }
 }
 
+// Adapts UIDocumentPicker callbacks into shared file-picker results.
 private class IOSDocumentPickerDelegate(
     private val onFilePicked: (FilePickerResult) -> Unit,
 ) : NSObject(), UIDocumentPickerDelegateProtocol {
@@ -314,6 +322,7 @@ private fun Throwable.toFilePickerError(): FilePickerResult.Error {
     return FilePickerResult.Error(messageRes)
 }
 
+// Owns the iOS camera session lifecycle and resolves usable lenses for preview startup.
 private class IOSCameraSessionManager {
     private val session = AVCaptureSession()
     private val previewLayer = AVCaptureVideoPreviewLayer(session = session)
