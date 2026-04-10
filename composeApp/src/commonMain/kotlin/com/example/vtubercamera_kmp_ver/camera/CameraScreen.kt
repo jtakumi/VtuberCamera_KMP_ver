@@ -1,6 +1,5 @@
 package com.example.vtubercamera_kmp_ver.camera
 
-import CameraUiState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,6 +32,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_t
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_left
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_right
@@ -49,11 +49,21 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_butt
 @Composable
 fun CameraRoute(
     modifier: Modifier = Modifier,
-    cameraViewModel: CameraViewModel = viewModel { CameraViewModel() },
 ) {
     val permissionController = rememberCameraPermissionController()
+    val repositories = rememberCameraRepositories(permissionController)
+    val cameraViewModel: CameraViewModel = viewModel {
+        CameraViewModel(
+            cameraRepository = repositories.cameraRepository,
+            permissionRepository = repositories.permissionRepository,
+        )
+    }
     val filePickerLauncher = rememberFilePickerLauncher(cameraViewModel::onFilePicked)
     val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        cameraViewModel.initialize()
+    }
 
     LaunchedEffect(permissionController.isGranted, permissionController.isChecking) {
         cameraViewModel.onPermissionStateChanged(
@@ -64,8 +74,10 @@ fun CameraRoute(
 
     CameraScreen(
         modifier = modifier,
+        cameraRepository = repositories.cameraRepository,
         uiState = uiState,
-        onRequestPermission = permissionController.requestPermission,
+        onRequestPermission = cameraViewModel::onRequestPermission,
+        onRetryPreview = cameraViewModel::onRetryPreview,
         onOpenFilePicker = filePickerLauncher.launch,
         onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
         onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
@@ -76,8 +88,10 @@ fun CameraRoute(
 
 @Composable
 fun CameraScreen(
+    cameraRepository: CameraRepository,
     uiState: CameraUiState,
     onRequestPermission: () -> Unit,
+    onRetryPreview: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onDismissFilePickerError: () -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -85,6 +99,8 @@ fun CameraScreen(
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val previewError = uiState.previewState as? PreviewState.Error
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -92,15 +108,30 @@ fun CameraScreen(
     ) {
         when {
             uiState.isPermissionChecking -> LoadingState()
+            uiState.permissionState == PermissionState.Denied -> PermissionDeniedState(
+                onRequestPermission = onRequestPermission,
+            )
+            previewError != null -> CameraErrorState(
+                error = previewError.error,
+                onRetryPreview = onRetryPreview,
+            )
             uiState.isPermissionGranted -> CameraPreviewState(
+                cameraRepository = cameraRepository,
                 uiState = uiState,
                 onOpenFilePicker = onOpenFilePicker,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
             )
-            else -> PermissionDeniedState(
-                onRequestPermission = onRequestPermission,
+            else -> LoadingState()
+        }
+
+        uiState.message?.let { message ->
+            CameraMessageBanner(
+                message = message,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(MaterialTheme.spacing.lg),
             )
         }
 
@@ -121,6 +152,7 @@ fun CameraScreen(
 
 @Composable
 private fun CameraPreviewState(
+    cameraRepository: CameraRepository,
     uiState: CameraUiState,
     onOpenFilePicker: () -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -130,6 +162,7 @@ private fun CameraPreviewState(
     Box(modifier = Modifier.fillMaxSize()) {
         CameraPreviewHost(
             modifier = Modifier.fillMaxSize(),
+            cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
@@ -270,6 +303,38 @@ private fun FaceTrackingMetricRow(
 
 
 @Composable
+private fun CameraMessageBanner(
+    message: CameraMessage,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        color = if (message.type == CameraMessageType.Error) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.secondaryContainer
+        },
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+    ) {
+        Text(
+            text = stringResource(
+                message.messageRes,
+                *message.formatArgs.toTypedArray(),
+            ),
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.sm,
+            ),
+            color = if (message.type == CameraMessageType.Error) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            },
+        )
+    }
+}
+
+@Composable
 private fun LoadingState() {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -304,6 +369,32 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
         )
         Button(onClick = onRequestPermission) {
             Text(stringResource(Res.string.camera_permission_request_button))
+        }
+    }
+}
+
+@Composable
+private fun CameraErrorState(
+    error: CameraError,
+    onRetryPreview: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = MaterialTheme.spacing.lg),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(error.toCameraMessage().messageRes),
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+        )
+        Button(
+            onClick = onRetryPreview,
+            modifier = Modifier.padding(top = MaterialTheme.spacing.lg),
+        ) {
+            Text(stringResource(Res.string.camera_retry_button))
         }
     }
 }

@@ -2,7 +2,7 @@
 
 VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、将来の VTuber / AR / VRM 機能へつながるカメラ基盤を段階的に整備しています。
 
-現時点では、カメラ MVP の土台作りが中心です。特に Android 側は CameraX を使ったプレビューとカメラ切り替えまで入り、iOS 側は SwiftUI + AVFoundation でネイティブ実装が進んでいます。
+現時点では、カメラ MVP の土台作りが中心です。特に Android 側は CameraX を使ったプレビューとカメラ切り替えまで入り、iOS 側は Compose Multiplatform host + AVFoundation の実装が進んでいます。
 
 ## 現在の実装状況
 
@@ -16,10 +16,10 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 ### iOS
 
-- SwiftUI + AVFoundation によるネイティブカメラプレビュー
+- Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
-- `fileImporter` によるファイル選択
+- `UIDocumentPickerViewController` によるファイル選択
 
 ### 共有コードで扱っているもの
 

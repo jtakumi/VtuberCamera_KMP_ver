@@ -2,21 +2,52 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.StringResource
 
-@Immutable
-data class CameraPermissionController(
-    val isGranted: Boolean,
-    val isChecking: Boolean,
-    val requestPermission: () -> Unit,
-)
+// Holds the latest camera permission state and delegates permission requests for the current screen.
+@Stable
+class CameraPermissionController(
+    isGranted: Boolean,
+    isChecking: Boolean,
+    requestPermissionAction: () -> Unit,
+) {
+    var isGranted by mutableStateOf(isGranted)
+        internal set
 
-@Immutable
+    var isChecking by mutableStateOf(isChecking)
+        internal set
+
+    private var requestPermissionAction: () -> Unit = requestPermissionAction
+
+    fun requestPermission() {
+        requestPermissionAction()
+    }
+
+    internal fun updateRequestPermissionAction(requestPermissionAction: () -> Unit) {
+        this.requestPermissionAction = requestPermissionAction
+    }
+
+    internal fun update(
+        isGranted: Boolean = this.isGranted,
+        isChecking: Boolean = this.isChecking,
+    ) {
+        this.isGranted = isGranted
+        this.isChecking = isChecking
+    }
+}
+
+// Exposes a platform file picker trigger to shared UI code.
+@Stable
 data class FilePickerLauncher(
     val launch: () -> Unit,
 )
 
+// Describes the avatar metadata shown after a file has been selected and parsed successfully.
 @Immutable
 data class AvatarPreviewData(
     val fileName: String,
@@ -58,6 +89,7 @@ sealed interface FilePickerResult {
     data object Cancelled : FilePickerResult
 }
 
+// Carries a localized validation or IO error from platform file picking back to shared state.
 class FilePickerException(
     val messageRes: StringResource,
 ) : IllegalArgumentException()
@@ -71,6 +103,7 @@ expect fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 @Composable
 expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
+    cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
