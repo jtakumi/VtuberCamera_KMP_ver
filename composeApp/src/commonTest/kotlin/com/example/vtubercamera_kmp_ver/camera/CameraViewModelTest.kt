@@ -69,6 +69,7 @@ import kotlin.test.Test
  *                uiState.filePickerErrorMessageRes is set to the appropriate StringResource;
  *                onDismissFilePickerError() clears it.
  */
+// Collects pending unit-test scenarios for the shared camera state machine.
 class CameraViewModelTest {
 
     // ---------------------------------------------------------------------------
