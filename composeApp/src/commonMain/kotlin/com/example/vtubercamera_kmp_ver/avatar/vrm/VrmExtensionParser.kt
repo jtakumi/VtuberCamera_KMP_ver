@@ -97,40 +97,6 @@ object VrmExtensionParser {
         )
     }
 
-    internal fun parsePreviewMetadata(document: VrmGlbDocument): Result<VrmPreviewMetadata> = runCatching {
-        val previewMetadata = document.root.parseVrmPreviewMetadata()
-            ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
-
-        previewMetadata.copy(
-            vrmVersion = previewMetadata.vrmVersion ?: document.assetVersion,
-        )
-    }
-
-    private fun JsonObject.parseVrmPreviewMetadata(): VrmPreviewMetadata? {
-        val extensions = childObject("extensions") ?: return null
-        extensions.childObject("VRMC_vrm")?.let { vrm1Extension ->
-            val meta = vrm1Extension.childObject("meta")
-            return VrmPreviewMetadata(
-                avatarName = meta?.string("name"),
-                authors = meta?.stringArray("authors").orEmpty(),
-                vrmVersion = meta?.string("version") ?: vrm1Extension.string("specVersion"),
-                thumbnailImageIndex = meta?.int("thumbnailImage"),
-            )
-        }
-
-        extensions.childObject("VRM")?.let { vrm0Extension ->
-            val meta = vrm0Extension.childObject("meta")
-            return VrmPreviewMetadata(
-                avatarName = meta?.string("title"),
-                authors = listOfNotNull(meta?.string("author")),
-                vrmVersion = meta?.string("version"),
-                thumbnailImageIndex = resolveVrm0ThumbnailImageIndex(vrm0Extension),
-            )
-        }
-
-        return null
-    }
-
     private fun JsonObject.parseVrmExtension(): ParsedVrmExtension? {
         val extensions = childObject("extensions") ?: return null
         extensions.childObject("VRMC_vrm")?.let { vrm1Extension ->
@@ -442,13 +408,6 @@ internal data class VrmGlbDocument(
         return bytes.copyOfRange(start, end)
     }
 }
-
-internal data class VrmPreviewMetadata(
-    val avatarName: String?,
-    val authors: List<String>,
-    val vrmVersion: String?,
-    val thumbnailImageIndex: Int?,
-)
 
 internal enum class VrmAssetParseFailureKind {
     InvalidFileType,
