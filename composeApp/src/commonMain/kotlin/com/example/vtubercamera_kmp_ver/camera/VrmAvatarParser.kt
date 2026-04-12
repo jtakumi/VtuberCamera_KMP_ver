@@ -20,14 +20,14 @@ object VrmAvatarParser {
         val document = VrmExtensionParser.parseDocument(bytes).getOrElse { throwable ->
             return Result.failure(throwable.toFilePickerException())
         }
-        val descriptor = VrmExtensionParser.parseRuntimeAssetDescriptor(document).getOrElse { throwable ->
+        val previewDescriptor = VrmExtensionParser.parsePreviewAssetDescriptor(document).getOrElse { throwable ->
             return Result.failure(throwable.toFilePickerException())
         }
 
-        val avatarName = descriptor.meta.avatarName ?: fileName.substringBeforeLast('.')
-        val authorName = descriptor.meta.authors.firstOrNull()
-        val vrmVersion = descriptor.meta.version ?: descriptor.rawSpecVersion ?: descriptor.assetVersion
-        val thumbnailBytes = descriptor.thumbnailImageIndex?.let { imageIndex ->
+        val avatarName = previewDescriptor.meta.avatarName ?: fileName.substringBeforeLast('.')
+        val authorName = previewDescriptor.meta.authors.firstOrNull()
+        val vrmVersion = previewDescriptor.meta.version ?: previewDescriptor.rawSpecVersion ?: previewDescriptor.assetVersion
+        val thumbnailBytes = previewDescriptor.thumbnailImageIndex?.let { imageIndex ->
             document.extractImageBytes(imageIndex)
         }
 

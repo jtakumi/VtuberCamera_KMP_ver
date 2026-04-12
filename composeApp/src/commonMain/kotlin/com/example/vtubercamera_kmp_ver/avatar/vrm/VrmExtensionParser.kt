@@ -23,6 +23,11 @@ object VrmExtensionParser {
             parseRuntimeAssetDescriptor(document).getOrThrow()
         }
 
+    fun parsePreviewAssetDescriptor(bytes: ByteArray): Result<VrmPreviewAssetDescriptor> =
+        parseDocument(bytes).mapCatching { document ->
+            parsePreviewAssetDescriptor(document).getOrThrow()
+        }
+
     internal fun parseDocument(bytes: ByteArray): Result<VrmGlbDocument> = runCatching {
         if (bytes.size < 20) {
             throw VrmAssetParseException(VrmAssetParseFailureKind.ReadFailed)
@@ -92,6 +97,16 @@ object VrmExtensionParser {
             ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
 
         VrmSpecNormalizer.normalize(
+            extension = parsedExtension,
+            assetVersion = document.assetVersion,
+        )
+    }
+
+    internal fun parsePreviewAssetDescriptor(document: VrmGlbDocument): Result<VrmPreviewAssetDescriptor> = runCatching {
+        val parsedExtension = document.root.parseVrmExtension()
+            ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
+
+        VrmSpecNormalizer.normalizePreview(
             extension = parsedExtension,
             assetVersion = document.assetVersion,
         )
