@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.camera
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -159,61 +161,114 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
+    val avatarPreview = uiState.avatarPreview
+
     Box(modifier = Modifier.fillMaxSize()) {
-        CameraPreviewHost(
-            modifier = Modifier.fillMaxSize(),
+        CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
-            onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+            onLensFacingChanged = onLensFacingChanged,
         )
-        uiState.avatarPreview?.let { avatarPreview ->
-            AvatarBodyOverlay(
-                avatarPreview = avatarPreview,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        start = MaterialTheme.spacing.lg,
-                        end = MaterialTheme.spacing.lg,
-                        top = MaterialTheme.spacing.xl * 2,
-                        bottom = MaterialTheme.spacing.xl,
-                    ),
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(MaterialTheme.spacing.xl),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(onClick = onOpenFilePicker) {
-                Text(stringResource(Res.string.file_picker_open_button))
-            }
-            Button(onClick = onLensFacingToggle) {
-                Text(stringResource(Res.string.camera_switch_button))
-            }
-        }
-        uiState.avatarPreview?.let { avatarPreview ->
-            AvatarPreviewOverlay(
-                avatarPreview = avatarPreview,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(MaterialTheme.spacing.xl),
-            )
-        }
-        FaceTrackingOverlay(
+        CameraRendererLayer(
+            avatarPreview = avatarPreview,
+            avatarRenderState = uiState.avatarRenderState,
+        )
+        CameraUiLayer(
+            avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(
-                    start = MaterialTheme.spacing.xl,
-                    top = MaterialTheme.spacing.xl * 5,
-                ),
+            onOpenFilePicker = onOpenFilePicker,
+            onLensFacingToggle = onLensFacingToggle,
         )
     }
+}
+
+@Composable
+// カメラ映像の背景レイヤーを全画面で表示する。
+private fun CameraBackgroundLayer(
+    cameraRepository: CameraRepository,
+    lensFacing: CameraLensFacing,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+) {
+    CameraPreviewHost(
+        modifier = Modifier.fillMaxSize(),
+        cameraRepository = cameraRepository,
+        lensFacing = lensFacing,
+        onLensFacingChanged = onLensFacingChanged,
+        onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+    )
+}
+
+@Composable
+// platform renderer host を差し込む中間レイヤーとしてアバター描画領域を配置する。
+private fun BoxScope.CameraRendererLayer(
+    avatarPreview: AvatarPreviewData?,
+    avatarRenderState: AvatarRenderState,
+    rendererHost: @Composable BoxScope.(AvatarPreviewData, AvatarRenderState, Modifier) -> Unit = { preview, _, modifier ->
+        AvatarBodyOverlay(
+            avatarPreview = preview,
+            modifier = modifier,
+        )
+    },
+) {
+    avatarPreview ?: return
+
+    rendererHost(
+        avatarPreview,
+        avatarRenderState,
+        Modifier
+            .align(Alignment.BottomCenter)
+            .padding(
+                start = MaterialTheme.spacing.lg,
+                end = MaterialTheme.spacing.lg,
+                top = MaterialTheme.spacing.xl * 2,
+                bottom = MaterialTheme.spacing.xl,
+            ),
+    )
+}
+
+@Composable
+// カメラ操作やメタ情報などの前景 UI レイヤーを背景や renderer host の上に重ねる。
+private fun BoxScope.CameraUiLayer(
+    avatarPreview: AvatarPreviewData?,
+    faceTracking: FaceTrackingUiState,
+    onOpenFilePicker: () -> Unit,
+    onLensFacingToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(MaterialTheme.spacing.xl),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(onClick = onOpenFilePicker) {
+            Text(stringResource(Res.string.file_picker_open_button))
+        }
+        Button(onClick = onLensFacingToggle) {
+            Text(stringResource(Res.string.camera_switch_button))
+        }
+    }
+    avatarPreview?.let { preview ->
+        AvatarPreviewOverlay(
+            avatarPreview = preview,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(MaterialTheme.spacing.xl),
+        )
+    }
+    FaceTrackingOverlay(
+        faceTracking = faceTracking,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(
+                start = MaterialTheme.spacing.xl,
+                top = MaterialTheme.spacing.xl * 5,
+            ),
+    )
 }
 
 @Composable
