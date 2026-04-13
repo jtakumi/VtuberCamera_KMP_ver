@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vtubercamera_kmp_ver.avatar.mapping.FaceToAvatarMapper
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ class CameraViewModel(
     private val cameraRepository: CameraRepository,
     private val permissionRepository: PermissionRepository,
 ) : ViewModel() {
+    private val faceToAvatarMapper = FaceToAvatarMapper()
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
@@ -168,12 +170,17 @@ class CameraViewModel(
     // 顔トラッキング結果を画面表示用の状態へ変換して保持する。
     fun onFaceTrackingFrameChanged(frame: NormalizedFaceFrame?) {
         _uiState.update { currentState ->
+            val avatarRenderState = faceToAvatarMapper.map(
+                frame = frame,
+                previousState = currentState.avatarRenderState,
+            )
             currentState.copy(
                 faceTracking = FaceTrackingUiState(
                     isTracking = frame != null,
                     frame = frame,
                     display = frame?.toDisplayState(),
                 ),
+                avatarRenderState = avatarRenderState,
             )
         }
     }
