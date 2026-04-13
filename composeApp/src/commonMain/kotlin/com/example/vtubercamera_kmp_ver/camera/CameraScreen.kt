@@ -183,8 +183,10 @@ private fun CameraPreviewState(
     }
 }
 
+/**
+ * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
+ */
 @Composable
-// カメラ映像の背景レイヤーを全画面で表示する。
 private fun CameraBackgroundLayer(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
@@ -200,36 +202,69 @@ private fun CameraBackgroundLayer(
     )
 }
 
+/**
+ * platform renderer host を差し込む中間レイヤー。
+ *
+ * [rendererHost] には platform-specific または custom renderer を差し込める。
+ * 現在は avatar 選択済みのときだけ既定の static overlay host を表示する。
+ */
 @Composable
-// platform renderer host を差し込む中間レイヤーとしてアバター描画領域を配置する。
 private fun BoxScope.CameraRendererLayer(
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
-    rendererHost: @Composable BoxScope.(AvatarPreviewData, AvatarRenderState, Modifier) -> Unit = { preview, _, modifier ->
-        AvatarBodyOverlay(
-            avatarPreview = preview,
-            modifier = modifier,
-        )
-    },
+    rendererHost: @Composable BoxScope.(RendererHostSlotState) -> Unit = ::DefaultAvatarRendererHost,
 ) {
-    avatarPreview ?: return
-
-    rendererHost(
-        avatarPreview,
-        avatarRenderState,
-        Modifier
-            .align(Alignment.BottomCenter)
-            .padding(
-                start = MaterialTheme.spacing.lg,
-                end = MaterialTheme.spacing.lg,
-                top = MaterialTheme.spacing.xl * 2,
-                bottom = MaterialTheme.spacing.xl,
+    // renderer host はアバター選択済みのときだけ差し込む。
+    avatarPreview?.let { selectedAvatarPreview ->
+        rendererHost(
+            RendererHostSlotState(
+                avatarPreview = selectedAvatarPreview,
+                avatarRenderState = avatarRenderState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(
+                        start = MaterialTheme.spacing.lg,
+                        end = MaterialTheme.spacing.lg,
+                        top = MaterialTheme.spacing.xl * 2,
+                        bottom = MaterialTheme.spacing.xl,
+                    ),
             ),
+        )
+    }
+}
+
+/**
+ * renderer host slot へ渡す共有コンテキスト。
+ *
+ * [avatarPreview] は選択済みアバターのメタ情報、[avatarRenderState] は renderer が参照する追従状態、
+ * [modifier] は CameraScreen 側で決めた配置レイヤー情報を表す。
+ */
+private data class RendererHostSlotState(
+    val avatarPreview: AvatarPreviewData,
+    val avatarRenderState: AvatarRenderState,
+    val modifier: Modifier,
+)
+
+/**
+ * 現在の既定 renderer host 実装。
+ *
+ * 選択済みアバターの preview 情報で static overlay を表示しつつ、
+ * 将来の dynamic renderer 向けに [RendererHostSlotState.avatarRenderState] を slot に残す。
+ */
+@Composable
+private fun BoxScope.DefaultAvatarRendererHost(
+    state: RendererHostSlotState,
+) {
+    AvatarBodyOverlay(
+        avatarPreview = state.avatarPreview,
+        modifier = state.modifier,
     )
 }
 
+/**
+ * カメラ操作ボタン、avatar preview overlay、face tracking 情報を前景 UI として重ねる。
+ */
 @Composable
-// カメラ操作やメタ情報などの前景 UI レイヤーを背景や renderer host の上に重ねる。
 private fun BoxScope.CameraUiLayer(
     avatarPreview: AvatarPreviewData?,
     faceTracking: FaceTrackingUiState,
