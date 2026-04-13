@@ -203,10 +203,12 @@ private fun CameraBackgroundLayer(
 }
 
 /**
- * platform renderer host を差し込む中間レイヤー。
+ * platform renderer host を差し込む中間レイヤーを構成する。
  *
- * [rendererHost] には platform-specific または custom renderer を差し込める。
  * 現在は avatar 選択済みのときだけ既定の static overlay host を表示する。
+ *
+ * @param rendererHost platform-specific または custom renderer を差し込む slot。
+ * [RendererHostSlotState] を受け取り、CameraScreen が決めた renderer layer 上へ描画する。
  */
 @Composable
 private fun BoxScope.CameraRendererLayer(
@@ -234,7 +236,7 @@ private fun BoxScope.CameraRendererLayer(
 }
 
 /**
- * renderer host slot へ渡す共有コンテキスト。
+ * Represents the shared context passed to the renderer host slot.
  *
  * [avatarPreview] は選択済みアバターのメタ情報、[avatarRenderState] は renderer が参照する追従状態、
  * [modifier] は CameraScreen 側で決めた配置レイヤー情報を表す。
