@@ -23,6 +23,11 @@ object VrmExtensionParser {
             parseRuntimeAssetDescriptor(document).getOrThrow()
         }
 
+    fun parsePreviewAssetDescriptor(bytes: ByteArray): Result<VrmPreviewAssetDescriptor> =
+        parseDocument(bytes).mapCatching { document ->
+            parsePreviewAssetDescriptor(document).getOrThrow()
+        }
+
     internal fun parseDocument(bytes: ByteArray): Result<VrmGlbDocument> = runCatching {
         if (bytes.size < 20) {
             throw VrmAssetParseException(VrmAssetParseFailureKind.ReadFailed)
@@ -97,6 +102,16 @@ object VrmExtensionParser {
         )
     }
 
+    internal fun parsePreviewAssetDescriptor(document: VrmGlbDocument): Result<VrmPreviewAssetDescriptor> = runCatching {
+        val parsedExtension = document.root.parseVrmPreviewExtension()
+            ?: throw VrmAssetParseException(VrmAssetParseFailureKind.MetadataFailed)
+
+        VrmSpecNormalizer.normalizePreview(
+            extension = parsedExtension,
+            assetVersion = document.assetVersion,
+        )
+    }
+
     private fun JsonObject.parseVrmExtension(): ParsedVrmExtension? {
         val extensions = childObject("extensions") ?: return null
         extensions.childObject("VRMC_vrm")?.let { vrm1Extension ->
@@ -120,6 +135,37 @@ object VrmExtensionParser {
                 expressions = vrm0Extension.parseVrm0Expressions(),
                 lookAt = vrm0Extension.childObject("firstPerson")?.toParsedVrm0LookAt(),
                 firstPerson = vrm0Extension.childObject("firstPerson")?.toParsedFirstPerson(),
+            )
+        }
+
+        return null
+    }
+
+    // プレビュー表示に必要な specVersion / meta / thumbnailImageIndex のみを読み取る軽量パス。
+    // ヒューマノイドボーン・表情・LookAt・一人称設定は解析しない。
+    private fun JsonObject.parseVrmPreviewExtension(): ParsedVrmExtension? {
+        val extensions = childObject("extensions") ?: return null
+        extensions.childObject("VRMC_vrm")?.let { vrm1Extension ->
+            return ParsedVrm1Extension(
+                rawSpecVersion = vrm1Extension.string("specVersion"),
+                meta = vrm1Extension.childObject("meta").toParsedVrm1Meta(),
+                thumbnailImageIndex = vrm1Extension.childObject("meta")?.int("thumbnailImage"),
+                humanoidBones = emptyList(),
+                expressions = emptyList(),
+                lookAt = null,
+                firstPerson = null,
+            )
+        }
+
+        extensions.childObject("VRM")?.let { vrm0Extension ->
+            return ParsedVrm0Extension(
+                rawSpecVersion = null,
+                meta = vrm0Extension.childObject("meta").toParsedVrm0Meta(),
+                thumbnailImageIndex = resolveVrm0ThumbnailImageIndex(vrm0Extension),
+                humanoidBones = emptyList(),
+                expressions = emptyList(),
+                lookAt = null,
+                firstPerson = null,
             )
         }
 

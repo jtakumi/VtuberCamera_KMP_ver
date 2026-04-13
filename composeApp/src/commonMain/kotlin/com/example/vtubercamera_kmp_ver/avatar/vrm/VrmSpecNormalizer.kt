@@ -3,6 +3,28 @@ package com.example.vtubercamera_kmp_ver.avatar.vrm
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 
 internal object VrmSpecNormalizer {
+    // 解析済み VRM 拡張情報をプレビュー向けの共通ディスクリプタへ正規化する。
+    fun normalizePreview(
+        extension: ParsedVrmExtension,
+        assetVersion: String?,
+    ): VrmPreviewAssetDescriptor = when (extension) {
+        is ParsedVrm0Extension -> VrmPreviewAssetDescriptor(
+            specVersion = VrmSpecVersion.Vrm0,
+            rawSpecVersion = extension.rawSpecVersion,
+            assetVersion = assetVersion,
+            meta = extension.meta.toRuntimeMeta(),
+            thumbnailImageIndex = extension.thumbnailImageIndex,
+        )
+
+        is ParsedVrm1Extension -> VrmPreviewAssetDescriptor(
+            specVersion = VrmSpecVersion.Vrm1,
+            rawSpecVersion = extension.rawSpecVersion,
+            assetVersion = assetVersion,
+            meta = extension.meta.toRuntimeMeta(),
+            thumbnailImageIndex = extension.thumbnailImageIndex,
+        )
+    }
+
     // 解析済み VRM 拡張情報を実行時利用向けの共通ディスクリプタへ正規化する。
     fun normalize(
         extension: ParsedVrmExtension,

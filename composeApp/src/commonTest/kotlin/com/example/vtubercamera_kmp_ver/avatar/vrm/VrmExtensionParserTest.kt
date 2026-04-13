@@ -5,6 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class VrmExtensionParserTest {
 
@@ -160,6 +162,40 @@ class VrmExtensionParserTest {
     }
 
     @Test
+    fun parsePreviewAssetDescriptorExtractsPreviewOnlyMetadata() {
+        val glb = createGlb(
+            json = """
+                {
+                  "asset": {"version": "2.0"},
+                  "extensions": {
+                    "VRMC_vrm": {
+                      "specVersion": "1.0",
+                      "meta": {
+                        "name": "Preview Only Avatar",
+                        "authors": ["OpenAI"],
+                        "version": "1.5.0",
+                        "thumbnailImage": 0
+                      }
+                    }
+                  },
+                  "images": [{"bufferView": 0, "mimeType": "image/png"}],
+                  "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 4}]
+                }
+            """.trimIndent(),
+            binary = byteArrayOf(1, 2, 3, 4),
+        )
+
+        val descriptor = VrmExtensionParser.parsePreviewAssetDescriptor(glb).getOrThrow()
+
+        assertEquals(VrmSpecVersion.Vrm1, descriptor.specVersion)
+        assertEquals("1.0", descriptor.rawSpecVersion)
+        assertEquals("Preview Only Avatar", descriptor.meta.avatarName)
+        assertEquals(listOf("OpenAI"), descriptor.meta.authors)
+        assertEquals("1.5.0", descriptor.meta.version)
+        assertEquals(0, descriptor.thumbnailImageIndex)
+    }
+
+    @Test
     fun parseDocumentReturnsMalformedJsonAsMetadataFailed() {
         val glb = createGlb(
             json = "{ this is not valid json !!!",
@@ -169,6 +205,36 @@ class VrmExtensionParserTest {
         val result = VrmExtensionParser.parseDocument(glb)
         val exception = assertFailsWith<VrmAssetParseException> { result.getOrThrow() }
         assertEquals(VrmAssetParseFailureKind.MetadataFailed, exception.kind)
+    }
+
+    @Test
+    fun parseRuntimeAssetDescriptorAllowsMissingRuntimeData() {
+        val glb = createGlb(
+            json = """
+                {
+                  "asset": {"version": "2.0"},
+                  "extensions": {
+                    "VRM": {
+                      "meta": {
+                        "title": "Meta Only",
+                        "author": "OpenAI"
+                      }
+                    }
+                  }
+                }
+            """.trimIndent(),
+            binary = byteArrayOf(),
+        )
+
+        val descriptor = VrmExtensionParser.parseRuntimeAssetDescriptor(glb).getOrThrow()
+
+        assertEquals(VrmSpecVersion.Vrm0, descriptor.specVersion)
+        assertEquals("Meta Only", descriptor.meta.avatarName)
+        assertEquals(listOf("OpenAI"), descriptor.meta.authors)
+        assertTrue(descriptor.humanoidBones.isEmpty())
+        assertTrue(descriptor.expressions.isEmpty())
+        assertNull(descriptor.lookAt)
+        assertNull(descriptor.firstPerson)
     }
 
     private fun createGlb(json: String, binary: ByteArray): ByteArray {

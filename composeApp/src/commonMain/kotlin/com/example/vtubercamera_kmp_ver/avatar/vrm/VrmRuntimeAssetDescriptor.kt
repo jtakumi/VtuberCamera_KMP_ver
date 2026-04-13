@@ -2,6 +2,15 @@ package com.example.vtubercamera_kmp_ver.avatar.vrm
 
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 
+// プレビュー表示向けに必要な VRM メタ情報を保持する。
+data class VrmPreviewAssetDescriptor(
+    val specVersion: VrmSpecVersion,
+    val rawSpecVersion: String?,
+    val assetVersion: String?,
+    val meta: VrmRuntimeMeta,
+    val thumbnailImageIndex: Int?,
+)
+
 // VRM アセットから抽出した実行時利用向けの統合情報を保持する。
 data class VrmRuntimeAssetDescriptor(
     val specVersion: VrmSpecVersion,
