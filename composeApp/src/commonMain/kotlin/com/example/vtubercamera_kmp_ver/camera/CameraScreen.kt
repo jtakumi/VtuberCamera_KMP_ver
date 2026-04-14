@@ -48,9 +48,16 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 
+/**
+ * Hosts the shared camera route and optionally injects a custom renderer host into the renderer layer.
+ *
+ * @param rendererHost Custom renderer slot implementation. Defaults to a function reference to
+ * [DefaultAvatarRendererHost], which keeps the current overlay-based avatar body presentation.
+ */
 @Composable
 fun CameraRoute(
     modifier: Modifier = Modifier,
+    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
 ) {
     val permissionController = rememberCameraPermissionController()
     val repositories = rememberCameraRepositories(permissionController)
@@ -78,6 +85,7 @@ fun CameraRoute(
         modifier = modifier,
         cameraRepository = repositories.cameraRepository,
         uiState = uiState,
+        rendererHost = rendererHost,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
         onOpenFilePicker = filePickerLauncher.launch,
@@ -88,6 +96,12 @@ fun CameraRoute(
     )
 }
 
+/**
+ * Renders the shared camera screen and optionally injects a custom renderer host into the renderer layer.
+ *
+ * @param rendererHost Custom renderer slot implementation. Defaults to a function reference to
+ * [DefaultAvatarRendererHost], which keeps the current overlay-based avatar body presentation.
+ */
 @Composable
 fun CameraScreen(
     cameraRepository: CameraRepository,
@@ -100,6 +114,7 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
+    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
 ) {
     val previewError = uiState.previewState as? PreviewState.Error
 
@@ -120,6 +135,7 @@ fun CameraScreen(
             uiState.isPermissionGranted -> CameraPreviewState(
                 cameraRepository = cameraRepository,
                 uiState = uiState,
+                rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
@@ -156,6 +172,7 @@ fun CameraScreen(
 private fun CameraPreviewState(
     cameraRepository: CameraRepository,
     uiState: CameraUiState,
+    rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
@@ -173,6 +190,7 @@ private fun CameraPreviewState(
         CameraRendererLayer(
             avatarPreview = avatarPreview,
             avatarRenderState = uiState.avatarRenderState,
+            rendererHost = rendererHost,
         )
         CameraUiLayer(
             avatarPreview = avatarPreview,
@@ -214,9 +232,9 @@ private fun CameraBackgroundLayer(
 private fun BoxScope.CameraRendererLayer(
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
-    rendererHost: @Composable BoxScope.(RendererHostSlotState) -> Unit = ::DefaultAvatarRendererHost,
+    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
 ) {
-    // renderer host はアバター選択済みのときだけ差し込む。
+    // Insert the renderer host only when an avatar is selected.
     avatarPreview?.let { selectedAvatarPreview ->
         rendererHost(
             RendererHostSlotState(
@@ -236,22 +254,36 @@ private fun BoxScope.CameraRendererLayer(
 }
 
 /**
- * Represents the shared context passed to the renderer host slot.
+ * Holds the shared context for the renderer host to draw avatar content in the camera preview layer.
  *
- * [avatarPreview] は選択済みアバターのメタ情報、[avatarRenderState] は renderer が参照する追従状態、
- * [modifier] は CameraScreen 側で決めた配置レイヤー情報を表す。
+ * [avatarPreview] is the selected avatar metadata, [avatarRenderState] is the shared tracking/render
+ * state consumed by the renderer host, and [modifier] contains the renderer-layer placement decided
+ * by CameraScreen.
  */
-private data class RendererHostSlotState(
+data class RendererHostSlotState(
+    /** Selected avatar metadata used by the renderer host. */
     val avatarPreview: AvatarPreviewData,
+    /** Shared avatar tracking/render state consumed by the renderer host. */
     val avatarRenderState: AvatarRenderState,
+    /** Placement and padding decided by CameraScreen for the renderer layer. */
     val modifier: Modifier,
 )
 
 /**
- * 現在の既定 renderer host 実装。
+ * Extension point for injecting a platform-specific or custom avatar renderer into CameraScreen.
  *
- * 選択済みアバターの preview 情報で static overlay を表示しつつ、
- * 将来の dynamic renderer 向けに [RendererHostSlotState.avatarRenderState] を slot に残す。
+ * The [BoxScope] receiver corresponds to the renderer layer within CameraScreen.
+ * Implementations use [RendererHostSlotState] to access avatar metadata, shared render state, and
+ * placement modifiers while drawing avatar content inside that layer.
+ */
+typealias CameraRendererHost = @Composable BoxScope.(RendererHostSlotState) -> Unit
+
+/**
+ * Default renderer host implementation.
+ *
+ * It renders the current static avatar overlay from [RendererHostSlotState.avatarPreview] while
+ * still carrying [RendererHostSlotState.avatarRenderState] through the slot contract for future
+ * dynamic renderer implementations.
  */
 @Composable
 private fun BoxScope.DefaultAvatarRendererHost(
