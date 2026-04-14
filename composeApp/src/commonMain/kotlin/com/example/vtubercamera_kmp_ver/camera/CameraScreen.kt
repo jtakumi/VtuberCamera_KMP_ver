@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.camera
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -46,9 +48,16 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 
+/**
+ * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
+ *
+ * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
+ * 現在の overlay ベースの avatar body 表示を維持する。
+ */
 @Composable
 fun CameraRoute(
     modifier: Modifier = Modifier,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val permissionController = rememberCameraPermissionController()
     val repositories = rememberCameraRepositories(permissionController)
@@ -76,6 +85,7 @@ fun CameraRoute(
         modifier = modifier,
         cameraRepository = repositories.cameraRepository,
         uiState = uiState,
+        rendererHost = rendererHost,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
         onOpenFilePicker = filePickerLauncher.launch,
@@ -86,6 +96,12 @@ fun CameraRoute(
     )
 }
 
+/**
+ * 共有 camera screen を描画し、必要に応じて renderer layer へ custom renderer host を注入する。
+ *
+ * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
+ * 現在の overlay ベースの avatar body 表示を維持する。
+ */
 @Composable
 fun CameraScreen(
     cameraRepository: CameraRepository,
@@ -98,6 +114,7 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val previewError = uiState.previewState as? PreviewState.Error
 
@@ -118,6 +135,7 @@ fun CameraScreen(
             uiState.isPermissionGranted -> CameraPreviewState(
                 cameraRepository = cameraRepository,
                 uiState = uiState,
+                rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
@@ -154,22 +172,74 @@ fun CameraScreen(
 private fun CameraPreviewState(
     cameraRepository: CameraRepository,
     uiState: CameraUiState,
+    rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
+    val avatarPreview = uiState.avatarPreview
+
     Box(modifier = Modifier.fillMaxSize()) {
-        CameraPreviewHost(
-            modifier = Modifier.fillMaxSize(),
+        CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
-            onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+            onLensFacingChanged = onLensFacingChanged,
         )
-        uiState.avatarPreview?.let { avatarPreview ->
-            AvatarBodyOverlay(
-                avatarPreview = avatarPreview,
+        CameraRendererLayer(
+            avatarPreview = avatarPreview,
+            avatarRenderState = uiState.avatarRenderState,
+            rendererHost = rendererHost,
+        )
+        CameraUiLayer(
+            avatarPreview = avatarPreview,
+            faceTracking = uiState.faceTracking,
+            onOpenFilePicker = onOpenFilePicker,
+            onLensFacingToggle = onLensFacingToggle,
+        )
+    }
+}
+
+/**
+ * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
+ */
+@Composable
+private fun CameraBackgroundLayer(
+    cameraRepository: CameraRepository,
+    lensFacing: CameraLensFacing,
+    onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
+    onLensFacingChanged: (CameraLensFacing) -> Unit,
+) {
+    CameraPreviewHost(
+        modifier = Modifier.fillMaxSize(),
+        cameraRepository = cameraRepository,
+        lensFacing = lensFacing,
+        onLensFacingChanged = onLensFacingChanged,
+        onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+    )
+}
+
+/**
+ * platform renderer host を差し込む中間レイヤーを構成する。
+ *
+ * 現在は avatar 選択済みのときだけ既定の static overlay host を表示する。
+ *
+ * @param rendererHost platform-specific または custom renderer を差し込む slot。
+ * [RendererHostSlotState] を受け取り、CameraScreen が決めた renderer layer 上へ描画する。
+ */
+@Composable
+private fun BoxScope.CameraRendererLayer(
+    avatarPreview: AvatarPreviewData?,
+    avatarRenderState: AvatarRenderState,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
+) {
+    // renderer host は avatar 選択済みのときだけ差し込む。
+    avatarPreview?.let { selectedAvatarPreview ->
+        rendererHost(
+            RendererHostSlotState(
+                avatarPreview = selectedAvatarPreview,
+                avatarRenderState = avatarRenderState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(
@@ -178,42 +248,101 @@ private fun CameraPreviewState(
                         top = MaterialTheme.spacing.xl * 2,
                         bottom = MaterialTheme.spacing.xl,
                     ),
-            )
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.TopCenter)
-                .statusBarsPadding()
-                .padding(MaterialTheme.spacing.xl),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(onClick = onOpenFilePicker) {
-                Text(stringResource(Res.string.file_picker_open_button))
-            }
-            Button(onClick = onLensFacingToggle) {
-                Text(stringResource(Res.string.camera_switch_button))
-            }
-        }
-        uiState.avatarPreview?.let { avatarPreview ->
-            AvatarPreviewOverlay(
-                avatarPreview = avatarPreview,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(MaterialTheme.spacing.xl),
-            )
-        }
-        FaceTrackingOverlay(
-            faceTracking = uiState.faceTracking,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(
-                    start = MaterialTheme.spacing.xl,
-                    top = MaterialTheme.spacing.xl * 5,
-                ),
+            ),
         )
     }
+}
+
+/**
+ * renderer host が camera preview layer に avatar content を描画するための共有文脈を保持する。
+ *
+ * [avatarPreview] は選択済み avatar のメタ情報、[avatarRenderState] は renderer host が参照する
+ * 共有の tracking / render state、[modifier] は CameraScreen 側で決めた renderer layer の
+ * 配置情報を表す。
+ */
+data class RendererHostSlotState(
+    /** renderer host が参照する選択済み avatar のメタ情報。 */
+    val avatarPreview: AvatarPreviewData,
+    /** renderer host が参照する共有の avatar tracking / render state。 */
+    val avatarRenderState: AvatarRenderState,
+    /** CameraScreen 側で決めた renderer layer の配置と padding。 */
+    val modifier: Modifier,
+)
+
+/**
+ * platform-specific または custom avatar renderer を CameraScreen へ差し込む拡張ポイント。
+ *
+ * [BoxScope] receiver は CameraScreen 内の renderer layer に対応する。
+ * 実装側は [RendererHostSlotState] から avatar のメタ情報、共有 render state、配置 modifier を
+ * 受け取り、その layer 内に avatar content を描画する。
+ */
+typealias CameraRendererHost = @Composable BoxScope.(RendererHostSlotState) -> Unit
+
+/** 既定の avatar renderer host 実装を [CameraRendererHost] の型で保持する。 */
+private val defaultCameraRendererHost: CameraRendererHost = { state ->
+    DefaultAvatarRendererHost(state)
+}
+
+/**
+ * 現在の既定 renderer host 実装。
+ *
+ * [RendererHostSlotState.avatarPreview] を使って現在の static avatar overlay を表示しつつ、
+ * 将来の dynamic renderer 実装へ向けて [RendererHostSlotState.avatarRenderState] も
+ * slot 契約のまま保持する。
+ */
+@Composable
+private fun DefaultAvatarRendererHost(
+    state: RendererHostSlotState,
+) {
+    AvatarBodyOverlay(
+        avatarPreview = state.avatarPreview,
+        modifier = state.modifier,
+    )
+}
+
+/**
+ * カメラ操作ボタン、avatar preview overlay、face tracking 情報を前景 UI として重ねる。
+ */
+@Composable
+private fun BoxScope.CameraUiLayer(
+    avatarPreview: AvatarPreviewData?,
+    faceTracking: FaceTrackingUiState,
+    onOpenFilePicker: () -> Unit,
+    onLensFacingToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .align(Alignment.TopCenter)
+            .statusBarsPadding()
+            .padding(MaterialTheme.spacing.xl),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Button(onClick = onOpenFilePicker) {
+            Text(stringResource(Res.string.file_picker_open_button))
+        }
+        Button(onClick = onLensFacingToggle) {
+            Text(stringResource(Res.string.camera_switch_button))
+        }
+    }
+    avatarPreview?.let { preview ->
+        AvatarPreviewOverlay(
+            avatarPreview = preview,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(MaterialTheme.spacing.xl),
+        )
+    }
+    FaceTrackingOverlay(
+        faceTracking = faceTracking,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(
+                start = MaterialTheme.spacing.xl,
+                top = MaterialTheme.spacing.xl * 5,
+            ),
+    )
 }
 
 @Composable
