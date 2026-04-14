@@ -51,13 +51,13 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_butt
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
  *
- * @param rendererHost custom renderer slot の実装。既定値は [DefaultAvatarRendererHost] への
- * 関数参照で、現在の overlay ベースの avatar body 表示を維持する。
+ * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
+ * 現在の overlay ベースの avatar body 表示を維持する。
  */
 @Composable
 fun CameraRoute(
     modifier: Modifier = Modifier,
-    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val permissionController = rememberCameraPermissionController()
     val repositories = rememberCameraRepositories(permissionController)
@@ -99,8 +99,8 @@ fun CameraRoute(
 /**
  * 共有 camera screen を描画し、必要に応じて renderer layer へ custom renderer host を注入する。
  *
- * @param rendererHost custom renderer slot の実装。既定値は [DefaultAvatarRendererHost] への
- * 関数参照で、現在の overlay ベースの avatar body 表示を維持する。
+ * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
+ * 現在の overlay ベースの avatar body 表示を維持する。
  */
 @Composable
 fun CameraScreen(
@@ -114,7 +114,7 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     modifier: Modifier = Modifier,
-    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val previewError = uiState.previewState as? PreviewState.Error
 
@@ -232,7 +232,7 @@ private fun CameraBackgroundLayer(
 private fun BoxScope.CameraRendererLayer(
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
-    rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
+    rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     // renderer host は avatar 選択済みのときだけ差し込む。
     avatarPreview?.let { selectedAvatarPreview ->
@@ -278,6 +278,11 @@ data class RendererHostSlotState(
  */
 typealias CameraRendererHost = @Composable BoxScope.(RendererHostSlotState) -> Unit
 
+/** 既定の avatar renderer host 実装を [CameraRendererHost] の型で保持する。 */
+private val defaultCameraRendererHost: CameraRendererHost = { state ->
+    DefaultAvatarRendererHost(state)
+}
+
 /**
  * 現在の既定 renderer host 実装。
  *
@@ -286,7 +291,7 @@ typealias CameraRendererHost = @Composable BoxScope.(RendererHostSlotState) -> U
  * slot 契約のまま保持する。
  */
 @Composable
-private fun BoxScope.DefaultAvatarRendererHost(
+private fun DefaultAvatarRendererHost(
     state: RendererHostSlotState,
 ) {
     AvatarBodyOverlay(
