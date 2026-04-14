@@ -49,10 +49,10 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 
 /**
- * Hosts the shared camera route and optionally injects a custom renderer host into the renderer layer.
+ * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
  *
- * @param rendererHost Custom renderer slot implementation. Defaults to a function reference to
- * [DefaultAvatarRendererHost], which keeps the current overlay-based avatar body presentation.
+ * @param rendererHost custom renderer slot の実装。既定値は [DefaultAvatarRendererHost] への
+ * 関数参照で、現在の overlay ベースの avatar body 表示を維持する。
  */
 @Composable
 fun CameraRoute(
@@ -97,10 +97,10 @@ fun CameraRoute(
 }
 
 /**
- * Renders the shared camera screen and optionally injects a custom renderer host into the renderer layer.
+ * 共有 camera screen を描画し、必要に応じて renderer layer へ custom renderer host を注入する。
  *
- * @param rendererHost Custom renderer slot implementation. Defaults to a function reference to
- * [DefaultAvatarRendererHost], which keeps the current overlay-based avatar body presentation.
+ * @param rendererHost custom renderer slot の実装。既定値は [DefaultAvatarRendererHost] への
+ * 関数参照で、現在の overlay ベースの avatar body 表示を維持する。
  */
 @Composable
 fun CameraScreen(
@@ -234,7 +234,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarRenderState: AvatarRenderState,
     rendererHost: CameraRendererHost = ::DefaultAvatarRendererHost,
 ) {
-    // Insert the renderer host only when an avatar is selected.
+    // renderer host は avatar 選択済みのときだけ差し込む。
     avatarPreview?.let { selectedAvatarPreview ->
         rendererHost(
             RendererHostSlotState(
@@ -254,36 +254,36 @@ private fun BoxScope.CameraRendererLayer(
 }
 
 /**
- * Holds the shared context for the renderer host to draw avatar content in the camera preview layer.
+ * renderer host が camera preview layer に avatar content を描画するための共有文脈を保持する。
  *
- * [avatarPreview] is the selected avatar metadata, [avatarRenderState] is the shared tracking/render
- * state consumed by the renderer host, and [modifier] contains the renderer-layer placement decided
- * by CameraScreen.
+ * [avatarPreview] は選択済み avatar のメタ情報、[avatarRenderState] は renderer host が参照する
+ * 共有の tracking / render state、[modifier] は CameraScreen 側で決めた renderer layer の
+ * 配置情報を表す。
  */
 data class RendererHostSlotState(
-    /** Selected avatar metadata used by the renderer host. */
+    /** renderer host が参照する選択済み avatar のメタ情報。 */
     val avatarPreview: AvatarPreviewData,
-    /** Shared avatar tracking/render state consumed by the renderer host. */
+    /** renderer host が参照する共有の avatar tracking / render state。 */
     val avatarRenderState: AvatarRenderState,
-    /** Placement and padding decided by CameraScreen for the renderer layer. */
+    /** CameraScreen 側で決めた renderer layer の配置と padding。 */
     val modifier: Modifier,
 )
 
 /**
- * Extension point for injecting a platform-specific or custom avatar renderer into CameraScreen.
+ * platform-specific または custom avatar renderer を CameraScreen へ差し込む拡張ポイント。
  *
- * The [BoxScope] receiver corresponds to the renderer layer within CameraScreen.
- * Implementations use [RendererHostSlotState] to access avatar metadata, shared render state, and
- * placement modifiers while drawing avatar content inside that layer.
+ * [BoxScope] receiver は CameraScreen 内の renderer layer に対応する。
+ * 実装側は [RendererHostSlotState] から avatar のメタ情報、共有 render state、配置 modifier を
+ * 受け取り、その layer 内に avatar content を描画する。
  */
 typealias CameraRendererHost = @Composable BoxScope.(RendererHostSlotState) -> Unit
 
 /**
- * Default renderer host implementation.
+ * 現在の既定 renderer host 実装。
  *
- * It renders the current static avatar overlay from [RendererHostSlotState.avatarPreview] while
- * still carrying [RendererHostSlotState.avatarRenderState] through the slot contract for future
- * dynamic renderer implementations.
+ * [RendererHostSlotState.avatarPreview] を使って現在の static avatar overlay を表示しつつ、
+ * 将来の dynamic renderer 実装へ向けて [RendererHostSlotState.avatarRenderState] も
+ * slot 契約のまま保持する。
  */
 @Composable
 private fun BoxScope.DefaultAvatarRendererHost(
