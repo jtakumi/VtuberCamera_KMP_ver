@@ -780,11 +780,11 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     var pitchRadians = 0f
     var rollRadians = 0f
     useContents {
-        // simd_float4x4 は column-major なので、values[0/4/8/9/10] を
-        // それぞれ matrix[0,0], matrix[0,1], matrix[0,2], matrix[1,2], matrix[2,2]
-        // とみなして Euler 角へ変換する。
+        // simd_float4x4 は column-major なので、コードで使う values[8], values[9], values[10],
+        // values[4], values[0] はそれぞれ matrix[0,2], matrix[1,2], matrix[2,2], matrix[0,1],
+        // matrix[0,0] に対応し、この順で Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
-        // asin 入力は浮動小数誤差で 1 をわずかに超えることがあるため、範囲を防御的に clamp する。
+        // asin は [-1, 1] の外を受け取れないため、浮動小数誤差による domain error を避ける。
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
         rollRadians = atan2(values[9], values[10])
         yawRadians = atan2(values[4], values[0])
@@ -848,7 +848,7 @@ private fun smoothBlink(previous: Float, current: Float): Float {
 
 // 口の開きは開閉速度差を持たせて違和感を抑える。
 private fun smoothJaw(previous: Float, current: Float): Float {
-    // 開く側は 0.58、閉じる側は 0.24 にして、口パクが詰まりすぎず追従感も落とさないようにする。
+    // `IOS_JAW_OPENING_ALPHA` と `IOS_JAW_CLOSING_ALPHA` に差を付けて、口パクが詰まりすぎず追従感も落とさないようにする。
     val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
     return lerp(previous, current, alpha).coerceIn(0f, 1f)
 }
