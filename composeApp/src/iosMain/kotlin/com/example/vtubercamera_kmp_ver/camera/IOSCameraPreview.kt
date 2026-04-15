@@ -60,6 +60,7 @@ import platform.AVFoundation.authorizationStatusForMediaType
 import platform.AVFoundation.requestAccessForMediaType
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
+import platform.Foundation.NSDate
 import platform.Foundation.NSDictionary
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
@@ -684,6 +685,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     override fun session(session: ARSession, didRemoveAnchors: List<*>) {
         if (didRemoveAnchors.any { it is ARFaceAnchor }) {
             clearTrackedFace()
+            // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
             dispatch_async(dispatch_get_main_queue()) {
                 onFaceTrackingFrameChanged(null)
             }
@@ -694,6 +696,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     override fun session(session: ARSession, cameraDidChangeTrackingState: platform.ARKit.ARCamera) {
         if (cameraDidChangeTrackingState.trackingState == ARTrackingState.ARTrackingStateNotAvailable) {
             clearTrackedFace()
+            // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
             dispatch_async(dispatch_get_main_queue()) {
                 onFaceTrackingFrameChanged(null)
             }
@@ -703,6 +706,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     // セッション失敗時に tracking state を破棄する。
     override fun session(session: ARSession, didFailWithError: NSError) {
         clearTrackedFace()
+        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
         dispatch_async(dispatch_get_main_queue()) {
             onFaceTrackingFrameChanged(null)
         }
@@ -711,6 +715,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     // セッション中断時に tracking state を破棄する。
     override fun sessionWasInterrupted(session: ARSession) {
         clearTrackedFace()
+        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
         dispatch_async(dispatch_get_main_queue()) {
             onFaceTrackingFrameChanged(null)
         }
@@ -719,6 +724,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     // 中断復帰後に古い tracking state を持ち越さないよう初期化する。
     override fun sessionInterruptionEnded(session: ARSession) {
         clearTrackedFace()
+        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
         dispatch_async(dispatch_get_main_queue()) {
             onFaceTrackingFrameChanged(null)
         }
@@ -740,6 +746,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
             previousFrame = previousFrame,
         )
         previousFrame = nextFrame
+        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
         dispatch_async(dispatch_get_main_queue()) {
             onFaceTrackingFrameChanged(nextFrame)
         }
@@ -760,8 +767,10 @@ private fun ARFaceAnchor.toNormalizedFaceFrame(
     }
     val pose = transform.toHeadPoseDegrees()
     val currentFrame = NormalizedFaceFrame(
-        timestampMillis = ((session.currentFrame?.timestamp ?: 0.0) * 1000.0).toLong(),
+        timestampMillis = session.currentFrameTimestampMillis(),
         trackingConfidence = trackingConfidence,
+        // shared 側は front camera の見た目に合わせた左右符号を前提にしているため、
+        // ARKit の yaw / roll だけを反転し、上下方向の pitch はそのまま使う。
         headYawDegrees = -pose.yawDegrees,
         headPitchDegrees = pose.pitchDegrees,
         headRollDegrees = -pose.rollDegrees,
@@ -782,8 +791,9 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     var pitchRadians = 0f
     var rollRadians = 0f
     useContents {
-        // simd_float4x4 は column-major なので、columns[0..2] の x/y/z を順に
-        // r00/r10/r20, r01/r11/r21, r02/r12/r22 として読み取り Euler 角へ変換する。
+        // simd_float4x4 は column-major なので、values[0/4/8] が row0 の r00/r01/r02、
+        // values[4] = columns[1].x, values[8] = columns[2].x, values[9] = columns[2].y,
+        // values[10] = columns[2].z として Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
         rollRadians = atan2(values[9], values[10])
@@ -847,6 +857,7 @@ private fun smoothBlink(previous: Float, current: Float): Float {
 
 // 口の開きは開閉速度差を持たせて違和感を抑える。
 private fun smoothJaw(previous: Float, current: Float): Float {
+    // 開く側を速く、閉じる側を遅くして、口パクが詰まりすぎず追従感も落とさないようにする。
     val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
     return lerp(previous, current, alpha).coerceIn(0f, 1f)
 }
@@ -859,6 +870,16 @@ private fun lerp(start: Float, end: Float, alpha: Float): Float {
 // ラジアンを UI 表示向けの度数へ変換する。
 private fun Float.toDegrees(): Float {
     return this * (180f / PI.toFloat())
+}
+
+// ARKit frame timestamp を milliseconds に変換し、取得できない場合は現在時刻へフォールバックする。
+private fun ARSession.currentFrameTimestampMillis(): Long {
+    val timestamp = currentFrame?.timestamp
+    return if (timestamp != null) {
+        (timestamp * 1000.0).toLong()
+    } else {
+        (NSDate().timeIntervalSince1970 * 1000.0).toLong()
+    }
 }
 
 private data class IOSHeadPoseDegrees(
