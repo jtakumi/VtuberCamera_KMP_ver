@@ -685,10 +685,7 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     override fun session(session: ARSession, didRemoveAnchors: List<*>) {
         if (didRemoveAnchors.any { it is ARFaceAnchor }) {
             clearTrackedFace()
-            // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
-            dispatch_async(dispatch_get_main_queue()) {
-                onFaceTrackingFrameChanged(null)
-            }
+            dispatchFaceFrame(null)
         }
     }
 
@@ -696,38 +693,26 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
     override fun session(session: ARSession, cameraDidChangeTrackingState: platform.ARKit.ARCamera) {
         if (cameraDidChangeTrackingState.trackingState == ARTrackingState.ARTrackingStateNotAvailable) {
             clearTrackedFace()
-            // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
-            dispatch_async(dispatch_get_main_queue()) {
-                onFaceTrackingFrameChanged(null)
-            }
+            dispatchFaceFrame(null)
         }
     }
 
     // セッション失敗時に tracking state を破棄する。
     override fun session(session: ARSession, didFailWithError: NSError) {
         clearTrackedFace()
-        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
-        dispatch_async(dispatch_get_main_queue()) {
-            onFaceTrackingFrameChanged(null)
-        }
+        dispatchFaceFrame(null)
     }
 
     // セッション中断時に tracking state を破棄する。
     override fun sessionWasInterrupted(session: ARSession) {
         clearTrackedFace()
-        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
-        dispatch_async(dispatch_get_main_queue()) {
-            onFaceTrackingFrameChanged(null)
-        }
+        dispatchFaceFrame(null)
     }
 
     // 中断復帰後に古い tracking state を持ち越さないよう初期化する。
     override fun sessionInterruptionEnded(session: ARSession) {
         clearTrackedFace()
-        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
-        dispatch_async(dispatch_get_main_queue()) {
-            onFaceTrackingFrameChanged(null)
-        }
+        dispatchFaceFrame(null)
     }
 
     // 保持中の前回フレームを破棄する。
@@ -746,9 +731,13 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
             previousFrame = previousFrame,
         )
         previousFrame = nextFrame
-        // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
+        dispatchFaceFrame(nextFrame)
+    }
+
+    // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
+    private fun dispatchFaceFrame(frame: NormalizedFaceFrame?) {
         dispatch_async(dispatch_get_main_queue()) {
-            onFaceTrackingFrameChanged(nextFrame)
+            onFaceTrackingFrameChanged(frame)
         }
     }
 }
@@ -769,8 +758,8 @@ private fun ARFaceAnchor.toNormalizedFaceFrame(
     val currentFrame = NormalizedFaceFrame(
         timestampMillis = session.currentFrameTimestampMillis(),
         trackingConfidence = trackingConfidence,
-        // shared 側は front camera の見た目に合わせた左右符号を前提にしているため、
-        // ARKit の yaw / roll だけを反転し、上下方向の pitch はそのまま使う。
+        // shared `NormalizedFaceFrame` は Android の front-camera 規約に合わせているため、
+        // ARKit の camera-relative な yaw / roll だけを反転し、上下方向の pitch はそのまま使う。
         headYawDegrees = -pose.yawDegrees,
         headPitchDegrees = pose.pitchDegrees,
         headRollDegrees = -pose.rollDegrees,
@@ -791,10 +780,11 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     var pitchRadians = 0f
     var rollRadians = 0f
     useContents {
-        // simd_float4x4 は column-major なので、values[0] = columns[0].x (= r00),
-        // values[4] = columns[1].x (= r01), values[8] = columns[2].x (= r02), values[9] = columns[2].y,
-        // values[10] = columns[2].z として Euler 角へ変換する。
+        // simd_float4x4 は column-major なので、values[0/4/8/9/10] を
+        // それぞれ matrix[0,0], matrix[0,1], matrix[0,2], matrix[1,2], matrix[2,2]
+        // とみなして Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
+        // asin 入力は浮動小数誤差で 1 をわずかに超えることがあるため、範囲を防御的に clamp する。
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
         rollRadians = atan2(values[9], values[10])
         yawRadians = atan2(values[4], values[0])
@@ -846,6 +836,7 @@ private fun smoothFaceTrackingFrame(
 
 // まばたきは閉じる方向をやや強めに追従させる。
 private fun smoothBlink(previous: Float, current: Float): Float {
+    // ARKit の raw 値は 0..1 でも細かな揺れが出るため、Android 側に寄せた閾値で開閉を安定化する。
     val snapped = when {
         current >= IOS_BLINK_HIGH_THRESHOLD -> 1f
         current <= IOS_BLINK_LOW_THRESHOLD -> 0f
@@ -857,7 +848,7 @@ private fun smoothBlink(previous: Float, current: Float): Float {
 
 // 口の開きは開閉速度差を持たせて違和感を抑える。
 private fun smoothJaw(previous: Float, current: Float): Float {
-    // 開く側を速く、閉じる側を遅くして、口パクが詰まりすぎず追従感も落とさないようにする。
+    // 開く側は 0.58、閉じる側は 0.24 にして、口パクが詰まりすぎず追従感も落とさないようにする。
     val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
     return lerp(previous, current, alpha).coerceIn(0f, 1f)
 }
