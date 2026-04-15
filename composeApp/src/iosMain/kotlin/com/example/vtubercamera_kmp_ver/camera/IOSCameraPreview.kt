@@ -791,8 +791,8 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     var pitchRadians = 0f
     var rollRadians = 0f
     useContents {
-        // simd_float4x4 は column-major なので、values[0/4/8] が row0 の r00/r01/r02、
-        // values[4] = columns[1].x, values[8] = columns[2].x, values[9] = columns[2].y,
+        // simd_float4x4 は column-major なので、values[0] = columns[0].x (= r00),
+        // values[4] = columns[1].x (= r01), values[8] = columns[2].x (= r02), values[9] = columns[2].y,
         // values[10] = columns[2].z として Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
