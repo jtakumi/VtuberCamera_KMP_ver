@@ -759,7 +759,7 @@ private fun ARFaceAnchor.toNormalizedFaceFrame(
         timestampMillis = session.currentFrameTimestampMillis(),
         trackingConfidence = trackingConfidence,
         // shared `NormalizedFaceFrame` は Android の front-camera 規約に合わせているため、
-        // ARKit の camera-relative な yaw / roll だけを反転し、上下方向の pitch はそのまま使う。
+        // ARKit の camera-relative な yaw / roll だけを反転し、上下方向の pitch は両者で向きが一致するのでそのまま使う。
         headYawDegrees = -pose.yawDegrees,
         headPitchDegrees = pose.pitchDegrees,
         headRollDegrees = -pose.rollDegrees,
@@ -782,7 +782,7 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     useContents {
         // simd_float4x4 は column-major なので、コードで使う values[8], values[9], values[10],
         // values[4], values[0] はそれぞれ matrix[0,2], matrix[1,2], matrix[2,2], matrix[0,1],
-        // matrix[0,0] に対応し、この順で Euler 角へ変換する。
+        // matrix[0,0] に対応し、ZYX の rotation matrix 分解として Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
         // asin は [-1, 1] の外を受け取れないため、浮動小数誤差による domain error を避ける。
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
@@ -848,7 +848,8 @@ private fun smoothBlink(previous: Float, current: Float): Float {
 
 // 口の開きは開閉速度差を持たせて違和感を抑える。
 private fun smoothJaw(previous: Float, current: Float): Float {
-    // `IOS_JAW_OPENING_ALPHA` と `IOS_JAW_CLOSING_ALPHA` に差を付けて、口パクが詰まりすぎず追従感も落とさないようにする。
+    // 口を開く方向は `IOS_JAW_OPENING_ALPHA`、閉じる方向は `IOS_JAW_CLOSING_ALPHA` を使い、
+    // 口パクが詰まりすぎず追従感も落とさないようにする。
     val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
     return lerp(previous, current, alpha).coerceIn(0f, 1f)
 }
