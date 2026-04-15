@@ -84,6 +84,18 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_fail
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 
+private const val IOS_LIMITED_TRACKING_CONFIDENCE = 0.65f
+private const val IOS_HEAD_YAW_SMOOTHING_ALPHA = 0.45f
+private const val IOS_HEAD_PITCH_SMOOTHING_ALPHA = 0.45f
+private const val IOS_HEAD_ROLL_SMOOTHING_ALPHA = 0.4f
+private const val IOS_SMILE_SMOOTHING_ALPHA = 0.35f
+private const val IOS_BLINK_HIGH_THRESHOLD = 0.68f
+private const val IOS_BLINK_LOW_THRESHOLD = 0.32f
+private const val IOS_BLINK_CLOSING_ALPHA = 0.55f
+private const val IOS_BLINK_OPENING_ALPHA = 0.28f
+private const val IOS_JAW_OPENING_ALPHA = 0.58f
+private const val IOS_JAW_CLOSING_ALPHA = 0.24f
+
 @Composable
 // カメラ権限の現在状態を監視し、権限要求処理を組み立てたコントローラーを保持する。
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -743,7 +755,7 @@ private fun ARFaceAnchor.toNormalizedFaceFrame(
     val trackingState = session.currentFrame?.camera?.trackingState
     val trackingConfidence = when (trackingState) {
         ARTrackingState.ARTrackingStateNormal -> 1f
-        ARTrackingState.ARTrackingStateLimited -> 0.65f
+        ARTrackingState.ARTrackingStateLimited -> IOS_LIMITED_TRACKING_CONFIDENCE
         else -> 0f
     }
     val pose = transform.toHeadPoseDegrees()
@@ -770,6 +782,8 @@ private fun platform.simd.simd_float4x4.toHeadPoseDegrees(): IOSHeadPoseDegrees 
     var pitchRadians = 0f
     var rollRadians = 0f
     useContents {
+        // simd_float4x4 は column-major なので、columns[0..2] の x/y/z を順に
+        // r00/r10/r20, r01/r11/r21, r02/r12/r22 として読み取り Euler 角へ変換する。
         val values = columns.reinterpret<FloatVar>()
         pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
         rollRadians = atan2(values[9], values[10])
@@ -798,30 +812,42 @@ private fun smoothFaceTrackingFrame(
     }
 
     return currentFrame.copy(
-        headYawDegrees = lerp(previousFrame.headYawDegrees, currentFrame.headYawDegrees, 0.45f),
-        headPitchDegrees = lerp(previousFrame.headPitchDegrees, currentFrame.headPitchDegrees, 0.45f),
-        headRollDegrees = lerp(previousFrame.headRollDegrees, currentFrame.headRollDegrees, 0.4f),
+        headYawDegrees = lerp(
+            previousFrame.headYawDegrees,
+            currentFrame.headYawDegrees,
+            IOS_HEAD_YAW_SMOOTHING_ALPHA,
+        ),
+        headPitchDegrees = lerp(
+            previousFrame.headPitchDegrees,
+            currentFrame.headPitchDegrees,
+            IOS_HEAD_PITCH_SMOOTHING_ALPHA,
+        ),
+        headRollDegrees = lerp(
+            previousFrame.headRollDegrees,
+            currentFrame.headRollDegrees,
+            IOS_HEAD_ROLL_SMOOTHING_ALPHA,
+        ),
         leftEyeBlink = smoothBlink(previousFrame.leftEyeBlink, currentFrame.leftEyeBlink),
         rightEyeBlink = smoothBlink(previousFrame.rightEyeBlink, currentFrame.rightEyeBlink),
         jawOpen = smoothJaw(previousFrame.jawOpen, currentFrame.jawOpen),
-        mouthSmile = lerp(previousFrame.mouthSmile, currentFrame.mouthSmile, 0.35f),
+        mouthSmile = lerp(previousFrame.mouthSmile, currentFrame.mouthSmile, IOS_SMILE_SMOOTHING_ALPHA),
     )
 }
 
 // まばたきは閉じる方向をやや強めに追従させる。
 private fun smoothBlink(previous: Float, current: Float): Float {
     val snapped = when {
-        current >= 0.68f -> 1f
-        current <= 0.32f -> 0f
+        current >= IOS_BLINK_HIGH_THRESHOLD -> 1f
+        current <= IOS_BLINK_LOW_THRESHOLD -> 0f
         else -> current
     }
-    val alpha = if (snapped > previous) 0.55f else 0.28f
+    val alpha = if (snapped > previous) IOS_BLINK_CLOSING_ALPHA else IOS_BLINK_OPENING_ALPHA
     return lerp(previous, snapped, alpha).coerceIn(0f, 1f)
 }
 
 // 口の開きは開閉速度差を持たせて違和感を抑える。
 private fun smoothJaw(previous: Float, current: Float): Float {
-    val alpha = if (current > previous) 0.58f else 0.24f
+    val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
     return lerp(previous, current, alpha).coerceIn(0f, 1f)
 }
 
