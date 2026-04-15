@@ -17,6 +17,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 ### iOS
 
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
+- TrueDepth 対応デバイスの前面カメラで ARKit face tracking
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
 - `UIDocumentPickerViewController` によるファイル選択
@@ -47,7 +48,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - [composeApp/src/androidMain](./composeApp/src/androidMain)
   Android の CameraX 実装、権限処理、`MainActivity` を配置しています。
 - [composeApp/src/iosMain](./composeApp/src/iosMain)
-  iOS 向けの KMP エントリポイントを配置しています。現状の実カメラ表示はここではなく `iosApp` 側が担っています。
+  iOS 向けの KMP エントリポイントを配置しています。AVFoundation preview と ARKit face tracking をここで担います。
 - [iosApp](./iosApp)
   Xcode プロジェクトです。SwiftUI と AVFoundation を使った iOS ネイティブ実装があります。
 - [docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md)
@@ -59,7 +60,7 @@ Gradle Version Catalog で主に以下を管理しています。
 
 - 共通: Kotlin Coroutines, Compose Multiplatform, Lifecycle Compose, Kotlin Test, Turbine
 - Android: CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`), Activity Compose, ExifInterface
-- iOS: AVFoundation, SwiftUI, UIKit
+- iOS: AVFoundation, ARKit, SwiftUI, UIKit
 
 依存関係の詳細は [gradle/libs.versions.toml](./gradle/libs.versions.toml) を参照してください。
 
@@ -90,8 +91,8 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 ## 実装上の補足
 
 - Android は `composeApp` の Compose UI がそのままアプリ画面として動作します。
-- iOS は現時点で `iosApp` 側の SwiftUI 実装が実カメラ機能を担当しています。
-- `composeApp/src/iosMain` の `CameraPreviewHost` はプレースホルダーで、iOS のネイティブホスト前提です。
+- iOS は `composeApp/src/iosMain` の `CameraPreviewHost` が AVFoundation preview と ARKit face tracking を担当します。
+- `iosApp` は現在も Compose Multiplatform host と Xcode プロジェクトの役割を持ちます。
 - package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。
 
 ## Dependabot 運用ポリシー
