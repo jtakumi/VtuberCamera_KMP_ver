@@ -19,10 +19,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Lint
-        run: ./gradlew lintDebug
+        run: ./gradlew :composeApp:lintDebug
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest
+        run: ./gradlew :composeApp:testDebugUnitTest
 
       - name: Build
-        run: ./gradlew assembleDebug
+        run: ./gradlew :composeApp:assembleDebug
