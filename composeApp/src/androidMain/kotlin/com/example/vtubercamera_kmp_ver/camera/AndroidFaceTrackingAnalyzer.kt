@@ -29,7 +29,7 @@ internal class AndroidFaceTrackingAnalyzer(
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
 
-    @OptIn(ExperimentalGetImage::class)
+    @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image ?: run {
             imageProxy.close()
