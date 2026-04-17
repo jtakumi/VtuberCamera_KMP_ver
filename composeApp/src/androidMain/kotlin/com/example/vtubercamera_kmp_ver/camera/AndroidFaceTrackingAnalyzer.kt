@@ -29,7 +29,7 @@ internal class AndroidFaceTrackingAnalyzer(
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
 
-    // Kotlin reports @OptIn has no effect for this CameraX API, and lint requires the marker on ImageProxy.image access.
+    // Android lint recognizes @ExperimentalGetImage for ImageProxy.image access, while Kotlin reports @OptIn does not satisfy this CameraX check.
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image ?: run {
