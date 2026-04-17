@@ -29,6 +29,7 @@ internal class AndroidFaceTrackingAnalyzer(
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
 
+    // Lint recognizes the CameraX marker annotation here; @OptIn has no effect for this API.
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image ?: run {
