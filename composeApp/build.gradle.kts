@@ -35,6 +35,9 @@ kotlin {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.exifinterface)
             implementation(libs.mlkit.face.detection)
+            implementation(libs.filament.android)
+            implementation(libs.filament.utils.android)
+            implementation(libs.gltfio.android)
         }
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
@@ -69,6 +72,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            pickFirsts += "**/libc++_shared.so"
         }
     }
     buildTypes {
