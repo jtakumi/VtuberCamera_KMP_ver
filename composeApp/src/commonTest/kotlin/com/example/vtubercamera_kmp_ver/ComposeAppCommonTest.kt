@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver
 
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.camera.VrmAvatarParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,47 +38,53 @@ class ComposeAppCommonTest {
         )
 
         val result = VrmAvatarParser.parse("sample.vrm", glb).getOrThrow()
+        val preview = result.preview
 
-        assertEquals("Sample Avatar", result.avatarName)
-        assertEquals("OpenAI", result.authorName)
-        assertEquals("1.0", result.vrmVersion)
-        assertTrue(result.thumbnailBytes!!.contentEquals(thumbnailBytes))
+        assertEquals("Sample Avatar", preview.avatarName)
+        assertEquals("OpenAI", preview.authorName)
+        assertEquals("1.0", preview.vrmVersion)
+        assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
+        assertTrue(result.fileBytes.contentEquals(glb))
+        assertEquals(VrmSpecVersion.Vrm0, result.runtimeDescriptor.specVersion)
     }
 
     @Test
-        fun parseGlbAvatarExtractsMetadataAndThumbnail() {
-                val thumbnailBytes = byteArrayOf(5, 6, 7, 8)
-                val glb = createGlb(
-                        json = """
-                                {
-                                    "asset": {"version": "2.0"},
-                                    "extensions": {
-                                        "VRMC_vrm": {
-                                            "specVersion": "1.0",
-                                            "meta": {
-                                                "name": "Sample GLB Avatar",
-                                                "authors": ["OpenAI GLB"],
-                                                "thumbnailImage": 0
-                                            }
-                                        }
-                                    },
-                                    "images": [{"bufferView": 0, "mimeType": "image/png"}],
-                                    "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 4}]
-                                }
-                        """.trimIndent(),
-                        binary = thumbnailBytes,
-                )
+    fun parseGlbAvatarExtractsMetadataAndThumbnail() {
+        val thumbnailBytes = byteArrayOf(5, 6, 7, 8)
+        val glb = createGlb(
+            json = """
+                {
+                    "asset": {"version": "2.0"},
+                    "extensions": {
+                        "VRMC_vrm": {
+                            "specVersion": "1.0",
+                            "meta": {
+                                "name": "Sample GLB Avatar",
+                                "authors": ["OpenAI GLB"],
+                                "thumbnailImage": 0
+                            }
+                        }
+                    },
+                    "images": [{"bufferView": 0, "mimeType": "image/png"}],
+                    "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 4}]
+                }
+            """.trimIndent(),
+            binary = thumbnailBytes,
+        )
 
-                val result = VrmAvatarParser.parse("sample.glb", glb).getOrThrow()
+        val result = VrmAvatarParser.parse("sample.glb", glb).getOrThrow()
+        val preview = result.preview
 
-                assertEquals("Sample GLB Avatar", result.avatarName)
-                assertEquals("OpenAI GLB", result.authorName)
-                assertEquals("1.0", result.vrmVersion)
-                assertTrue(result.thumbnailBytes!!.contentEquals(thumbnailBytes))
-        }
+        assertEquals("Sample GLB Avatar", preview.avatarName)
+        assertEquals("OpenAI GLB", preview.authorName)
+        assertEquals("1.0", preview.vrmVersion)
+        assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
+        assertTrue(result.fileBytes.contentEquals(glb))
+        assertEquals(VrmSpecVersion.Vrm1, result.runtimeDescriptor.specVersion)
+    }
 
-        @Test
-        fun parseAvatarRejectsNonGlbBasedExtension() {
+    @Test
+    fun parseAvatarRejectsNonGlbBasedExtension() {
         val glb = createGlb(
             json = """{"asset":{"version":"2.0"}}""",
             binary = ByteArray(0),

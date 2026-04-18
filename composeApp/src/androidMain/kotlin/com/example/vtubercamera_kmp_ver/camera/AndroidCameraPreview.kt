@@ -328,10 +328,12 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 actual fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     modifier: Modifier,
 ) {
+    val avatarPreview = avatarSelection.preview
+
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter,
@@ -364,6 +366,7 @@ actual fun AvatarBodyOverlay(
                     ),
             ) {
                 AvatarRendererHostView(
+                    avatarSelection = avatarSelection,
                     avatarRenderState = avatarRenderState,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -420,10 +423,12 @@ actual fun AvatarBodyOverlay(
 
 @Composable
 private fun AvatarRendererHostView(
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
+        avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
         modifier = modifier,
     )

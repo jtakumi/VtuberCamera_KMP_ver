@@ -11,12 +11,15 @@ import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
+import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.SwapChain
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
+import com.google.android.filament.gltfio.Gltfio
+import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import kotlin.math.sin
 import android.view.View as AndroidView
 import com.google.android.filament.View as FilamentView
@@ -32,16 +35,22 @@ class AndroidFilamentAvatarRenderer(
     private val scene: Scene
     private val view: FilamentView
     private val cameraEntity: Int
+    private val lightEntity: Int
     private val camera: Camera
     private val uiHelper: UiHelper
     private val displayHelper: DisplayHelper
+    private val assetLoader: AndroidVrmAssetLoader
+    private val renderBridge: AndroidAvatarRenderBridge
     private var swapChain: SwapChain? = null
+    private var sceneFraming: AvatarSceneFraming = AvatarSceneFraming.Default
+    private var appliedSceneFraming: AvatarSceneFraming? = null
     private var renderState: AvatarRenderState = AvatarRenderState.Neutral
     private var appliedRenderState: AvatarRenderState? = null
     private var destroyed = false
 
     init {
         Filament.init()
+        Gltfio.init()
 
         surfaceView = SurfaceView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -65,17 +74,33 @@ class AndroidFilamentAvatarRenderer(
         scene = engine.createScene()
         view = engine.createView()
         cameraEntity = EntityManager.get().create()
+        lightEntity = EntityManager.get().create()
         camera = engine.createCamera(cameraEntity)
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
         displayHelper = DisplayHelper(context)
+        assetLoader = AndroidVrmAssetLoader(engine)
+        renderBridge = AndroidAvatarRenderBridge(
+            scene = scene,
+            assetLoader = assetLoader,
+            resourceCleaner = FilamentResourceCleaner(),
+            onSceneFramingChanged = ::updateSceneFraming,
+        )
 
         configureRenderer()
         configureView()
+        configureLight()
         configureSurface()
     }
 
-    fun updateRenderState(nextRenderState: AvatarRenderState) {
+    fun updateRendererState(
+        avatarSelection: AvatarSelectionData,
+        nextRenderState: AvatarRenderState,
+    ) {
         renderState = nextRenderState
+        renderBridge.update(
+            avatarSelection = avatarSelection,
+            avatarRenderState = nextRenderState,
+        )
     }
 
     fun render(frameTimeNanos: Long) {
@@ -97,9 +122,13 @@ class AndroidFilamentAvatarRenderer(
         }
 
         destroyed = true
+        renderBridge.destroy()
         uiHelper.detach()
         displayHelper.detach()
         destroySwapChain()
+        scene.removeEntity(lightEntity)
+        engine.destroyEntity(lightEntity)
+        assetLoader.destroy()
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
         engine.destroyScene(scene)
@@ -119,48 +148,26 @@ class AndroidFilamentAvatarRenderer(
         view.scene = scene
         view.camera = camera
         view.blendMode = FilamentView.BlendMode.TRANSLUCENT
-        camera.lookAt(
-            0.0,
-            0.0,
-            CAMERA_DISTANCE,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-        )
+        updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral)
+    }
+
+    private fun configureLight() {
+        LightManager.Builder(LightManager.Type.DIRECTIONAL)
+            .direction(LIGHT_DIRECTION_X, LIGHT_DIRECTION_Y, LIGHT_DIRECTION_Z)
+            .color(LIGHT_COLOR_R, LIGHT_COLOR_G, LIGHT_COLOR_B)
+            .intensity(LIGHT_INTENSITY)
+            .build(engine, lightEntity)
+        scene.addEntity(lightEntity)
     }
 
     private fun applyRenderState() {
-        if (renderState == appliedRenderState) {
+        val currentSceneFraming = sceneFraming
+        if (renderState == appliedRenderState && currentSceneFraming == appliedSceneFraming) {
             return
         }
-        val trackingInfluence = if (renderState.isTracking) {
-            renderState.trackingConfidence.coerceIn(0f, 1f).toDouble()
-        } else {
-            0.0
-        }
-        val yawRadians = Math.toRadians(
-            renderState.rig.headYawDegrees.toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
-        )
-        val pitchRadians = Math.toRadians(
-            renderState.rig.headPitchDegrees.toDouble().coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
-        )
-
-        // Keep Z fixed and only nudge the camera on X/Y so early MVP rendering stays stable.
-        camera.lookAt(
-            sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
-            sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence,
-            CAMERA_DISTANCE,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-        )
+        updateCameraLookAt(currentSceneFraming, renderState)
         appliedRenderState = renderState
+        appliedSceneFraming = currentSceneFraming
     }
 
     private fun configureSurface() {
@@ -201,6 +208,39 @@ class AndroidFilamentAvatarRenderer(
         )
     }
 
+    private fun updateSceneFraming(sceneFraming: AvatarSceneFraming) {
+        this.sceneFraming = sceneFraming
+    }
+
+    private fun updateCameraLookAt(
+        sceneFraming: AvatarSceneFraming,
+        renderState: AvatarRenderState,
+    ) {
+        val trackingInfluence = if (renderState.isTracking) {
+            renderState.trackingConfidence.coerceIn(0f, 1f).toDouble()
+        } else {
+            0.0
+        }
+        val yawRadians = Math.toRadians(
+            renderState.rig.headYawDegrees.toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
+        )
+        val pitchRadians = Math.toRadians(
+            renderState.rig.headPitchDegrees.toDouble().coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
+        )
+
+        camera.lookAt(
+            sceneFraming.targetX + sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
+            sceneFraming.targetY + sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence,
+            sceneFraming.targetZ + sceneFraming.cameraDistance,
+            sceneFraming.targetX,
+            sceneFraming.targetY,
+            sceneFraming.targetZ,
+            0.0,
+            1.0,
+            0.0,
+        )
+    }
+
     private fun destroySwapChain() {
         swapChain?.let { currentSwapChain ->
             engine.destroySwapChain(currentSwapChain)
@@ -209,13 +249,18 @@ class AndroidFilamentAvatarRenderer(
     }
 
     private companion object {
-        // Default camera distance for the transparent overlay avatar host.
-        private const val CAMERA_DISTANCE = 4.0
         // Small eye offsets that map tracked head yaw/pitch into camera parallax.
         private const val CAMERA_YAW_OFFSET_SCALE = 0.8
         private const val CAMERA_PITCH_OFFSET_SCALE = 0.45
         // Conservative clamps to avoid aggressive camera motion from noisy tracking input.
         private const val MAX_YAW_DEGREES = 45.0
         private const val MAX_PITCH_DEGREES = 30.0
+        private const val LIGHT_DIRECTION_X = 0.35f
+        private const val LIGHT_DIRECTION_Y = -1.0f
+        private const val LIGHT_DIRECTION_Z = -0.45f
+        private const val LIGHT_COLOR_R = 1.0f
+        private const val LIGHT_COLOR_G = 0.98f
+        private const val LIGHT_COLOR_B = 0.95f
+        private const val LIGHT_INTENSITY = 110_000.0f
     }
 }

@@ -178,6 +178,7 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
+    val avatarSelection = uiState.avatarSelection
     val avatarPreview = uiState.avatarPreview
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -188,6 +189,7 @@ private fun CameraPreviewState(
             onLensFacingChanged = onLensFacingChanged,
         )
         CameraRendererLayer(
+            avatarSelection = avatarSelection,
             avatarPreview = avatarPreview,
             avatarRenderState = uiState.avatarRenderState,
             rendererHost = rendererHost,
@@ -230,15 +232,17 @@ private fun CameraBackgroundLayer(
  */
 @Composable
 private fun BoxScope.CameraRendererLayer(
+    avatarSelection: AvatarSelectionData?,
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     // renderer host は avatar 選択済みのときだけ差し込む。
-    avatarPreview?.let { selectedAvatarPreview ->
+    if (avatarSelection != null && avatarPreview != null) {
         rendererHost(
             RendererHostSlotState(
-                avatarPreview = selectedAvatarPreview,
+                avatarSelection = avatarSelection,
+                avatarPreview = avatarPreview,
                 avatarRenderState = avatarRenderState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -256,11 +260,13 @@ private fun BoxScope.CameraRendererLayer(
 /**
  * renderer host が camera preview layer に avatar content を描画するための共有文脈を保持する。
  *
- * [avatarPreview] は選択済み avatar のメタ情報、[avatarRenderState] は renderer host が参照する
- * 共有の tracking / render state、[modifier] は CameraScreen 側で決めた renderer layer の
- * 配置情報を表す。
+ * [avatarSelection] は renderer が使う選択済み avatar の bytes / runtime 情報、[avatarPreview] は
+ * 表示用のメタ情報、[avatarRenderState] は renderer host が参照する共有の tracking / render state、
+ * [modifier] は CameraScreen 側で決めた renderer layer の配置情報を表す。
  */
 data class RendererHostSlotState(
+    /** renderer host が参照する選択済み avatar の bytes / runtime 情報。 */
+    val avatarSelection: AvatarSelectionData,
     /** renderer host が参照する選択済み avatar のメタ情報。 */
     val avatarPreview: AvatarPreviewData,
     /** renderer host が参照する共有の avatar tracking / render state。 */
@@ -295,7 +301,7 @@ private fun DefaultAvatarRendererHost(
     state: RendererHostSlotState,
 ) {
     AvatarBodyOverlay(
-        avatarPreview = state.avatarPreview,
+        avatarSelection = state.avatarSelection,
         avatarRenderState = state.avatarRenderState,
         modifier = state.modifier,
     )

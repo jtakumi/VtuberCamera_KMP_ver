@@ -12,7 +12,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 object VrmAvatarParser {
     private val supportedExtensions = setOf("vrm", "glb")
 
-    fun parse(fileName: String, bytes: ByteArray): Result<AvatarPreviewData> {
+    fun parse(fileName: String, bytes: ByteArray): Result<AvatarSelectionData> {
         if (!fileName.hasSupportedExtension()) {
             return Result.failure(FilePickerException(Res.string.vrm_error_select_file))
         }
@@ -21,6 +21,9 @@ object VrmAvatarParser {
             return Result.failure(throwable.toFilePickerException())
         }
         val previewDescriptor = VrmExtensionParser.parsePreviewAssetDescriptor(document).getOrElse { throwable ->
+            return Result.failure(throwable.toFilePickerException())
+        }
+        val runtimeDescriptor = VrmExtensionParser.parseRuntimeAssetDescriptor(bytes).getOrElse { throwable ->
             return Result.failure(throwable.toFilePickerException())
         }
 
@@ -32,12 +35,16 @@ object VrmAvatarParser {
         }
 
         return Result.success(
-            AvatarPreviewData(
-                fileName = fileName,
-                avatarName = avatarName,
-                authorName = authorName,
-                vrmVersion = vrmVersion,
-                thumbnailBytes = thumbnailBytes,
+            AvatarSelectionData(
+                preview = AvatarPreviewData(
+                    fileName = fileName,
+                    avatarName = avatarName,
+                    authorName = authorName,
+                    vrmVersion = vrmVersion,
+                    thumbnailBytes = thumbnailBytes,
+                ),
+                fileBytes = bytes.copyOf(),
+                runtimeDescriptor = runtimeDescriptor,
             ),
         )
     }

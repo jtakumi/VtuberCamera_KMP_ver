@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -84,8 +85,37 @@ data class AvatarPreviewData(
     }
 }
 
+// renderer で利用する選択済みアバターの bytes と VRM ランタイム情報を保持する。
+@Immutable
+data class AvatarSelectionData(
+    val preview: AvatarPreviewData,
+    val fileBytes: ByteArray,
+    val runtimeDescriptor: VrmRuntimeAssetDescriptor,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as AvatarSelectionData
+
+        if (preview != other.preview) return false
+        if (!fileBytes.contentEquals(other.fileBytes)) return false
+        if (runtimeDescriptor != other.runtimeDescriptor) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        val standardPoint = 31
+        var result = preview.hashCode()
+        result = standardPoint * result + fileBytes.contentHashCode()
+        result = standardPoint * result + runtimeDescriptor.hashCode()
+        return result
+    }
+}
+
 sealed interface FilePickerResult {
-    data class Success(val avatarPreview: AvatarPreviewData) : FilePickerResult
+    data class Success(val avatarSelection: AvatarSelectionData) : FilePickerResult
     data class Error(val messageRes: StringResource) : FilePickerResult
     data object Cancelled : FilePickerResult
 }
@@ -118,7 +148,7 @@ expect fun AvatarPreviewOverlay(
 
 @Composable
 expect fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     modifier: Modifier = Modifier,
 )

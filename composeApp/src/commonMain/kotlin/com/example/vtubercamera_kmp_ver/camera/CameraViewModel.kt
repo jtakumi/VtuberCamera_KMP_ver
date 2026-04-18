@@ -190,7 +190,7 @@ class CameraViewModel(
         _uiState.update { currentState ->
             when (result) {
                 is FilePickerResult.Success -> currentState.copy(
-                    avatarPreview = result.avatarPreview,
+                    avatarSelection = result.avatarSelection,
                     filePickerErrorMessageRes = null,
                 )
                 is FilePickerResult.Error -> currentState.copy(
