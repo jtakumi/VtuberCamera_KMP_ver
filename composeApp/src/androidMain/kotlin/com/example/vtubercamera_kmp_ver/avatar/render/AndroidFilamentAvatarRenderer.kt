@@ -49,8 +49,7 @@ class AndroidFilamentAvatarRenderer(
     private var destroyed = false
 
     init {
-        Filament.init()
-        Gltfio.init()
+        initializeNativeBindings()
 
         surfaceView = SurfaceView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -249,6 +248,9 @@ class AndroidFilamentAvatarRenderer(
     }
 
     private companion object {
+        @Volatile
+        private var nativeBindingsInitialized = false
+
         // Small eye offsets that map tracked head yaw/pitch into camera parallax.
         private const val CAMERA_YAW_OFFSET_SCALE = 0.8
         private const val CAMERA_PITCH_OFFSET_SCALE = 0.45
@@ -262,5 +264,19 @@ class AndroidFilamentAvatarRenderer(
         private const val LIGHT_COLOR_G = 0.98f
         private const val LIGHT_COLOR_B = 0.95f
         private const val LIGHT_INTENSITY = 110_000.0f
+
+        private fun initializeNativeBindings() {
+            if (nativeBindingsInitialized) {
+                return
+            }
+            synchronized(AndroidFilamentAvatarRenderer::class.java) {
+                if (nativeBindingsInitialized) {
+                    return
+                }
+                Filament.init()
+                Gltfio.init()
+                nativeBindingsInitialized = true
+            }
+        }
     }
 }

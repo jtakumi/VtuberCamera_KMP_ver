@@ -23,7 +23,7 @@ object VrmAvatarParser {
         val previewDescriptor = VrmExtensionParser.parsePreviewAssetDescriptor(document).getOrElse { throwable ->
             return Result.failure(throwable.toFilePickerException())
         }
-        val runtimeDescriptor = VrmExtensionParser.parseRuntimeAssetDescriptor(bytes).getOrElse { throwable ->
+        val runtimeDescriptor = VrmExtensionParser.parseRuntimeAssetDescriptor(document).getOrElse { throwable ->
             return Result.failure(throwable.toFilePickerException())
         }
 

@@ -15,10 +15,9 @@ internal class AndroidAvatarRenderBridge(
     private var currentAsset: FilamentAsset? = null
     private var currentAssetKey: AvatarAssetKey? = null
 
-    @Suppress("UNUSED_PARAMETER")
     fun update(
         avatarSelection: AvatarSelectionData,
-        avatarRenderState: AvatarRenderState,
+        _avatarRenderState: AvatarRenderState,
     ) {
         // TODO: Apply avatarRenderState to the loaded model here once expression / pose mapping is
         // wired into the Android runtime renderer.
