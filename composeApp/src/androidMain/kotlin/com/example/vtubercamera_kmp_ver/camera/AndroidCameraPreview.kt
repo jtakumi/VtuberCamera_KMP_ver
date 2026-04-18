@@ -4,9 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.view.TextureView
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.vtubercamera_kmp_ver.avatar.render.AndroidFilamentAvatarHost
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlin.coroutines.resume
@@ -330,6 +329,7 @@ actual fun AvatarPreviewOverlay(
 @Composable
 actual fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
+    avatarRenderState: AvatarRenderState,
     modifier: Modifier,
 ) {
     Box(
@@ -364,6 +364,7 @@ actual fun AvatarBodyOverlay(
                     ),
             ) {
                 AvatarRendererHostView(
+                    avatarRenderState = avatarRenderState,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -418,27 +419,13 @@ actual fun AvatarBodyOverlay(
 }
 
 @Composable
-private fun AvatarRendererHostView(modifier: Modifier = Modifier) {
-    AndroidView(
+private fun AvatarRendererHostView(
+    avatarRenderState: AvatarRenderState,
+    modifier: Modifier = Modifier,
+) {
+    AndroidFilamentAvatarHost(
+        avatarRenderState = avatarRenderState,
         modifier = modifier,
-        factory = { context ->
-            FrameLayout(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                )
-                addView(
-                    TextureView(context).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                        )
-                        isOpaque = false
-                        alpha = 0f
-                    },
-                )
-            }
-        },
     )
 }
 
