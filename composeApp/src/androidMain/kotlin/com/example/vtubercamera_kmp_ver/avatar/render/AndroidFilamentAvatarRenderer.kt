@@ -248,6 +248,8 @@ class AndroidFilamentAvatarRenderer(
     }
 
     private companion object {
+        // Volatile keeps the one-time native init flag visible across renderer instances that may
+        // be created on different threads before they converge on the synchronized init block.
         @Volatile
         private var nativeBindingsInitialized = false
 
