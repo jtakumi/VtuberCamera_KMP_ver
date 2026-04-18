@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.readValue
@@ -204,8 +205,10 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 // カメラ画面の下部にアバター本体用のオーバーレイを表示する。
+@Suppress("UNUSED_PARAMETER")
 actual fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
+    avatarRenderState: AvatarRenderState,
     modifier: Modifier,
 ) {
     Box(

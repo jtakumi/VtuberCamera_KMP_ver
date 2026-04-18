@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -118,5 +119,6 @@ expect fun AvatarPreviewOverlay(
 @Composable
 expect fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
+    avatarRenderState: AvatarRenderState,
     modifier: Modifier = Modifier,
 )

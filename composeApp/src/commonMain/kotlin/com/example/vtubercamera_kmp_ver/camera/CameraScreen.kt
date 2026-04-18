@@ -296,6 +296,7 @@ private fun DefaultAvatarRendererHost(
 ) {
     AvatarBodyOverlay(
         avatarPreview = state.avatarPreview,
+        avatarRenderState = state.avatarRenderState,
         modifier = state.modifier,
     )
 }
