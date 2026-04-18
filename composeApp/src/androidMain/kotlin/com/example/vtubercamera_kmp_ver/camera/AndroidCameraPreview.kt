@@ -93,10 +93,11 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         CameraPermissionController(
             isGranted = false,
             isChecking = true,
-            requestPermissionAction = {
-                requestPermissionActionState.value()
-            },
+            requestPermissionAction = {},
         )
+    }
+    controller.updateRequestPermissionAction {
+        requestPermissionActionState.value()
     }
 
     LaunchedEffect(context) {
