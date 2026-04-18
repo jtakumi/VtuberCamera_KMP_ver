@@ -19,7 +19,8 @@ internal class AndroidVrmAssetLoader(
         val asset = assetLoader.createAsset(ByteBuffer.wrap(bytes))
             ?: throw IllegalArgumentException(
                 "Unable to create a Filament asset from the selected VRM/GLB bytes. " +
-                    "The file may be corrupted or use unsupported glTF features.",
+                    "The file may be corrupted or use unsupported glTF features. " +
+                    "Please try a different VRM/GLB file or verify the asset is valid.",
             )
 
         return runCatching {

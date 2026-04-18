@@ -20,8 +20,8 @@ internal class AndroidAvatarRenderBridge(
         avatarSelection: AvatarSelectionData,
         avatarRenderState: AvatarRenderState,
     ) {
-        // Keep render state in this bridge API so later pose / expression application can share
-        // the same state-driven update path as asset replacement.
+        // TODO: Apply avatarRenderState to the loaded model here once expression / pose mapping is
+        // wired into the Android runtime renderer.
 
         val nextAssetKey = AvatarAssetKey(
             fileName = avatarSelection.preview.fileName,
