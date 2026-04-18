@@ -74,13 +74,13 @@ data class AvatarPreviewData(
     }
 
     override fun hashCode(): Int {
-        val standardPoint = 31
-        val fallbackPoint = 0
+        val hashMultiplier = 31
+        val defaultHashValue = 0
         var result = fileName.hashCode()
-        result = standardPoint * result + avatarName.hashCode()
-        result = standardPoint * result + (authorName?.hashCode() ?: fallbackPoint)
-        result = standardPoint * result + (vrmVersion?.hashCode() ?: fallbackPoint)
-        result = standardPoint * result + (thumbnailBytes?.contentHashCode() ?: fallbackPoint)
+        result = hashMultiplier * result + avatarName.hashCode()
+        result = hashMultiplier * result + (authorName?.hashCode() ?: defaultHashValue)
+        result = hashMultiplier * result + (vrmVersion?.hashCode() ?: defaultHashValue)
+        result = hashMultiplier * result + (thumbnailBytes?.contentHashCode() ?: defaultHashValue)
         return result
     }
 }
@@ -106,10 +106,10 @@ data class AvatarSelectionData(
     }
 
     override fun hashCode(): Int {
-        val standardPoint = 31
+        val hashMultiplier = 31
         var result = preview.hashCode()
-        result = standardPoint * result + fileBytes.contentHashCode()
-        result = standardPoint * result + runtimeDescriptor.hashCode()
+        result = hashMultiplier * result + fileBytes.contentHashCode()
+        result = hashMultiplier * result + runtimeDescriptor.hashCode()
         return result
     }
 }

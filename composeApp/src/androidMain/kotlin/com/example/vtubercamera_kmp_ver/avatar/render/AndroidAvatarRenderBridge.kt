@@ -15,10 +15,14 @@ internal class AndroidAvatarRenderBridge(
     private var currentAsset: FilamentAsset? = null
     private var currentAssetKey: AvatarAssetKey? = null
 
+    @Suppress("UNUSED_PARAMETER")
     fun update(
         avatarSelection: AvatarSelectionData,
         avatarRenderState: AvatarRenderState,
     ) {
+        // Keep render state in this bridge API so later pose / expression application can share
+        // the same state-driven update path as asset replacement.
+
         val nextAssetKey = AvatarAssetKey(
             fileName = avatarSelection.preview.fileName,
             byteHash = avatarSelection.fileBytes.contentHashCode(),
