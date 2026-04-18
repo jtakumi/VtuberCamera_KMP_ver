@@ -96,8 +96,12 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
             requestPermissionAction = {},
         )
     }
-    controller.updateRequestPermissionAction {
-        requestPermissionActionState.value()
+
+    DisposableEffect(controller, requestPermissionActionState) {
+        controller.updateRequestPermissionAction {
+            requestPermissionActionState.value()
+        }
+        onDispose {}
     }
 
     LaunchedEffect(context) {
