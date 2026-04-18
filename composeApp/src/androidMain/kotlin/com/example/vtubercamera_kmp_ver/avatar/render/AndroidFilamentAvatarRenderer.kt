@@ -17,6 +17,7 @@ import com.google.android.filament.SwapChain
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
+import kotlin.math.sin
 import android.view.View as AndroidView
 import com.google.android.filament.View as FilamentView
 
@@ -82,6 +83,7 @@ class AndroidFilamentAvatarRenderer(
             return
         }
 
+        applyRenderState()
         if (renderer.beginFrame(currentSwapChain, frameTimeNanos)) {
             renderer.render(view)
             renderer.endFrame()
@@ -119,6 +121,28 @@ class AndroidFilamentAvatarRenderer(
         camera.lookAt(
             0.0,
             0.0,
+            4.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+        )
+    }
+
+    private fun applyRenderState() {
+        val trackingInfluence = if (renderState.isTracking) {
+            renderState.trackingConfidence.coerceIn(0f, 1f).toDouble()
+        } else {
+            0.0
+        }
+        val yawRadians = Math.toRadians(renderState.rig.headYawDegrees.coerceIn(-45f, 45f).toDouble())
+        val pitchRadians = Math.toRadians(renderState.rig.headPitchDegrees.coerceIn(-30f, 30f).toDouble())
+
+        camera.lookAt(
+            sin(yawRadians) * 0.8 * trackingInfluence,
+            sin(pitchRadians) * 0.45 * trackingInfluence,
             4.0,
             0.0,
             0.0,
