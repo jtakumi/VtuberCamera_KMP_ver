@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,10 +94,13 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         CameraPermissionController(
             isGranted = false,
             isChecking = true,
-            requestPermissionAction = {
-                requestPermissionActionState.value()
-            },
+            requestPermissionAction = {},
         )
+    }
+    SideEffect {
+        controller.updateRequestPermissionAction {
+            requestPermissionActionState.value()
+        }
     }
 
     LaunchedEffect(context) {
