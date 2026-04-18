@@ -36,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,7 +84,7 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
     ) { granted ->
         permissionGranted = granted
     }
-    val controller = remember<CameraPermissionController> {
+    val controller = remember {
         CameraPermissionController(
             isGranted = false,
             isChecking = true,
@@ -104,10 +103,8 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         )
     }
 
-    SideEffect {
-        controller.updateRequestPermissionAction {
-            permissionLauncher.launch(Manifest.permission.CAMERA)
-        }
+    controller.updateRequestPermissionAction {
+        permissionLauncher.launch(Manifest.permission.CAMERA)
     }
     return controller
 }
