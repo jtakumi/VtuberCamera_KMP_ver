@@ -112,8 +112,7 @@ class VrmSpecNormalizerTest {
         assertEquals("head", descriptor.humanoidBones.single().boneName)
         assertEquals(setOf("happy", "surprisedCustom"), descriptor.availableExpressionNames)
 
-        val customExpression = descriptor.expressions[1]
-        assertEquals("surprisedCustom", customExpression.runtimeName)
+        val customExpression = descriptor.expressions.single { it.runtimeName == "surprisedCustom" }
         assertNull(customExpression.presetName)
         assertEquals("none", customExpression.overrideBlink)
         assertEquals("blend", customExpression.overrideLookAt)
