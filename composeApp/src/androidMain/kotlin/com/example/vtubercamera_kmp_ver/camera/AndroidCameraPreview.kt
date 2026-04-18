@@ -84,11 +84,13 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
     ) { granted ->
         permissionGranted = granted
     }
-    val controller = remember {
+    val controller = remember(permissionLauncher) {
         CameraPermissionController(
             isGranted = false,
             isChecking = true,
-            requestPermissionAction = {},
+            requestPermissionAction = {
+                permissionLauncher.launch(Manifest.permission.CAMERA)
+            },
         )
     }
 
@@ -103,9 +105,6 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         )
     }
 
-    controller.updateRequestPermissionAction {
-        permissionLauncher.launch(Manifest.permission.CAMERA)
-    }
     return controller
 }
 
