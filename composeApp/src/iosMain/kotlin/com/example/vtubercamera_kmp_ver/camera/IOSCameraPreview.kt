@@ -205,6 +205,7 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 // カメラ画面の下部にアバター本体用のオーバーレイを表示する。
+@Suppress("UNUSED_PARAMETER")
 actual fun AvatarBodyOverlay(
     avatarPreview: AvatarPreviewData,
     avatarRenderState: AvatarRenderState,
