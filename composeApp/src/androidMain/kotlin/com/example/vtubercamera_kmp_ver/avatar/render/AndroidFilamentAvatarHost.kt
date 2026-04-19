@@ -14,7 +14,7 @@ import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import kotlinx.coroutines.isActive
 
 @Composable
-fun AndroidFilamentAvatarHost(
+internal fun AndroidFilamentAvatarHost(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
