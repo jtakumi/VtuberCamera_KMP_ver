@@ -68,6 +68,7 @@ import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.create
 import platform.Foundation.getBytes
+import platform.QuartzCore.CACurrentMediaTime
 import platform.SceneKit.SCNScene
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
@@ -873,14 +874,34 @@ private fun Float.toDegrees(): Float {
     return this * (180f / PI.toFloat())
 }
 
-// ARKit frame timestamp を milliseconds に変換し、取得できない場合は現在時刻へフォールバックする。
+private var lastArFrameTimestampMillis: Long? = null
+private var lastArFrameMonotonicSeconds: Double? = null
+private var arTimestampFallbackBaseMonotonicSeconds: Double? = null
+
+// ARKit frame timestamp を milliseconds に変換し、取得できない場合も同じ単調増加の時間系で補完する。
 private fun ARSession.currentFrameTimestampMillis(): Long {
+    val monotonicNowSeconds = CACurrentMediaTime()
     val timestamp = currentFrame?.timestamp
-    return if (timestamp != null) {
+    val timestampMillis = if (timestamp != null) {
         (timestamp * 1000.0).toLong()
     } else {
-        (NSDate().timeIntervalSince1970 * 1000.0).toLong()
+        val previousTimestampMillis = lastArFrameTimestampMillis
+        val previousMonotonicSeconds = lastArFrameMonotonicSeconds
+        if (previousTimestampMillis != null && previousMonotonicSeconds != null) {
+            val deltaMillis =
+                ((monotonicNowSeconds - previousMonotonicSeconds).coerceAtLeast(0.0) * 1000.0).toLong()
+            previousTimestampMillis + deltaMillis
+        } else {
+            val fallbackBaseSeconds = arTimestampFallbackBaseMonotonicSeconds ?: monotonicNowSeconds.also {
+                arTimestampFallbackBaseMonotonicSeconds = it
+            }
+            ((monotonicNowSeconds - fallbackBaseSeconds).coerceAtLeast(0.0) * 1000.0).toLong()
+        }
     }
+
+    lastArFrameTimestampMillis = timestampMillis
+    lastArFrameMonotonicSeconds = monotonicNowSeconds
+    return timestampMillis
 }
 
 private data class IOSHeadPoseDegrees(
