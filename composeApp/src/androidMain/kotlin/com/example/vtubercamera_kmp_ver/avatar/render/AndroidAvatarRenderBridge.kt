@@ -67,7 +67,13 @@ internal class AndroidAvatarRenderBridge(
             }
             .onFailure { throwable ->
                 clearCurrentAsset()
-                onAvatarLoadFailure(throwable.toAvatarLoadException(AvatarAssetLoadFailureKind.ResourceLoadFailed))
+                onAvatarLoadFailure(
+                    if (throwable is AvatarAssetLoadException) {
+                        throwable
+                    } else {
+                        throwable.toAvatarLoadException(AvatarAssetLoadFailureKind.ResourceLoadFailed)
+                    },
+                )
             }
     }
 
@@ -111,6 +117,7 @@ internal class AndroidAvatarRenderBridge(
     ): AvatarAssetLoadException = this as? AvatarAssetLoadException
         ?: AvatarAssetLoadException(
             kind = fallbackKind,
+            message = message,
             cause = this,
         )
 
