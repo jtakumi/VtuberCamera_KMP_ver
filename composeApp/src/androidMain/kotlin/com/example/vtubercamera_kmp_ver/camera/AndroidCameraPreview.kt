@@ -336,8 +336,8 @@ actual fun AvatarBodyOverlay(
             avatarRenderState = avatarRenderState,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             modifier = Modifier
-                .fillMaxWidth(0.68f)
-                .fillMaxHeight(0.6f),
+                .fillMaxWidth(AVATAR_RENDERER_WIDTH_FRACTION)
+                .fillMaxHeight(AVATAR_RENDERER_HEIGHT_FRACTION),
         )
     }
 }
@@ -387,6 +387,9 @@ private fun CameraLensFacing.toCameraSelector(): CameraSelector {
         CameraLensFacing.Front -> CameraSelector.DEFAULT_FRONT_CAMERA
     }
 }
+
+private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.68f
+private const val AVATAR_RENDERER_HEIGHT_FRACTION = 0.6f
 
 private fun ProcessCameraProvider.resolveLensFacing(requested: CameraLensFacing): CameraLensFacing {
     if (hasCameraSafely(requested.toCameraSelector())) {
