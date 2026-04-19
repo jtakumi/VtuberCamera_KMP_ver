@@ -18,6 +18,7 @@ junit = "4.13.2"
 kotlin = "2.3.20"
 material3 = "1.11.0-alpha05"
 mlkitFaceDetection = "16.1.7"
+filament = "1.67.0"
 turbine = "1.2.1"
 
 [libraries]
@@ -46,6 +47,9 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
 mlkit-face-detection = { module = "com.google.mlkit:face-detection", version.ref = "mlkitFaceDetection" }
+filament-android = { module = "com.google.android.filament:filament-android", version.ref = "filament" }
+filament-utils-android = { module = "com.google.android.filament:filament-utils-android", version.ref = "filament" }
+gltfio-android = { module = "com.google.android.filament:gltfio-android", version.ref = "filament" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 [plugins]

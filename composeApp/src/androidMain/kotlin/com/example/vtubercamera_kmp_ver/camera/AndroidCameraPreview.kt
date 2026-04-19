@@ -4,9 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.view.TextureView
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.vtubercamera_kmp_ver.avatar.render.AndroidFilamentAvatarHost
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlin.coroutines.resume
@@ -68,6 +68,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_versio
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -84,12 +85,17 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
     ) { granted ->
         permissionGranted = granted
     }
-    val controller = remember {
-        CameraPermissionController(
-            isGranted = false,
-            isChecking = true,
-            requestPermissionAction = {},
-        )
+    val requestPermissionActionState = rememberUpdatedState(
+        newValue = {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        },
+    )
+    val controller = remember { createCameraPermissionController() }
+
+    SideEffect {
+        controller.updateRequestPermissionAction {
+            requestPermissionActionState.value()
+        }
     }
 
     LaunchedEffect(context) {
@@ -103,9 +109,6 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
         )
     }
 
-    controller.updateRequestPermissionAction {
-        permissionLauncher.launch(Manifest.permission.CAMERA)
-    }
     return controller
 }
 
@@ -326,9 +329,13 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 actual fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
+    avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
+    val avatarPreview = avatarSelection.preview
+
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter,
@@ -361,6 +368,9 @@ actual fun AvatarBodyOverlay(
                     ),
             ) {
                 AvatarRendererHostView(
+                    avatarSelection = avatarSelection,
+                    avatarRenderState = avatarRenderState,
+                    onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -415,27 +425,22 @@ actual fun AvatarBodyOverlay(
 }
 
 @Composable
-private fun AvatarRendererHostView(modifier: Modifier = Modifier) {
-    AndroidView(
-        modifier = modifier,
-        factory = { context ->
-            FrameLayout(context).apply {
-                layoutParams = ViewGroup.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                )
-                addView(
-                    TextureView(context).apply {
-                        layoutParams = FrameLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                        )
-                        isOpaque = false
-                        alpha = 0f
-                    },
-                )
-            }
+private fun AvatarRendererHostView(
+    avatarSelection: AvatarSelectionData,
+    avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AndroidFilamentAvatarHost(
+        avatarSelection = avatarSelection,
+        avatarRenderState = avatarRenderState,
+        onAvatarLoadFailure = { throwable ->
+            onAvatarRenderLoadFailed(
+                avatarSelection.assetHandle,
+                throwable.toAvatarRenderErrorMessageRes(),
+            )
         },
+        modifier = modifier,
     )
 }
 
@@ -495,6 +500,16 @@ private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose
     }
 }
 
+private fun com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException.toAvatarRenderErrorMessageRes():
+    org.jetbrains.compose.resources.StringResource {
+    return when (kind) {
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.SceneSetupFailed -> Res.string.vrm_error_read_failed
+    }
+}
+
 @Composable
 private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) = remember(avatarPreview.thumbnailBytes) {
     avatarPreview.thumbnailBytes?.let { bytes ->
@@ -508,83 +523,101 @@ actual fun rememberCameraRepositories(
 ): CameraRepositories {
     val context = LocalContext.current
     return remember(permissionController, context) {
-        val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-        CameraRepositories(
-            cameraRepository = object : CameraRepository {
-                private var pendingLensFacing: CameraLensFacing? = null
-
-                override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
-                    val cameraProvider = cameraProviderFuture.await()
-                    val resolvedLens = cameraProvider.resolveLensFacing(lensFacing)
-                    if (!cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
-                        previewState.value = PreviewState.Error(CameraError.CameraUnavailable)
-                        return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
-                    }
-                    pendingLensFacing = resolvedLens
-                    previewState.value = PreviewState.Preparing
-                    return Result.success(resolvedLens)
-                }
-
-                override suspend fun stopPreview() {
-                    pendingLensFacing = null
-                    previewState.value = PreviewState.Preparing
-                }
-
-                override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-                    val cameraProvider = cameraProviderFuture.await()
-                    previewState.value = PreviewState.Preparing
-                    val targetLens = current.toggled()
-                    if (!cameraProvider.hasCameraSafely(targetLens.toCameraSelector())) {
-                        previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
-                        return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
-                    }
-                    pendingLensFacing = targetLens
-                    return Result.success(targetLens)
-                }
-
-                override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
-                    val cameraProvider = cameraProviderFuture.await()
-                    val resolvedLens = cameraProvider.resolveLensFacing(preferred)
-                    return if (cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
-                        Result.success(resolvedLens)
-                    } else {
-                        Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
-                    }
-                }
-
-                override fun observePreviewState(): Flow<PreviewState> = previewState
-
-                override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
-                    if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
-                        pendingLensFacing = lensFacing
-                        previewState.value = PreviewState.Showing
-                    }
-                }
-
-                override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
-                    if (pendingLensFacing == lensFacing) {
-                        pendingLensFacing = null
-                        previewState.value = PreviewState.Error(error)
-                    }
-                }
-            },
-            permissionRepository = object : PermissionRepository {
-                override suspend fun checkCameraPermission(): PermissionState {
-                    return when {
-                        permissionController.isChecking -> PermissionState.Unknown
-                        permissionController.isGranted -> PermissionState.Granted
-                        else -> PermissionState.Denied
-                    }
-                }
-
-                override suspend fun requestCameraPermission(): PermissionState {
-                    permissionController.requestPermission()
-                    return checkCameraPermission()
-                }
-            },
+        createCameraRepositories(
+            context = context,
+            permissionController = permissionController,
         )
     }
+}
+
+private fun createCameraPermissionController(): CameraPermissionController {
+    return CameraPermissionController(
+        isGranted = false,
+        isChecking = true,
+        requestPermissionAction = {},
+    )
+}
+
+private fun createCameraRepositories(
+    context: Context,
+    permissionController: CameraPermissionController,
+): CameraRepositories {
+    val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
+    val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+    return CameraRepositories(
+        cameraRepository = object : CameraRepository {
+            private var pendingLensFacing: CameraLensFacing? = null
+
+            override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
+                val cameraProvider = cameraProviderFuture.await()
+                val resolvedLens = cameraProvider.resolveLensFacing(lensFacing)
+                if (!cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
+                    previewState.value = PreviewState.Error(CameraError.CameraUnavailable)
+                    return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
+                }
+                pendingLensFacing = resolvedLens
+                previewState.value = PreviewState.Preparing
+                return Result.success(resolvedLens)
+            }
+
+            override suspend fun stopPreview() {
+                pendingLensFacing = null
+                previewState.value = PreviewState.Preparing
+            }
+
+            override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
+                val cameraProvider = cameraProviderFuture.await()
+                previewState.value = PreviewState.Preparing
+                val targetLens = current.toggled()
+                if (!cameraProvider.hasCameraSafely(targetLens.toCameraSelector())) {
+                    previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
+                    return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
+                }
+                pendingLensFacing = targetLens
+                return Result.success(targetLens)
+            }
+
+            override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
+                val cameraProvider = cameraProviderFuture.await()
+                val resolvedLens = cameraProvider.resolveLensFacing(preferred)
+                return if (cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
+                    Result.success(resolvedLens)
+                } else {
+                    Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
+                }
+            }
+
+            override fun observePreviewState(): Flow<PreviewState> = previewState
+
+            override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
+                if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
+                    pendingLensFacing = lensFacing
+                    previewState.value = PreviewState.Showing
+                }
+            }
+
+            override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
+                if (pendingLensFacing == lensFacing) {
+                    pendingLensFacing = null
+                    previewState.value = PreviewState.Error(error)
+                }
+            }
+        },
+        permissionRepository = object : PermissionRepository {
+            override suspend fun checkCameraPermission(): PermissionState {
+                return when {
+                    permissionController.isChecking -> PermissionState.Unknown
+                    permissionController.isGranted -> PermissionState.Granted
+                    else -> PermissionState.Denied
+                }
+            }
+
+            override suspend fun requestCameraPermission(): PermissionState {
+                permissionController.requestPermission()
+                return checkCameraPermission()
+            }
+        },
+    )
 }
 
 private suspend fun ListenableFuture<ProcessCameraProvider>.await(): ProcessCameraProvider =

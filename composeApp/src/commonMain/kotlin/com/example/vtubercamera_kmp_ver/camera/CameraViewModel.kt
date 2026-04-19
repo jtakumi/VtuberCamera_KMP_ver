@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
@@ -20,6 +21,7 @@ class CameraViewModel(
     private val permissionRepository: PermissionRepository,
 ) : ViewModel() {
     private val faceToAvatarMapper = FaceToAvatarMapper()
+    private var currentAvatarAssetHandle: AvatarAssetHandle? = null
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
@@ -187,17 +189,41 @@ class CameraViewModel(
 
     // ファイルピッカーの結果に応じてアバタープレビューやエラーを更新する。
     fun onFilePicked(result: FilePickerResult) {
-        _uiState.update { currentState ->
-            when (result) {
-                is FilePickerResult.Success -> currentState.copy(
-                    avatarPreview = result.avatarPreview,
-                    filePickerErrorMessageRes = null,
-                )
-                is FilePickerResult.Error -> currentState.copy(
+        when (result) {
+            is FilePickerResult.Success -> {
+                currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+                currentAvatarAssetHandle = result.avatarSelection.assetHandle
+                _uiState.update { currentState ->
+                    currentState.copy(
+                        avatarSelection = result.avatarSelection,
+                        filePickerErrorMessageRes = null,
+                    )
+                }
+            }
+            is FilePickerResult.Error -> _uiState.update { currentState ->
+                currentState.copy(
                     filePickerErrorMessageRes = result.messageRes,
                 )
-                FilePickerResult.Cancelled -> currentState
             }
+            FilePickerResult.Cancelled -> Unit
+        }
+    }
+
+    // renderer 側の avatar 読み込み失敗を UI エラーへ変換し、現在の選択を解除する。
+    fun onAvatarRenderLoadFailed(
+        failedAssetHandle: AvatarAssetHandle,
+        messageRes: StringResource,
+    ) {
+        if (currentAvatarAssetHandle != failedAssetHandle) {
+            return
+        }
+        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+        currentAvatarAssetHandle = null
+        _uiState.update { currentState ->
+            currentState.copy(
+                avatarSelection = null,
+                filePickerErrorMessageRes = messageRes,
+            )
         }
     }
 
@@ -249,6 +275,12 @@ class CameraViewModel(
                 message = error.toCameraMessage(),
             )
         }
+    }
+
+    override fun onCleared() {
+        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+        currentAvatarAssetHandle = null
+        super.onCleared()
     }
 }
 

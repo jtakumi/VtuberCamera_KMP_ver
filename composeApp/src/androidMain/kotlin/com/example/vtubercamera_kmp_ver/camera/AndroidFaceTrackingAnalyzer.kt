@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import android.graphics.PointF
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
@@ -28,6 +29,8 @@ internal class AndroidFaceTrackingAnalyzer(
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
 
+    // Android lint recognizes @ExperimentalGetImage for ImageProxy.image access, while Kotlin reports @OptIn does not satisfy this CameraX check.
+    @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
         val mediaImage = imageProxy.image ?: run {
             imageProxy.close()

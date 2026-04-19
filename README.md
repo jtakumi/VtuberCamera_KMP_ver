@@ -2,7 +2,7 @@
 
 VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、将来の VTuber / AR / VRM 機能へつながるカメラ基盤を段階的に整備しています。
 
-現時点では、カメラ MVP の土台作りが中心です。特に Android 側は CameraX を使ったプレビューとカメラ切り替えまで入り、iOS 側は Compose Multiplatform host + AVFoundation の実装が進んでいます。
+現時点では、カメラ MVP の土台作りが中心です。Android / iOS ともに Compose ベースの camera 画面を利用しつつ、platform ごとに Camera API を接続しています。
 
 ## 現在の実装状況
 
@@ -12,12 +12,14 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - CameraX によるリアルタイムプレビュー
 - フロント / バックカメラ切り替え
 - ドキュメントファイルピッカー起動
+- ML Kit Face Detection による face tracking 解析と共有 state 反映
 - Compose Multiplatform ベースのカメラ画面
 
 ### iOS
 
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
+
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
 - `UIDocumentPickerViewController` によるファイル選択
@@ -28,6 +30,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - カメラ画面の基本 UI
 - `CameraViewModel` による画面状態管理
 - レンズ向き状態 (`Back` / `Front`)
+- face tracking の共有表示モデルと avatar 反映 state
 - 権限文言のリソース管理
 
 ### まだ未実装の主な機能
@@ -50,7 +53,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - [composeApp/src/iosMain](./composeApp/src/iosMain)
   iOS 向けの KMP エントリポイントを配置しています。AVFoundation preview と ARKit face tracking をここで担います。
 - [iosApp](./iosApp)
-  Xcode プロジェクトです。SwiftUI と AVFoundation を使った iOS ネイティブ実装があります。
+  Xcode のホストアプリです。`MainViewController` を起動して Compose 画面を表示します。
 - [docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md)
   KMP 版の実装方針と今後の拡張計画をまとめた仕様書です。
 

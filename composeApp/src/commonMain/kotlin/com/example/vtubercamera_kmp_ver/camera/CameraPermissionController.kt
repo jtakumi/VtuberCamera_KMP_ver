@@ -7,6 +7,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -72,19 +74,27 @@ data class AvatarPreviewData(
     }
 
     override fun hashCode(): Int {
-        val standardPoint = 31
-        val fallbackPoint = 0
+        val hashMultiplier = 31
+        val defaultHashValue = 0
         var result = fileName.hashCode()
-        result = standardPoint * result + avatarName.hashCode()
-        result = standardPoint * result + (authorName?.hashCode() ?: fallbackPoint)
-        result = standardPoint * result + (vrmVersion?.hashCode() ?: fallbackPoint)
-        result = standardPoint * result + (thumbnailBytes?.contentHashCode() ?: fallbackPoint)
+        result = hashMultiplier * result + avatarName.hashCode()
+        result = hashMultiplier * result + (authorName?.hashCode() ?: defaultHashValue)
+        result = hashMultiplier * result + (vrmVersion?.hashCode() ?: defaultHashValue)
+        result = hashMultiplier * result + (thumbnailBytes?.contentHashCode() ?: defaultHashValue)
         return result
     }
 }
 
+// renderer で利用する選択済みアバターの asset handle と VRM ランタイム情報を保持する。
+@Immutable
+data class AvatarSelectionData(
+    val preview: AvatarPreviewData,
+    val assetHandle: AvatarAssetHandle,
+    val runtimeDescriptor: VrmRuntimeAssetDescriptor,
+)
+
 sealed interface FilePickerResult {
-    data class Success(val avatarPreview: AvatarPreviewData) : FilePickerResult
+    data class Success(val avatarSelection: AvatarSelectionData) : FilePickerResult
     data class Error(val messageRes: StringResource) : FilePickerResult
     data object Cancelled : FilePickerResult
 }
@@ -117,6 +127,8 @@ expect fun AvatarPreviewOverlay(
 
 @Composable
 expect fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
+    avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 )

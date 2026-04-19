@@ -1,5 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.mapping
 
+import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
+import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.camera.NormalizedFaceFrame
@@ -29,7 +31,7 @@ class FaceToAvatarMapperTest {
                 leftEyeBlink = 1.5f,
                 rightEyeBlink = -0.2f,
                 jawOpen = 0.4f,
-                mouthSmile = 0.6f,
+                mouthSmile = 1.2f,
             ),
             previousState = AvatarRenderState.Neutral,
         )
@@ -41,6 +43,7 @@ class FaceToAvatarMapperTest {
         assertEquals(1f, mapped.expressions.leftEyeBlink)
         assertEquals(0f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
+        assertEquals(1f, mapped.expressions.mouthSmile)
         assertEquals(100L, mapped.sourceTimestampMillis)
     }
 
@@ -58,8 +61,16 @@ class FaceToAvatarMapperTest {
 
         val previous = AvatarRenderState(
             trackingStatus = AvatarTrackingStatus.Tracking,
-            rig = com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState(headYawDegrees = 20f),
-            expressions = com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights(jawOpen = 0.8f),
+            rig = AvatarRigState(
+                headYawDegrees = 20f,
+                headPitchDegrees = -10f,
+            ),
+            expressions = AvatarExpressionWeights(
+                leftEyeBlink = 0.6f,
+                rightEyeBlink = 0.2f,
+                jawOpen = 0.8f,
+                mouthSmile = 0.5f,
+            ),
             sourceTimestampMillis = 50L,
             trackingConfidence = 1f,
         )
@@ -81,7 +92,11 @@ class FaceToAvatarMapperTest {
 
         assertEquals(AvatarTrackingStatus.Lost, mapped.trackingStatus)
         assertEquals(10f, mapped.rig.headYawDegrees)
+        assertEquals(-5f, mapped.rig.headPitchDegrees)
+        assertEquals(0.3f, mapped.expressions.leftEyeBlink)
+        assertEquals(0.1f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
+        assertEquals(0.25f, mapped.expressions.mouthSmile)
         assertEquals(120L, mapped.sourceTimestampMillis)
     }
 
@@ -98,8 +113,15 @@ class FaceToAvatarMapperTest {
 
         val previous = AvatarRenderState(
             trackingStatus = AvatarTrackingStatus.Lost,
-            rig = com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState(headRollDegrees = 12f),
-            expressions = com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights(mouthSmile = 0.8f),
+            rig = AvatarRigState(
+                headYawDegrees = 8f,
+                headRollDegrees = 12f,
+            ),
+            expressions = AvatarExpressionWeights(
+                leftEyeBlink = 0.5f,
+                jawOpen = 0.4f,
+                mouthSmile = 0.8f,
+            ),
             sourceTimestampMillis = 777L,
             trackingConfidence = 0.2f,
         )
@@ -107,7 +129,10 @@ class FaceToAvatarMapperTest {
         val mapped = mapper.map(frame = null, previousState = previous)
 
         assertEquals(AvatarTrackingStatus.NotTracked, mapped.trackingStatus)
+        assertEquals(6f, mapped.rig.headYawDegrees)
         assertEquals(9f, mapped.rig.headRollDegrees)
+        assertEquals(0.375f, mapped.expressions.leftEyeBlink)
+        assertEquals(0.3f, mapped.expressions.jawOpen)
         assertEquals(0.6f, mapped.expressions.mouthSmile)
         assertEquals(777L, mapped.sourceTimestampMillis)
         assertEquals(0f, mapped.trackingConfidence)

@@ -11,7 +11,7 @@ data class CameraUiState(
     val errorState: CameraError? = null,
     val message: CameraMessage? = null,
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
-    val avatarPreview: AvatarPreviewData? = null,
+    val avatarSelection: AvatarSelectionData? = null,
     val avatarRenderState: AvatarRenderState = AvatarRenderState.Neutral,
     val filePickerErrorMessageRes: StringResource? = null,
 ) {
@@ -23,4 +23,7 @@ data class CameraUiState(
 
     val hasError: Boolean
         get() = errorState != null || previewState is PreviewState.Error
+
+    val avatarPreview: AvatarPreviewData?
+        get() = avatarSelection?.preview
 }
