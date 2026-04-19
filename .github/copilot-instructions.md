@@ -27,15 +27,15 @@ name: "Repository Overview Guidance"
 
 - `composeApp` は KMP アプリ本体で、shared UI と Android 実装を含む。
 - Android の実カメラ実装は `composeApp` 側にあり、CameraX を使う。
-- iOS の実カメラ実装は現時点で `iosApp` 側にあり、SwiftUI + AVFoundation を使う。
-- `composeApp/src/iosMain` は iOS 向け KMP エントリポイントだが、現在の実カメラ実装の中心ではない。
+- iOS の実カメラ実装は `composeApp/src/iosMain` 側にあり、AVFoundation + UIKitView を使う。
+- `iosApp` は Xcode のホストアプリとして `MainViewController` を起動し、Compose 画面を表示する。
 
 ## High-Value Directories To Mention
 
 - `composeApp/src/commonMain`: 共有 UI、状態、リソース
 - `composeApp/src/androidMain`: Android の CameraX 実装と権限処理
-- `composeApp/src/iosMain`: iOS 向け shared 側の入口
-- `iosApp`: iOS ネイティブ実装と Xcode プロジェクト
+- `composeApp/src/iosMain`: iOS の AVFoundation camera 実装と shared 側の入口
+- `iosApp`: Compose ホストとして動作する Xcode プロジェクト
 - `docs`: 実装方針、調査、設計メモ
 - `gradle/libs.versions.toml`: 主要依存関係の定義
 
@@ -44,7 +44,7 @@ name: "Repository Overview Guidance"
 - 共通技術としては Kotlin Multiplatform、Compose Multiplatform、Material 3、AndroidX Lifecycle Compose、Kotlin Coroutines、kotlinx.serialization を起点にする。
 - Android 技術としては CameraX、Activity Compose、ExifInterface を挙げる。
 - Android の現行 face tracking 文脈では、ML Kit Face Detection を採用済みの縦切りとして扱う。
-- iOS 技術としては SwiftUI、AVFoundation、UIKit、UniformTypeIdentifiers を挙げる。
+- iOS 技術としては AVFoundation、UIKitView、UIKit、SwiftUI を挙げる。
 - テスト文脈では `kotlin.test` と Turbine を説明候補にする。
 - 技術スタックを説明するときも、現在採用しているものと、MediaPipe、ARKit、Filament、VRM など将来候補のものを混ぜない。
 
