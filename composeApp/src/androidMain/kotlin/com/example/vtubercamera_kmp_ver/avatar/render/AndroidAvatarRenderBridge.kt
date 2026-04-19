@@ -44,24 +44,25 @@ internal class AndroidAvatarRenderBridge(
                     scene.addEntities(nextAsset.entities)
                     onSceneFramingChanged(nextAsset.toSceneFraming())
                 }.onSuccess {
+                    val previousAsset = currentAsset
+                    currentAsset = nextAsset
+                    currentAssetKey = nextAssetKey
                     resourceCleaner.destroyAsset(
                         scene = scene,
                         assetLoader = assetLoader,
-                        asset = currentAsset,
+                        asset = previousAsset,
                     )
-                    currentAsset = nextAsset
-                    currentAssetKey = nextAssetKey
                 }.onFailure { throwable ->
                     resourceCleaner.destroyAsset(
                         scene = scene,
                         assetLoader = assetLoader,
                         asset = nextAsset,
                     )
-                    onAvatarLoadFailure(throwable.asAvatarLoadException(AvatarAssetLoadFailureKind.SceneSetupFailed))
+                    onAvatarLoadFailure(throwable.toAvatarLoadException(AvatarAssetLoadFailureKind.SceneSetupFailed))
                 }
             }
             .onFailure { throwable ->
-                onAvatarLoadFailure(throwable.asAvatarLoadException(AvatarAssetLoadFailureKind.ResourceLoadFailed))
+                onAvatarLoadFailure(throwable.toAvatarLoadException(AvatarAssetLoadFailureKind.ResourceLoadFailed))
             }
     }
 
@@ -100,7 +101,7 @@ internal class AndroidAvatarRenderBridge(
         val byteHash: Int,
     )
 
-    private fun Throwable.asAvatarLoadException(
+    private fun Throwable.toAvatarLoadException(
         fallbackKind: AvatarAssetLoadFailureKind,
     ): AvatarAssetLoadException = this as? AvatarAssetLoadException
         ?: AvatarAssetLoadException(
