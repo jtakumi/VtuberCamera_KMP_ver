@@ -502,6 +502,7 @@ private fun com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadExcept
         com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
         com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
         com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.SceneSetupFailed -> Res.string.vrm_error_read_failed
     }
 }
 

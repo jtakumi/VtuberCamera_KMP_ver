@@ -57,21 +57,11 @@ internal class AndroidAvatarRenderBridge(
                         assetLoader = assetLoader,
                         asset = nextAsset,
                     )
-                    onAvatarLoadFailure(
-                        throwable as? AvatarAssetLoadException ?: AvatarAssetLoadException(
-                            kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
-                            cause = throwable,
-                        ),
-                    )
+                    onAvatarLoadFailure(throwable.asAvatarLoadException(AvatarAssetLoadFailureKind.SceneSetupFailed))
                 }
             }
             .onFailure { throwable ->
-                onAvatarLoadFailure(
-                    throwable as? AvatarAssetLoadException ?: AvatarAssetLoadException(
-                        kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
-                        cause = throwable,
-                    ),
-                )
+                onAvatarLoadFailure(throwable.asAvatarLoadException(AvatarAssetLoadFailureKind.ResourceLoadFailed))
             }
     }
 
@@ -109,6 +99,14 @@ internal class AndroidAvatarRenderBridge(
         val assetId: Long,
         val byteHash: Int,
     )
+
+    private fun Throwable.asAvatarLoadException(
+        fallbackKind: AvatarAssetLoadFailureKind,
+    ): AvatarAssetLoadException = this as? AvatarAssetLoadException
+        ?: AvatarAssetLoadException(
+            kind = fallbackKind,
+            cause = this,
+        )
 
     private companion object {
         private const val DEFAULT_CAMERA_DISTANCE = 4.0

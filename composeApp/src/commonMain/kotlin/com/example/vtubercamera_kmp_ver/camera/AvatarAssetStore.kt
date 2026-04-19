@@ -9,23 +9,11 @@ data class AvatarAssetHandle(
     val contentHash: Int,
 )
 
-// 選択済み avatar の raw bytes を UI state の外で保持する簡易ストア。
-object AvatarAssetStore {
-    private var nextAssetId: Long = 0L
-    private val assets = mutableMapOf<Long, ByteArray>()
+// 選択済み avatar の raw bytes を UI state の外で保持する platform store。
+expect object AvatarAssetStore {
+    fun store(bytes: ByteArray): AvatarAssetHandle
 
-    fun store(bytes: ByteArray): AvatarAssetHandle {
-        val assetId = nextAssetId++
-        assets[assetId] = bytes
-        return AvatarAssetHandle(
-            assetId = assetId,
-            contentHash = bytes.contentHashCode(),
-        )
-    }
+    fun load(assetHandle: AvatarAssetHandle): ByteArray?
 
-    fun load(assetHandle: AvatarAssetHandle): ByteArray? = assets[assetHandle.assetId]
-
-    fun remove(assetHandle: AvatarAssetHandle) {
-        assets.remove(assetHandle.assetId)
-    }
+    fun remove(assetHandle: AvatarAssetHandle)
 }

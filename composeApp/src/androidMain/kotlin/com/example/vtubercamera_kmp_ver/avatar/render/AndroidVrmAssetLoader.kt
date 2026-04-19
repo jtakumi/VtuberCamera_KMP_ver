@@ -50,6 +50,7 @@ internal enum class AvatarAssetLoadFailureKind {
     AssetUnavailable,
     InvalidAsset,
     ResourceLoadFailed,
+    SceneSetupFailed,
 }
 
 internal class AvatarAssetLoadException(

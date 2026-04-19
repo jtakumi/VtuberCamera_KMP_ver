@@ -21,6 +21,7 @@ class CameraViewModel(
     private val permissionRepository: PermissionRepository,
 ) : ViewModel() {
     private val faceToAvatarMapper = FaceToAvatarMapper()
+    private var currentAvatarAssetHandle: AvatarAssetHandle? = null
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
@@ -188,29 +189,31 @@ class CameraViewModel(
 
     // ファイルピッカーの結果に応じてアバタープレビューやエラーを更新する。
     fun onFilePicked(result: FilePickerResult) {
-        _uiState.update { currentState ->
-            when (result) {
-                is FilePickerResult.Success -> {
-                    currentState.avatarSelection?.let { previousSelection ->
-                        AvatarAssetStore.remove(previousSelection.assetHandle)
-                    }
+        when (result) {
+            is FilePickerResult.Success -> {
+                currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+                currentAvatarAssetHandle = result.avatarSelection.assetHandle
+                _uiState.update { currentState ->
                     currentState.copy(
                         avatarSelection = result.avatarSelection,
                         filePickerErrorMessageRes = null,
                     )
                 }
-                is FilePickerResult.Error -> currentState.copy(
+            }
+            is FilePickerResult.Error -> _uiState.update { currentState ->
+                currentState.copy(
                     filePickerErrorMessageRes = result.messageRes,
                 )
-                FilePickerResult.Cancelled -> currentState
             }
+            FilePickerResult.Cancelled -> Unit
         }
     }
 
     // renderer 側の avatar 読み込み失敗を UI エラーへ変換し、現在の選択を解除する。
     fun onAvatarRenderLoadFailed(messageRes: StringResource) {
+        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+        currentAvatarAssetHandle = null
         _uiState.update { currentState ->
-            currentState.avatarSelection?.let { AvatarAssetStore.remove(it.assetHandle) }
             currentState.copy(
                 avatarSelection = null,
                 filePickerErrorMessageRes = messageRes,
@@ -269,7 +272,8 @@ class CameraViewModel(
     }
 
     override fun onCleared() {
-        _uiState.value.avatarSelection?.let { AvatarAssetStore.remove(it.assetHandle) }
+        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+        currentAvatarAssetHandle = null
         super.onCleared()
     }
 }
