@@ -117,7 +117,6 @@ internal class AndroidAvatarRenderBridge(
     ): AvatarAssetLoadException = this as? AvatarAssetLoadException
         ?: AvatarAssetLoadException(
             kind = fallbackKind,
-            message = message,
             cause = this,
         )
 
