@@ -9,6 +9,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 class ComposeAppCommonTest {
 
