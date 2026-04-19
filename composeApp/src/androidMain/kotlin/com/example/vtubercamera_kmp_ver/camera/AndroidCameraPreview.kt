@@ -330,7 +330,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
-    onAvatarRenderLoadFailed: (org.jetbrains.compose.resources.StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
     val avatarPreview = avatarSelection.preview
@@ -427,14 +427,17 @@ actual fun AvatarBodyOverlay(
 private fun AvatarRendererHostView(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
-    onAvatarRenderLoadFailed: (org.jetbrains.compose.resources.StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
         avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
         onAvatarLoadFailure = { throwable ->
-            onAvatarRenderLoadFailed(throwable.toAvatarRenderErrorMessageRes())
+            onAvatarRenderLoadFailed(
+                avatarSelection.assetHandle,
+                throwable.toAvatarRenderErrorMessageRes(),
+            )
         },
         modifier = modifier,
     )

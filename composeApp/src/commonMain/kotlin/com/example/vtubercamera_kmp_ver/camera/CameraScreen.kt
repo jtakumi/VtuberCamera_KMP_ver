@@ -112,7 +112,7 @@ fun CameraScreen(
     onRetryPreview: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onDismissFilePickerError: () -> Unit,
-    onAvatarRenderLoadFailed: (StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
@@ -178,7 +178,7 @@ private fun CameraPreviewState(
     uiState: CameraUiState,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
-    onAvatarRenderLoadFailed: (StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
@@ -241,7 +241,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarSelection: AvatarSelectionData?,
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
-    onAvatarRenderLoadFailed: (StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     // renderer host は avatar 選択済みのときだけ差し込む。
@@ -281,7 +281,7 @@ data class RendererHostSlotState(
     /** renderer host が参照する共有の avatar tracking / render state。 */
     val avatarRenderState: AvatarRenderState,
     /** renderer 側の読み込み失敗を UI へ戻す callback。 */
-    val onAvatarRenderLoadFailed: (StringResource) -> Unit,
+    val onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     /** CameraScreen 側で決めた renderer layer の配置と padding。 */
     val modifier: Modifier,
 )

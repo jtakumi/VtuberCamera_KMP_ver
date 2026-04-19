@@ -210,7 +210,13 @@ class CameraViewModel(
     }
 
     // renderer 側の avatar 読み込み失敗を UI エラーへ変換し、現在の選択を解除する。
-    fun onAvatarRenderLoadFailed(messageRes: StringResource) {
+    fun onAvatarRenderLoadFailed(
+        failedAssetHandle: AvatarAssetHandle,
+        messageRes: StringResource,
+    ) {
+        if (currentAvatarAssetHandle != failedAssetHandle) {
+            return
+        }
         currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
         currentAvatarAssetHandle = null
         _uiState.update { currentState ->

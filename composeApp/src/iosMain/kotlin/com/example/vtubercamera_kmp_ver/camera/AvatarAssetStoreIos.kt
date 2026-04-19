@@ -10,7 +10,8 @@ actual object AvatarAssetStore {
     actual fun store(bytes: ByteArray): AvatarAssetHandle {
         lock.lock()
         return try {
-            val assetId = nextAssetId++
+            val assetId = nextAssetId
+            nextAssetId += 1
             assets[assetId] = bytes
             AvatarAssetHandle(
                 assetId = assetId,
