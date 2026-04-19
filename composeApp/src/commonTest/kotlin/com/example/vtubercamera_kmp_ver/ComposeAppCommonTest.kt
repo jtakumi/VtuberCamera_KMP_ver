@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver
 
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
+import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
 import com.example.vtubercamera_kmp_ver.camera.VrmAvatarParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -8,7 +9,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
-import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 class ComposeAppCommonTest {
 
@@ -40,12 +40,17 @@ class ComposeAppCommonTest {
         val result = VrmAvatarParser.parse("sample.vrm", glb).getOrThrow()
         val preview = result.preview
 
-        assertEquals("Sample Avatar", preview.avatarName)
-        assertEquals("OpenAI", preview.authorName)
-        assertEquals("1.0", preview.vrmVersion)
-        assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
-        assertTrue(result.fileBytes.contentEquals(glb))
-        assertEquals(VrmSpecVersion.Vrm0, result.runtimeDescriptor.specVersion)
+        try {
+            assertEquals("Sample Avatar", preview.avatarName)
+            assertEquals("OpenAI", preview.authorName)
+            assertEquals("1.0", preview.vrmVersion)
+            assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
+            assertEquals(glb.contentHashCode(), result.assetHandle.contentHash)
+            assertTrue(assertNotNull(AvatarAssetStore.load(result.assetHandle)).contentEquals(glb))
+            assertEquals(VrmSpecVersion.Vrm0, result.runtimeDescriptor.specVersion)
+        } finally {
+            AvatarAssetStore.remove(result.assetHandle)
+        }
     }
 
     @Test
@@ -75,12 +80,17 @@ class ComposeAppCommonTest {
         val result = VrmAvatarParser.parse("sample.glb", glb).getOrThrow()
         val preview = result.preview
 
-        assertEquals("Sample GLB Avatar", preview.avatarName)
-        assertEquals("OpenAI GLB", preview.authorName)
-        assertEquals("1.0", preview.vrmVersion)
-        assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
-        assertTrue(result.fileBytes.contentEquals(glb))
-        assertEquals(VrmSpecVersion.Vrm1, result.runtimeDescriptor.specVersion)
+        try {
+            assertEquals("Sample GLB Avatar", preview.avatarName)
+            assertEquals("OpenAI GLB", preview.authorName)
+            assertEquals("1.0", preview.vrmVersion)
+            assertTrue(preview.thumbnailBytes!!.contentEquals(thumbnailBytes))
+            assertEquals(glb.contentHashCode(), result.assetHandle.contentHash)
+            assertTrue(assertNotNull(AvatarAssetStore.load(result.assetHandle)).contentEquals(glb))
+            assertEquals(VrmSpecVersion.Vrm1, result.runtimeDescriptor.specVersion)
+        } finally {
+            AvatarAssetStore.remove(result.assetHandle)
+        }
     }
 
     @Test

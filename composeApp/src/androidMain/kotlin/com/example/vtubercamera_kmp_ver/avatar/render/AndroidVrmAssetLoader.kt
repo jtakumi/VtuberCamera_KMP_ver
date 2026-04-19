@@ -15,22 +15,23 @@ internal class AndroidVrmAssetLoader(
     private val assetLoader = AssetLoader(engine, materialProvider, EntityManager.get())
     private val resourceLoader = ResourceLoader(engine)
 
-    fun loadAsset(bytes: ByteArray): FilamentAsset {
+    fun loadAsset(bytes: ByteArray): Result<FilamentAsset> = runCatching {
         val asset = assetLoader.createAsset(ByteBuffer.wrap(bytes))
-            ?: throw IllegalArgumentException(
-                "Unable to create a Filament asset from the selected VRM/GLB bytes. " +
-                    "The file may be corrupted or use unsupported glTF features. " +
-                    "Please try a different VRM/GLB file or verify the asset is valid.",
+            ?: throw AvatarAssetLoadException(
+                kind = AvatarAssetLoadFailureKind.InvalidAsset,
             )
 
-        return runCatching {
+        try {
             resourceLoader.loadResources(asset)
             resourceLoader.evictResourceData()
             asset.releaseSourceData()
             asset
-        }.getOrElse { throwable ->
+        } catch (throwable: Throwable) {
             destroyAsset(asset)
-            throw throwable
+            throw AvatarAssetLoadException(
+                kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
+                cause = throwable,
+            )
         }
     }
 
@@ -44,3 +45,14 @@ internal class AndroidVrmAssetLoader(
         materialProvider.destroy()
     }
 }
+
+internal enum class AvatarAssetLoadFailureKind {
+    AssetUnavailable,
+    InvalidAsset,
+    ResourceLoadFailed,
+}
+
+internal class AvatarAssetLoadException(
+    val kind: AvatarAssetLoadFailureKind,
+    cause: Throwable? = null,
+) : IllegalStateException(cause)

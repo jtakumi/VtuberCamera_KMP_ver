@@ -330,6 +330,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
     val avatarPreview = avatarSelection.preview
@@ -368,6 +369,7 @@ actual fun AvatarBodyOverlay(
                 AvatarRendererHostView(
                     avatarSelection = avatarSelection,
                     avatarRenderState = avatarRenderState,
+                    onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -425,11 +427,15 @@ actual fun AvatarBodyOverlay(
 private fun AvatarRendererHostView(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
         avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
+        onAvatarLoadFailure = { throwable ->
+            onAvatarRenderLoadFailed(throwable.toAvatarRenderErrorMessageRes())
+        },
         modifier = modifier,
     )
 }
@@ -487,6 +493,15 @@ private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose
     return when (this) {
         is FilePickerException -> FilePickerResult.Error(messageRes)
         else -> FilePickerResult.Error(defaultMessageRes)
+    }
+}
+
+private fun com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException.toAvatarRenderErrorMessageRes():
+    org.jetbrains.compose.resources.StringResource {
+    return when (kind) {
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
     }
 }
 

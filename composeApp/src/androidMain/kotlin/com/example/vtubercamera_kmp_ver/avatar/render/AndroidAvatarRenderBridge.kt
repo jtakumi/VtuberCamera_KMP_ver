@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import com.google.android.filament.Scene
 import com.google.android.filament.gltfio.FilamentAsset
@@ -19,29 +20,59 @@ internal class AndroidAvatarRenderBridge(
     fun update(
         avatarSelection: AvatarSelectionData,
         avatarRenderState: AvatarRenderState,
+        onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
         // TODO: Apply avatarRenderState to the loaded model here once expression / pose mapping is
         // wired into the Android runtime renderer.
 
         val nextAssetKey = AvatarAssetKey(
-            fileName = avatarSelection.preview.fileName,
-            byteHash = avatarSelection.fileBytes.contentHashCode(),
+            assetId = avatarSelection.assetHandle.assetId,
+            byteHash = avatarSelection.assetHandle.contentHash,
         )
         if (nextAssetKey == currentAssetKey) {
             return
         }
 
-        resourceCleaner.destroyAsset(
-            scene = scene,
-            assetLoader = assetLoader,
-            asset = currentAsset,
-        )
+        val assetBytes = AvatarAssetStore.load(avatarSelection.assetHandle)
+            ?: return onAvatarLoadFailure(
+                AvatarAssetLoadException(AvatarAssetLoadFailureKind.AssetUnavailable),
+            )
 
-        val nextAsset = assetLoader.loadAsset(avatarSelection.fileBytes)
-        scene.addEntities(nextAsset.entities)
-        onSceneFramingChanged(nextAsset.toSceneFraming())
-        currentAsset = nextAsset
-        currentAssetKey = nextAssetKey
+        assetLoader.loadAsset(assetBytes)
+            .onSuccess { nextAsset ->
+                runCatching {
+                    scene.addEntities(nextAsset.entities)
+                    onSceneFramingChanged(nextAsset.toSceneFraming())
+                }.onSuccess {
+                    resourceCleaner.destroyAsset(
+                        scene = scene,
+                        assetLoader = assetLoader,
+                        asset = currentAsset,
+                    )
+                    currentAsset = nextAsset
+                    currentAssetKey = nextAssetKey
+                }.onFailure { throwable ->
+                    resourceCleaner.destroyAsset(
+                        scene = scene,
+                        assetLoader = assetLoader,
+                        asset = nextAsset,
+                    )
+                    onAvatarLoadFailure(
+                        throwable as? AvatarAssetLoadException ?: AvatarAssetLoadException(
+                            kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
+                            cause = throwable,
+                        ),
+                    )
+                }
+            }
+            .onFailure { throwable ->
+                onAvatarLoadFailure(
+                    throwable as? AvatarAssetLoadException ?: AvatarAssetLoadException(
+                        kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
+                        cause = throwable,
+                    ),
+                )
+            }
     }
 
     fun destroy() {
@@ -75,7 +106,7 @@ internal class AndroidAvatarRenderBridge(
     }
 
     private data class AvatarAssetKey(
-        val fileName: String,
+        val assetId: Long,
         val byteHash: Int,
     )
 

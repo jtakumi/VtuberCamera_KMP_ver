@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.StringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
@@ -189,15 +190,31 @@ class CameraViewModel(
     fun onFilePicked(result: FilePickerResult) {
         _uiState.update { currentState ->
             when (result) {
-                is FilePickerResult.Success -> currentState.copy(
-                    avatarSelection = result.avatarSelection,
-                    filePickerErrorMessageRes = null,
-                )
+                is FilePickerResult.Success -> {
+                    currentState.avatarSelection?.let { previousSelection ->
+                        AvatarAssetStore.remove(previousSelection.assetHandle)
+                    }
+                    currentState.copy(
+                        avatarSelection = result.avatarSelection,
+                        filePickerErrorMessageRes = null,
+                    )
+                }
                 is FilePickerResult.Error -> currentState.copy(
                     filePickerErrorMessageRes = result.messageRes,
                 )
                 FilePickerResult.Cancelled -> currentState
             }
+        }
+    }
+
+    // renderer 側の avatar 読み込み失敗を UI エラーへ変換し、現在の選択を解除する。
+    fun onAvatarRenderLoadFailed(messageRes: StringResource) {
+        _uiState.update { currentState ->
+            currentState.avatarSelection?.let { AvatarAssetStore.remove(it.assetHandle) }
+            currentState.copy(
+                avatarSelection = null,
+                filePickerErrorMessageRes = messageRes,
+            )
         }
     }
 
@@ -249,6 +266,11 @@ class CameraViewModel(
                 message = error.toCameraMessage(),
             )
         }
+    }
+
+    override fun onCleared() {
+        _uiState.value.avatarSelection?.let { AvatarAssetStore.remove(it.assetHandle) }
+        super.onCleared()
     }
 }
 

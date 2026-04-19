@@ -85,34 +85,13 @@ data class AvatarPreviewData(
     }
 }
 
-// renderer で利用する選択済みアバターの bytes と VRM ランタイム情報を保持する。
+// renderer で利用する選択済みアバターの asset handle と VRM ランタイム情報を保持する。
 @Immutable
 data class AvatarSelectionData(
     val preview: AvatarPreviewData,
-    val fileBytes: ByteArray,
+    val assetHandle: AvatarAssetHandle,
     val runtimeDescriptor: VrmRuntimeAssetDescriptor,
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other == null || this::class != other::class) return false
-
-        other as AvatarSelectionData
-
-        if (preview != other.preview) return false
-        if (!fileBytes.contentEquals(other.fileBytes)) return false
-        if (runtimeDescriptor != other.runtimeDescriptor) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        val hashMultiplier = 31
-        var result = preview.hashCode()
-        result = hashMultiplier * result + fileBytes.contentHashCode()
-        result = hashMultiplier * result + runtimeDescriptor.hashCode()
-        return result
-    }
-}
+)
 
 sealed interface FilePickerResult {
     data class Success(val avatarSelection: AvatarSelectionData) : FilePickerResult
@@ -150,5 +129,6 @@ expect fun AvatarPreviewOverlay(
 expect fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (StringResource) -> Unit,
     modifier: Modifier = Modifier,
 )

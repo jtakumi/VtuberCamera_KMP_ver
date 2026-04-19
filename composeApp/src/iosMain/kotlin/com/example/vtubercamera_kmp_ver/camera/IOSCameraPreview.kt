@@ -209,6 +209,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
     val avatarPreview = avatarSelection.preview

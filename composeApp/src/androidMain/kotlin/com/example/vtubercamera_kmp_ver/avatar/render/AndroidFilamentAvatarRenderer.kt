@@ -94,11 +94,13 @@ class AndroidFilamentAvatarRenderer(
     fun updateRendererState(
         avatarSelection: AvatarSelectionData,
         nextRenderState: AvatarRenderState,
+        onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
         renderState = nextRenderState
         renderBridge.update(
             avatarSelection = avatarSelection,
             avatarRenderState = nextRenderState,
+            onAvatarLoadFailure = onAvatarLoadFailure,
         )
     }
 

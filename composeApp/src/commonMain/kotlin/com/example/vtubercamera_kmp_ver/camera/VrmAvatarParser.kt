@@ -43,7 +43,7 @@ object VrmAvatarParser {
                     vrmVersion = vrmVersion,
                     thumbnailBytes = thumbnailBytes,
                 ),
-                fileBytes = bytes,
+                assetHandle = AvatarAssetStore.store(bytes),
                 runtimeDescriptor = runtimeDescriptor,
             ),
         )

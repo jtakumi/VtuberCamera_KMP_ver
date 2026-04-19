@@ -27,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
@@ -90,6 +91,7 @@ fun CameraRoute(
         onRetryPreview = cameraViewModel::onRetryPreview,
         onOpenFilePicker = filePickerLauncher.launch,
         onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
+        onAvatarRenderLoadFailed = cameraViewModel::onAvatarRenderLoadFailed,
         onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
@@ -110,6 +112,7 @@ fun CameraScreen(
     onRetryPreview: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onDismissFilePickerError: () -> Unit,
+    onAvatarRenderLoadFailed: (StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
@@ -137,6 +140,7 @@ fun CameraScreen(
                 uiState = uiState,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
+                onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
@@ -174,6 +178,7 @@ private fun CameraPreviewState(
     uiState: CameraUiState,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
+    onAvatarRenderLoadFailed: (StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
@@ -192,6 +197,7 @@ private fun CameraPreviewState(
             avatarSelection = avatarSelection,
             avatarPreview = avatarPreview,
             avatarRenderState = uiState.avatarRenderState,
+            onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
         CameraUiLayer(
@@ -235,6 +241,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarSelection: AvatarSelectionData?,
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (StringResource) -> Unit,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     // renderer host は avatar 選択済みのときだけ差し込む。
@@ -244,6 +251,7 @@ private fun BoxScope.CameraRendererLayer(
                 avatarSelection = avatarSelection,
                 avatarPreview = avatarPreview,
                 avatarRenderState = avatarRenderState,
+                onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(
@@ -260,17 +268,20 @@ private fun BoxScope.CameraRendererLayer(
 /**
  * renderer host が camera preview layer に avatar content を描画するための共有文脈を保持する。
  *
- * [avatarSelection] は renderer が使う選択済み avatar の bytes / runtime 情報、[avatarPreview] は
+ * [avatarSelection] は renderer が使う選択済み asset handle / runtime 情報、[avatarPreview] は
  * 表示用のメタ情報、[avatarRenderState] は renderer host が参照する共有の tracking / render state、
- * [modifier] は CameraScreen 側で決めた renderer layer の配置情報を表す。
+ * [onAvatarRenderLoadFailed] は renderer 側の読み込み失敗を UI へ戻す callback、[modifier] は
+ * CameraScreen 側で決めた renderer layer の配置情報を表す。
  */
 data class RendererHostSlotState(
-    /** renderer host が参照する選択済み avatar の bytes / runtime 情報。 */
+    /** renderer host が参照する選択済み avatar の asset handle / runtime 情報。 */
     val avatarSelection: AvatarSelectionData,
     /** renderer host が参照する選択済み avatar のメタ情報。 */
     val avatarPreview: AvatarPreviewData,
     /** renderer host が参照する共有の avatar tracking / render state。 */
     val avatarRenderState: AvatarRenderState,
+    /** renderer 側の読み込み失敗を UI へ戻す callback。 */
+    val onAvatarRenderLoadFailed: (StringResource) -> Unit,
     /** CameraScreen 側で決めた renderer layer の配置と padding。 */
     val modifier: Modifier,
 )
@@ -303,6 +314,7 @@ private fun DefaultAvatarRendererHost(
     AvatarBodyOverlay(
         avatarSelection = state.avatarSelection,
         avatarRenderState = state.avatarRenderState,
+        onAvatarRenderLoadFailed = state.onAvatarRenderLoadFailed,
         modifier = state.modifier,
     )
 }
