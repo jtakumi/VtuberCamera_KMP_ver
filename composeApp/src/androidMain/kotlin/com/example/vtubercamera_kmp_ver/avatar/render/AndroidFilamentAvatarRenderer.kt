@@ -24,7 +24,7 @@ import kotlin.math.sin
 import android.view.View as AndroidView
 import com.google.android.filament.View as FilamentView
 
-class AndroidFilamentAvatarRenderer(
+internal class AndroidFilamentAvatarRenderer(
     context: Context,
 ) {
     val hostView: AndroidView
