@@ -68,6 +68,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_versio
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
