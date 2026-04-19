@@ -27,9 +27,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlin.math.PI
+import kotlin.math.asin
+import kotlin.math.atan2
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.CValue
+import kotlinx.cinterop.FloatVar
+import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.get
 import kotlinx.cinterop.readValue
+import kotlinx.cinterop.reinterpret
+import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
+import platform.ARKit.ARBlendShapeLocationEyeBlinkLeft
+import platform.ARKit.ARBlendShapeLocationEyeBlinkRight
+import platform.ARKit.ARBlendShapeLocationJawOpen
+import platform.ARKit.ARBlendShapeLocationMouthSmileLeft
+import platform.ARKit.ARBlendShapeLocationMouthSmileRight
+import platform.ARKit.ARFaceAnchor
+import platform.ARKit.ARFaceTrackingConfiguration
+import platform.ARKit.ARSCNView
+import platform.ARKit.ARSession
+import platform.ARKit.ARSessionDelegateProtocol
+import platform.ARKit.ARTrackingState
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
 import platform.AVFoundation.AVCaptureDevice
@@ -44,9 +64,14 @@ import platform.AVFoundation.authorizationStatusForMediaType
 import platform.AVFoundation.requestAccessForMediaType
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
+import platform.Foundation.NSDate
+import platform.Foundation.NSError
+import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.create
 import platform.Foundation.getBytes
+import platform.QuartzCore.CACurrentMediaTime
+import platform.SceneKit.SCNScene
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
@@ -59,10 +84,24 @@ import platform.darwin.NSObject
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 import platform.darwin.dispatch_queue_create
+import platform.darwin.simd_float4x4
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
+
+private const val IOS_LIMITED_TRACKING_CONFIDENCE = 0.65f
+private const val IOS_HEAD_YAW_SMOOTHING_ALPHA = 0.45f
+private const val IOS_HEAD_PITCH_SMOOTHING_ALPHA = 0.45f
+private const val IOS_HEAD_ROLL_SMOOTHING_ALPHA = 0.4f
+private const val IOS_SMILE_SMOOTHING_ALPHA = 0.35f
+private const val IOS_BLINK_HIGH_THRESHOLD = 0.68f
+private const val IOS_BLINK_LOW_THRESHOLD = 0.32f
+private const val IOS_BLINK_CLOSING_ALPHA = 0.55f
+private const val IOS_BLINK_OPENING_ALPHA = 0.28f
+private const val IOS_JAW_OPENING_ALPHA = 0.58f
+private const val IOS_JAW_CLOSING_ALPHA = 0.24f
+private const val IOS_FACE_FRAME_DISPATCH_INTERVAL_SECONDS = 1.0 / 30.0
 
 @Composable
 // カメラ権限の現在状態を監視し、権限要求処理を組み立てたコントローラーを保持する。
@@ -153,38 +192,75 @@ actual fun CameraPreviewHost(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
     val sessionManager = remember { IOSCameraSessionManager() }
-    val previewView = remember { CameraPreviewView() }
+    val faceTrackingSessionManager = remember { IOSFaceTrackingSessionManager() }
+    val previewView = remember { CameraPreviewContainerView() }
+    val usesFaceTracking = remember(lensFacing) { lensFacing.shouldUseIosFaceTracking() }
+    val currentOnFaceTrackingFrameChanged = rememberUpdatedState(onFaceTrackingFrameChanged)
 
     UIKitView(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
-            sessionManager.bindPreview(to = previewView)
+            if (usesFaceTracking) {
+                faceTrackingSessionManager.bindPreview(to = previewView)
+            } else {
+                sessionManager.bindPreview(to = previewView)
+            }
             previewView
         },
         update = {
-            sessionManager.bindPreview(to = it)
+            if (usesFaceTracking) {
+                faceTrackingSessionManager.bindPreview(to = it)
+            } else {
+                sessionManager.bindPreview(to = it)
+            }
         },
     )
 
-    DisposableEffect(lensFacing) {
-        sessionManager.startPreview(lensFacing) { resolvedLens, error ->
-            if (error == null) {
-                if (resolvedLens != lensFacing) {
-                    onLensFacingChanged(resolvedLens)
+    DisposableEffect(lensFacing, usesFaceTracking) {
+        var isDisposed = false
+        val onPreviewConfigured: (CameraLensFacing, Throwable?) -> Unit = { resolvedLens, error ->
+            if (!isDisposed) {
+                if (error == null) {
+                    if (resolvedLens != lensFacing) {
+                        onLensFacingChanged(resolvedLens)
+                    }
+                    cameraRepository.onPlatformPreviewStarted(resolvedLens)
+                } else {
+                    cameraRepository.onPlatformPreviewError(
+                        lensFacing = resolvedLens,
+                        error = CameraError.PreviewInitializationFailed,
+                    )
                 }
-                cameraRepository.onPlatformPreviewStarted(resolvedLens)
-            } else {
-                cameraRepository.onPlatformPreviewError(
-                    lensFacing = resolvedLens,
-                    error = CameraError.PreviewInitializationFailed,
-                )
             }
         }
 
+        if (usesFaceTracking) {
+            faceTrackingSessionManager.stopPreview()
+            sessionManager.stopPreview {
+                if (!isDisposed) {
+                    faceTrackingSessionManager.startPreview(
+                        onFaceTrackingFrameChanged = { frame ->
+                            currentOnFaceTrackingFrameChanged.value(frame)
+                        },
+                        onComplete = onPreviewConfigured,
+                    )
+                }
+            }
+        } else {
+            faceTrackingSessionManager.stopPreview()
+            currentOnFaceTrackingFrameChanged.value(null)
+            sessionManager.startPreview(
+                requestedLensFacing = lensFacing,
+                onComplete = onPreviewConfigured,
+            )
+        }
+
         onDispose {
+            isDisposed = true
+            faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview()
-            onFaceTrackingFrameChanged(null)
+            currentOnFaceTrackingFrameChanged.value(null)
         }
     }
 }
@@ -238,24 +314,55 @@ actual fun AvatarBodyOverlay(
     }
 }
 
-// Hosts the AVFoundation preview layer inside a UIKit view managed from Compose.
-private class CameraPreviewView : UIView(frame = CGRectZero.readValue()) {
+// AVFoundation preview layer と ARKit preview view を切り替えて保持する UIKit コンテナ。
+private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()) {
     private var hostedPreviewLayer: AVCaptureVideoPreviewLayer? = null
+    private var hostedView: UIView? = null
 
     // AVFoundation のプレビュー層を UIKit ビューへ紐付ける。
     fun bindPreviewLayer(previewLayer: AVCaptureVideoPreviewLayer) {
+        var didChangeHostedContent = false
+        if (hostedView != null) {
+            hostedView?.removeFromSuperview()
+            hostedView = null
+            didChangeHostedContent = true
+        }
         if (hostedPreviewLayer !== previewLayer || previewLayer.superlayer != layer) {
             previewLayer.removeFromSuperlayer()
             layer.addSublayer(previewLayer)
             hostedPreviewLayer = previewLayer
+            didChangeHostedContent = true
         }
-        setNeedsLayout()
+        if (didChangeHostedContent) {
+            setNeedsLayout()
+        }
+    }
+
+    // ARKit preview 用の UIView をコンテナへ差し込む。
+    fun bindHostedView(view: UIView) {
+        var didChangeHostedContent = false
+        if (hostedPreviewLayer != null) {
+            hostedPreviewLayer?.removeFromSuperlayer()
+            hostedPreviewLayer = null
+            didChangeHostedContent = true
+        }
+        if (hostedView !== view || view.superview != this) {
+            hostedView?.removeFromSuperview()
+            view.removeFromSuperview()
+            addSubview(view)
+            hostedView = view
+            didChangeHostedContent = true
+        }
+        if (didChangeHostedContent) {
+            setNeedsLayout()
+        }
     }
 
     // ビューのサイズ変更に合わせてプレビュー層の描画範囲を更新する。
     override fun layoutSubviews() {
         super.layoutSubviews()
         hostedPreviewLayer?.frame = bounds
+        hostedView?.setFrame(bounds)
     }
 }
 
@@ -354,7 +461,7 @@ private class IOSCameraSessionManager {
     }
 
     // プレビュー層を表示用ビューへ接続する。
-    fun bindPreview(to: CameraPreviewView) {
+    fun bindPreview(to: CameraPreviewContainerView) {
         to.bindPreviewLayer(previewLayer)
     }
 
@@ -405,10 +512,13 @@ private class IOSCameraSessionManager {
     }
 
     // 実行中のカメラプレビューを停止する。
-    fun stopPreview() {
+    fun stopPreview(onStopped: () -> Unit = {}) {
         dispatch_async(sessionQueue) {
             if (session.running) {
                 session.stopRunning()
+            }
+            dispatch_async(dispatch_get_main_queue()) {
+                onStopped()
             }
         }
     }
@@ -425,6 +535,52 @@ private class IOSCameraSessionManager {
         } else {
             null
         }
+    }
+}
+
+// ARKit の front-camera preview と face tracking をまとめて管理する。
+private class IOSFaceTrackingSessionManager {
+    private val previewView = ARSCNView(frame = CGRectZero.readValue()).apply {
+        backgroundColor = UIColor.blackColor
+        scene = SCNScene()
+    }
+    private val sessionDelegate = IOSFaceTrackingSessionDelegate()
+
+    init {
+        previewView.session.delegate = sessionDelegate
+    }
+
+    // ARKit preview view を表示用コンテナへ接続する。
+    fun bindPreview(to: CameraPreviewContainerView) {
+        to.bindHostedView(previewView)
+    }
+
+    // TrueDepth 対応時に ARKit face tracking を開始する。
+    fun startPreview(
+        onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
+        onComplete: (resolvedLens: CameraLensFacing, error: Throwable?) -> Unit,
+    ) {
+        if (!ARFaceTrackingConfiguration.isSupported) {
+            onComplete(CameraLensFacing.Front, IllegalStateException("ARKit face tracking is unsupported"))
+            return
+        }
+
+        sessionDelegate.onFaceTrackingFrameChanged = onFaceTrackingFrameChanged
+        sessionDelegate.clearTrackedFace()
+        val configuration = ARFaceTrackingConfiguration().apply {
+            setLightEstimationEnabled(true)
+        }
+        val started = runCatching {
+            previewView.session.runWithConfiguration(configuration)
+        }
+        onComplete(CameraLensFacing.Front, started.exceptionOrNull())
+    }
+
+    // ARKit face tracking を停止して最新フレームを破棄する。
+    fun stopPreview() {
+        sessionDelegate.onFaceTrackingFrameChanged = {}
+        sessionDelegate.clearTrackedFace()
+        previewView.session.pause()
     }
 }
 
@@ -531,6 +687,11 @@ private fun resolveAvailableLens(requested: CameraLensFacing): CameraLensFacing?
     }
 }
 
+// iOS で front camera と ARKit が両方使えるときだけ face tracking を有効化する。
+private fun CameraLensFacing.shouldUseIosFaceTracking(): Boolean {
+    return this == CameraLensFacing.Front && ARFaceTrackingConfiguration.isSupported
+}
+
 // 共通のレンズ向きを AVFoundation のデバイス向きへ変換する。
 private fun CameraLensFacing.toDevicePosition() = when (this) {
     CameraLensFacing.Front -> AVCaptureDevicePositionFront
@@ -543,3 +704,232 @@ private fun cameraDevice(position: platform.AVFoundation.AVCaptureDevicePosition
         .filterIsInstance<AVCaptureDevice>()
         .firstOrNull { it.position == position }
 }
+
+// ARKit delegate から shared face-tracking frame へ変換して Compose 側へ流す。
+private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProtocol {
+    var onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit = {}
+    private var previousFrame: NormalizedFaceFrame? = null
+    private var lastDispatchedFaceFrameSeconds: Double? = null
+    private var trackingConfidence: Float = 1f
+
+    // 追加・更新された face anchor を shared frame として通知する。
+    @ObjCSignatureOverride
+    override fun session(session: ARSession, didAddAnchors: List<*>) {
+        publishFaceFrame(anchors = didAddAnchors)
+    }
+
+    // 継続中の face anchor 更新を shared frame として通知する。
+    @ObjCSignatureOverride
+    override fun session(session: ARSession, didUpdateAnchors: List<*>) {
+        publishFaceFrame(anchors = didUpdateAnchors)
+    }
+
+    // face anchor が消えたときに tracking state を初期化する。
+    @ObjCSignatureOverride
+    override fun session(session: ARSession, didRemoveAnchors: List<*>) {
+        if (didRemoveAnchors.any { it is ARFaceAnchor }) {
+            clearTrackedFace()
+            dispatchFaceFrame(null)
+        }
+    }
+
+    // ARKit tracking が不安定になったときは shared face state を破棄する。
+    override fun session(session: ARSession, cameraDidChangeTrackingState: platform.ARKit.ARCamera) {
+        trackingConfidence = when (cameraDidChangeTrackingState.trackingState) {
+            ARTrackingState.ARTrackingStateNormal -> 1f
+            ARTrackingState.ARTrackingStateLimited -> IOS_LIMITED_TRACKING_CONFIDENCE
+            else -> 0f
+        }
+        if (trackingConfidence == 0f) {
+            clearTrackedFace(resetTrackingConfidence = false)
+            dispatchFaceFrame(null)
+        }
+    }
+
+    // セッション失敗時に tracking state を破棄する。
+    override fun session(session: ARSession, didFailWithError: NSError) {
+        clearTrackedFace()
+        dispatchFaceFrame(null)
+    }
+
+    // セッション中断時に tracking state を破棄する。
+    override fun sessionWasInterrupted(session: ARSession) {
+        clearTrackedFace()
+        dispatchFaceFrame(null)
+    }
+
+    // 中断復帰後に古い tracking state を持ち越さないよう初期化する。
+    override fun sessionInterruptionEnded(session: ARSession) {
+        clearTrackedFace()
+        dispatchFaceFrame(null)
+    }
+
+    // 保持中の前回フレームを破棄する。
+    fun clearTrackedFace(resetTrackingConfidence: Boolean = true) {
+        previousFrame = null
+        lastDispatchedFaceFrameSeconds = null
+        if (resetTrackingConfidence) {
+            trackingConfidence = 1f
+        }
+    }
+
+    // face anchor 群から先頭の顔を抜き出して shared frame へ変換する。
+    private fun publishFaceFrame(
+        anchors: List<*>,
+    ) {
+        val faceAnchor = anchors.firstNotNullOfOrNull { it as? ARFaceAnchor }
+        val nextFrame = faceAnchor?.toNormalizedFaceFrame(
+            trackingConfidence = trackingConfidence,
+            previousFrame = previousFrame,
+        )
+        previousFrame = nextFrame
+        dispatchFaceFrame(nextFrame)
+    }
+
+    // ARKit delegate は main thread 固定ではないため、shared state 更新は常に main queue へ寄せる。
+    private fun dispatchFaceFrame(frame: NormalizedFaceFrame?) {
+        if (frame == null) {
+            lastDispatchedFaceFrameSeconds = null
+        } else {
+            val nowSeconds = CACurrentMediaTime()
+            val lastDispatchedSeconds = lastDispatchedFaceFrameSeconds
+            if (
+                lastDispatchedSeconds != null &&
+                nowSeconds - lastDispatchedSeconds < IOS_FACE_FRAME_DISPATCH_INTERVAL_SECONDS
+            ) {
+                return
+            }
+            lastDispatchedFaceFrameSeconds = nowSeconds
+        }
+        dispatch_async(dispatch_get_main_queue()) {
+            onFaceTrackingFrameChanged(frame)
+        }
+    }
+}
+
+// ARKit face anchor を shared face-tracking frame へ変換する。
+private fun ARFaceAnchor.toNormalizedFaceFrame(
+    trackingConfidence: Float,
+    previousFrame: NormalizedFaceFrame?,
+): NormalizedFaceFrame {
+    val blendShapes = blendShapes
+    val pose = transform.toHeadPoseDegrees()
+    val currentFrame = NormalizedFaceFrame(
+        timestampMillis = currentMonotonicTimestampMillis(),
+        trackingConfidence = trackingConfidence,
+        // shared `NormalizedFaceFrame` は Android の front-camera 規約に合わせているため、
+        // ARKit の camera-relative な yaw / roll だけを反転し、上下方向の pitch は両者で向きが一致するのでそのまま使う。
+        headYawDegrees = -pose.yawDegrees,
+        headPitchDegrees = pose.pitchDegrees,
+        headRollDegrees = -pose.rollDegrees,
+        leftEyeBlink = blendShapes.floatValue(ARBlendShapeLocationEyeBlinkLeft),
+        rightEyeBlink = blendShapes.floatValue(ARBlendShapeLocationEyeBlinkRight),
+        jawOpen = blendShapes.floatValue(ARBlendShapeLocationJawOpen),
+        mouthSmile = (
+            blendShapes.floatValue(ARBlendShapeLocationMouthSmileLeft) +
+                blendShapes.floatValue(ARBlendShapeLocationMouthSmileRight)
+            ) / 2f,
+    )
+    return smoothFaceTrackingFrame(previousFrame = previousFrame, currentFrame = currentFrame)
+}
+
+// ARKit の transform 行列から head pose を度数へ変換する。
+private fun CValue<simd_float4x4>.toHeadPoseDegrees(): IOSHeadPoseDegrees {
+    var yawRadians = 0f
+    var pitchRadians = 0f
+    var rollRadians = 0f
+    useContents {
+        // simd_float4x4 は column-major なので、コードで使う values[8], values[9], values[10],
+        // values[4], values[0] はそれぞれ matrix[0,2], matrix[1,2], matrix[2,2], matrix[0,1],
+        // matrix[0,0] に対応し、ZYX の rotation matrix 分解として Euler 角へ変換する。
+        val values = columns.reinterpret<FloatVar>()
+        // asin は [-1, 1] の外を受け取れないため、浮動小数誤差による domain error を避ける。
+        pitchRadians = asin((-values[8]).coerceIn(-1f, 1f))
+        rollRadians = atan2(values[9], values[10])
+        yawRadians = atan2(values[4], values[0])
+    }
+    return IOSHeadPoseDegrees(
+        yawDegrees = yawRadians.toDegrees(),
+        pitchDegrees = pitchRadians.toDegrees(),
+        rollDegrees = rollRadians.toDegrees(),
+    )
+}
+
+// ARKit の blendShapes map から 0..1 の値を安全に読み出す。
+private fun Map<Any?, *>.floatValue(key: Any?): Float {
+    val number = this[key] as? NSNumber ?: return 0f
+    return number.floatValue.coerceIn(0f, 1f)
+}
+
+// ARKit の生データを Android 側と近い応答にそろえるため平滑化する。
+private fun smoothFaceTrackingFrame(
+    previousFrame: NormalizedFaceFrame?,
+    currentFrame: NormalizedFaceFrame,
+): NormalizedFaceFrame {
+    if (previousFrame == null) {
+        return currentFrame
+    }
+
+    return currentFrame.copy(
+        headYawDegrees = lerp(
+            previousFrame.headYawDegrees,
+            currentFrame.headYawDegrees,
+            IOS_HEAD_YAW_SMOOTHING_ALPHA,
+        ),
+        headPitchDegrees = lerp(
+            previousFrame.headPitchDegrees,
+            currentFrame.headPitchDegrees,
+            IOS_HEAD_PITCH_SMOOTHING_ALPHA,
+        ),
+        headRollDegrees = lerp(
+            previousFrame.headRollDegrees,
+            currentFrame.headRollDegrees,
+            IOS_HEAD_ROLL_SMOOTHING_ALPHA,
+        ),
+        leftEyeBlink = smoothBlink(previousFrame.leftEyeBlink, currentFrame.leftEyeBlink),
+        rightEyeBlink = smoothBlink(previousFrame.rightEyeBlink, currentFrame.rightEyeBlink),
+        jawOpen = smoothJaw(previousFrame.jawOpen, currentFrame.jawOpen),
+        mouthSmile = lerp(previousFrame.mouthSmile, currentFrame.mouthSmile, IOS_SMILE_SMOOTHING_ALPHA),
+    )
+}
+
+// まばたきは閉じる方向をやや強めに追従させる。
+private fun smoothBlink(previous: Float, current: Float): Float {
+    // ARKit の raw 値は 0..1 でも細かな揺れが出るため、Android 側に寄せた閾値で開閉を安定化する。
+    val snapped = when {
+        current >= IOS_BLINK_HIGH_THRESHOLD -> 1f
+        current <= IOS_BLINK_LOW_THRESHOLD -> 0f
+        else -> current
+    }
+    val alpha = if (snapped > previous) IOS_BLINK_CLOSING_ALPHA else IOS_BLINK_OPENING_ALPHA
+    return lerp(previous, snapped, alpha).coerceIn(0f, 1f)
+}
+
+// 口の開きは開閉速度差を持たせて違和感を抑える。
+private fun smoothJaw(previous: Float, current: Float): Float {
+    // 口を開く方向は `IOS_JAW_OPENING_ALPHA`、閉じる方向は `IOS_JAW_CLOSING_ALPHA` を使い、
+    // 口パクが詰まりすぎず追従感も落とさないようにする。
+    val alpha = if (current > previous) IOS_JAW_OPENING_ALPHA else IOS_JAW_CLOSING_ALPHA
+    return lerp(previous, current, alpha).coerceIn(0f, 1f)
+}
+
+// 共通の線形補間で角度と表情係数をならす。
+private fun lerp(start: Float, end: Float, alpha: Float): Float {
+    return start + (end - start) * alpha
+}
+
+// ラジアンを UI 表示向けの度数へ変換する。
+private fun Float.toDegrees(): Float {
+    return this * (180f / PI.toFloat())
+}
+
+// ARSession.currentFrame を参照すると ARFrame を保持しやすいため、delegate では単調時刻だけを使う。
+private fun currentMonotonicTimestampMillis(): Long {
+    return (CACurrentMediaTime() * 1000.0).toLong()
+}
+
+private data class IOSHeadPoseDegrees(
+    val yawDegrees: Float,
+    val pitchDegrees: Float,
+    val rollDegrees: Float,
+)
