@@ -19,7 +19,6 @@ internal class AndroidVrmAssetLoader(
         val asset = assetLoader.createAsset(ByteBuffer.wrap(bytes))
             ?: throw AvatarAssetLoadException(
                 kind = AvatarAssetLoadFailureKind.InvalidAsset,
-                message = "Unable to create a Filament asset from the selected VRM/GLB bytes.",
             )
 
         try {
@@ -31,7 +30,6 @@ internal class AndroidVrmAssetLoader(
             destroyAsset(asset)
             throw AvatarAssetLoadException(
                 kind = AvatarAssetLoadFailureKind.ResourceLoadFailed,
-                message = "Unable to load Filament resources for the selected VRM/GLB asset.",
                 cause = throwable,
             )
         }
@@ -57,6 +55,5 @@ internal enum class AvatarAssetLoadFailureKind {
 
 internal class AvatarAssetLoadException(
     val kind: AvatarAssetLoadFailureKind,
-    message: String? = null,
     cause: Throwable? = null,
-) : IllegalStateException(message ?: cause?.message, cause)
+) : IllegalStateException(null, cause)
