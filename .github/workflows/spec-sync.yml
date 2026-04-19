@@ -1,0 +1,46 @@
+name: Spec Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: Fail when non-accepted warnings are found
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    # Monday 06:00 JST.
+    - cron: '0 21 * * 0'
+
+permissions:
+  contents: read
+
+jobs:
+  spec-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run spec sync report
+        run: |
+          set -o pipefail
+          mkdir -p build/reports
+          if [[ "${{ inputs.strict }}" == "true" ]]; then
+            python3 scripts/spec_sync_check.py --strict --format markdown | tee build/reports/spec-sync-report.md
+          else
+            python3 scripts/spec_sync_check.py --format markdown | tee build/reports/spec-sync-report.md
+          fi
+
+      - name: Add report to job summary
+        if: always()
+        run: cat build/reports/spec-sync-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spec-sync-report
+          path: build/reports/spec-sync-report.md

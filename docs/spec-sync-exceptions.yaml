@@ -1,0 +1,85 @@
+version: 1
+updated: 2026-04-19
+
+exceptions:
+  - id: IOS_FACE_TRACKING_NOT_IMPLEMENTED
+    category: Intentional platform asymmetry
+    status: active
+    severity: info
+    scope:
+      - ios
+      - face_tracking
+    reason: Android has ML Kit face tracking and shared UI state, while iOS currently clears tracking state and does not run a native face analyzer.
+    evidence:
+      - README.md: iOS face tracking is documented as not implemented.
+      - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidFaceTrackingAnalyzer.kt
+      - composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt
+    reevaluate_when: iOS adds Vision, ARKit, ML Kit, or another face tracking analyzer.
+
+  - id: PHOTO_CAPTURE_AND_SAVE_PLANNED
+    category: Spec ahead of code
+    status: active
+    severity: info
+    scope:
+      - photo_capture
+      - image_save
+    reason: Photo capture and image save are MVP roadmap items, but README and spec mark them as not implemented.
+    evidence:
+      - README.md: photo capture and image save are listed under not implemented features.
+      - docs/KMP_IMPLEMENTATION_SPEC.ja.md: photo capture and image save are listed under planned work.
+    reevaluate_when: CameraX ImageCapture, AVFoundation photo output, MediaStore, or Photos save code is added.
+
+  - id: FLASH_ZOOM_PLANNED
+    category: Spec ahead of code
+    status: active
+    severity: info
+    scope:
+      - flash
+      - zoom
+    reason: Flash and zoom are planned camera controls and are not part of the current confirmed implementation.
+    evidence:
+      - README.md: flash and zoom are listed under not implemented features.
+      - docs/KMP_IMPLEMENTATION_SPEC.ja.md: flash and zoom are listed under planned work.
+    reevaluate_when: CameraX flash / zoom or AVFoundation torch / zoom controls are added.
+
+  - id: README_AVATAR_RENDERING_SUMMARY
+    category: Code ahead of spec
+    status: active
+    severity: info
+    scope:
+      - avatar_renderer
+      - readme_summary
+    reason: Android renderer dependencies and host code exist, but README intentionally keeps the current-status section short and treats full AR / VRM / Filament integration as not complete.
+    evidence:
+      - composeApp/build.gradle.kts: Android Filament and gltfio dependencies.
+      - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render
+      - README.md: AR / VRM / Filament integration is still listed as not implemented.
+    reevaluate_when: README needs finer-grained shipped status for avatar renderer layer.
+
+  - id: GITHUB_ACTIONS_ANDROID_ONLY_BITRISE_IOS
+    category: Intentional platform asymmetry
+    status: active
+    severity: info
+    scope:
+      - ci
+      - github_actions
+      - bitrise
+    reason: GitHub Actions currently verifies Android, while Bitrise contains Android and iOS build workflows.
+    evidence:
+      - .github/workflows/android-ci.yml
+      - bitrise.yml
+    reevaluate_when: GitHub Actions adds an iOS simulator build or Bitrise is removed.
+
+  - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
+    category: Spec ahead of code
+    status: active
+    severity: info
+    scope:
+      - ios
+      - image_save
+      - permissions
+    reason: iOS only needs Photos add-library permission when image save is implemented; current camera preview only requires camera permission.
+    evidence:
+      - iosApp/iosApp/Info.plist: NSCameraUsageDescription exists.
+      - README.md: image save is listed as not implemented.
+    reevaluate_when: iOS image save code is added.
