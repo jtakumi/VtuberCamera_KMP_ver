@@ -207,10 +207,13 @@ actual fun AvatarPreviewOverlay(
 // カメラ画面の下部にアバター本体用のオーバーレイを表示する。
 @Suppress("UNUSED_PARAMETER")
 actual fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
+    val avatarPreview = avatarSelection.preview
+
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter,
@@ -303,7 +306,7 @@ private fun NSURL.toFilePickerResult(): FilePickerResult {
         val data = NSData.create(contentsOfURL = this)
             ?: throw FilePickerException(Res.string.file_picker_read_failed)
         VrmAvatarParser.parse(fileName = fileName, bytes = data.toByteArray()).fold(
-            onSuccess = { avatarPreview -> FilePickerResult.Success(avatarPreview) },
+            onSuccess = { avatarSelection -> FilePickerResult.Success(avatarSelection) },
             onFailure = { throwable -> throwable.toFilePickerError() },
         )
     } catch (throwable: Throwable) {

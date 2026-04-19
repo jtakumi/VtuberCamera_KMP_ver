@@ -68,6 +68,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_versio
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_vrm_badge
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -328,10 +329,13 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 actual fun AvatarBodyOverlay(
-    avatarPreview: AvatarPreviewData,
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
+    val avatarPreview = avatarSelection.preview
+
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter,
@@ -364,7 +368,9 @@ actual fun AvatarBodyOverlay(
                     ),
             ) {
                 AvatarRendererHostView(
+                    avatarSelection = avatarSelection,
                     avatarRenderState = avatarRenderState,
+                    onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                     modifier = Modifier.fillMaxSize(),
                 )
 
@@ -420,11 +426,20 @@ actual fun AvatarBodyOverlay(
 
 @Composable
 private fun AvatarRendererHostView(
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
+        avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
+        onAvatarLoadFailure = { throwable ->
+            onAvatarRenderLoadFailed(
+                avatarSelection.assetHandle,
+                throwable.toAvatarRenderErrorMessageRes(),
+            )
+        },
         modifier = modifier,
     )
 }
@@ -482,6 +497,16 @@ private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose
     return when (this) {
         is FilePickerException -> FilePickerResult.Error(messageRes)
         else -> FilePickerResult.Error(defaultMessageRes)
+    }
+}
+
+private fun com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException.toAvatarRenderErrorMessageRes():
+    org.jetbrains.compose.resources.StringResource {
+    return when (kind) {
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
+        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.SceneSetupFailed -> Res.string.vrm_error_read_failed
     }
 }
 

@@ -10,14 +10,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import kotlinx.coroutines.isActive
 
 @Composable
-fun AndroidFilamentAvatarHost(
+internal fun AndroidFilamentAvatarHost(
+    avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val latestLoadFailureHandler = rememberUpdatedState(onAvatarLoadFailure)
     val renderer = remember(context) {
         AndroidFilamentAvatarRenderer(context)
     }
@@ -27,7 +31,11 @@ fun AndroidFilamentAvatarHost(
         modifier = modifier,
         factory = { renderer.hostView },
         update = {
-            renderer.updateRenderState(latestRenderState.value)
+            renderer.updateRendererState(
+                avatarSelection = avatarSelection,
+                nextRenderState = latestRenderState.value,
+                onAvatarLoadFailure = latestLoadFailureHandler.value,
+            )
         },
     )
 
