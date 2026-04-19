@@ -190,6 +190,7 @@ actual fun CameraPreviewHost(
     val faceTrackingSessionManager = remember { IOSFaceTrackingSessionManager() }
     val previewView = remember { CameraPreviewContainerView() }
     val usesFaceTracking = remember(lensFacing) { lensFacing.shouldUseIosFaceTracking() }
+    val currentOnFaceTrackingFrameChanged = rememberUpdatedState(onFaceTrackingFrameChanged)
 
     UIKitView(
         modifier = modifier.fillMaxSize(),
@@ -229,12 +230,14 @@ actual fun CameraPreviewHost(
         if (usesFaceTracking) {
             sessionManager.stopPreview()
             faceTrackingSessionManager.startPreview(
-                onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+                onFaceTrackingFrameChanged = { frame ->
+                    currentOnFaceTrackingFrameChanged.value(frame)
+                },
                 onComplete = onPreviewConfigured,
             )
         } else {
             faceTrackingSessionManager.stopPreview()
-            onFaceTrackingFrameChanged(null)
+            currentOnFaceTrackingFrameChanged.value(null)
             sessionManager.startPreview(
                 requestedLensFacing = lensFacing,
                 onComplete = onPreviewConfigured,
@@ -244,7 +247,7 @@ actual fun CameraPreviewHost(
         onDispose {
             faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview()
-            onFaceTrackingFrameChanged(null)
+            currentOnFaceTrackingFrameChanged.value(null)
         }
     }
 }
