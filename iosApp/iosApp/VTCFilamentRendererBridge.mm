@@ -8,7 +8,17 @@
 #define VTC_FILAMENT_HEADERS_AVAILABLE 0
 #endif
 
-static NSErrorDomain const VTCFilamentRendererErrorDomain = @"com.example.vtubercamera_kmp_ver.filament";
+typedef NS_ENUM(NSInteger, VTCFilamentRendererErrorCode) {
+    VTCFilamentRendererErrorCodeUnavailable = 1,
+};
+
+static NSErrorDomain VTCFilamentRendererErrorDomain(void) {
+    NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
+    if (bundleIdentifier.length > 0) {
+        return [bundleIdentifier stringByAppendingString:@".filament"];
+    }
+    return @"jtakumi.VtuberCamera_KMP_ver.filament";
+}
 
 @interface VTCMetalContainerView : UIView
 @end
@@ -52,8 +62,8 @@ static NSErrorDomain const VTCFilamentRendererErrorDomain = @"com.example.vtuber
 #else
         NSString *message = @"Filament SDK headers are not configured for iosApp yet.";
 #endif
-        *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain
-                                     code:1
+        *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain()
+                                     code:VTCFilamentRendererErrorCodeUnavailable
                                  userInfo:@{
                                      NSLocalizedDescriptionKey: message,
                                  }];
