@@ -1,0 +1,10 @@
+FILAMENT_HEADER_SEARCH_PATHS =
+FILAMENT_FRAMEWORK_SEARCH_PATHS =
+FILAMENT_LIBRARY_SEARCH_PATHS =
+FILAMENT_OTHER_LDFLAGS =
+
+// Example local overrides:
+// FILAMENT_HEADER_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/include"
+// FILAMENT_FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
+// FILAMENT_LIBRARY_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
+// FILAMENT_OTHER_LDFLAGS = -lc++ -framework filament -framework gltfio -framework utils
