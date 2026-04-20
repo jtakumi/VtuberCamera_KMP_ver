@@ -7,4 +7,4 @@ FILAMENT_OTHER_LDFLAGS =
 // FILAMENT_HEADER_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/include"
 // FILAMENT_FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
 // FILAMENT_LIBRARY_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
-// FILAMENT_OTHER_LDFLAGS = -lc++ -framework filament -framework gltfio -framework utils
+// FILAMENT_OTHER_LDFLAGS = -framework filament -framework gltfio -framework utils

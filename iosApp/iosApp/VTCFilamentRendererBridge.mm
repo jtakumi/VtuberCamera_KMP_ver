@@ -8,7 +8,7 @@
 #define VTC_FILAMENT_HEADERS_AVAILABLE 0
 #endif
 
-static NSErrorDomain const VTCFilamentRendererErrorDomain = @"VTCFilamentRendererBridge";
+static NSErrorDomain const VTCFilamentRendererErrorDomain = @"com.example.vtubercamera_kmp_ver.filament";
 
 @interface VTCMetalContainerView : UIView
 @end
@@ -47,10 +47,15 @@ static NSErrorDomain const VTCFilamentRendererErrorDomain = @"VTCFilamentRendere
 - (BOOL)loadAvatarAtURL:(NSURL *)url error:(NSError * _Nullable __autoreleasing *)error {
     (void)url;
     if (error != nil) {
+#if VTC_FILAMENT_HEADERS_AVAILABLE
+        NSString *message = @"Avatar loading is not implemented yet.";
+#else
+        NSString *message = @"Filament SDK headers are not configured for iosApp yet.";
+#endif
         *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain
                                      code:1
                                  userInfo:@{
-                                     NSLocalizedDescriptionKey: @"Filament renderer is not implemented yet.",
+                                     NSLocalizedDescriptionKey: message,
                                  }];
     }
     return NO;
