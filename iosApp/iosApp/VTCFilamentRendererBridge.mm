@@ -9,22 +9,11 @@
 #endif
 
 typedef NS_ENUM(NSInteger, VTCFilamentRendererErrorCode) {
+    VTCFilamentRendererErrorCodeInvalidInput = 0,
     VTCFilamentRendererErrorCodeUnavailable = 1,
 };
 
-static NSString *VTCFilamentRendererErrorDomain(void) {
-    static NSString *cachedDomain;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
-        if (bundleIdentifier.length > 0) {
-            cachedDomain = [bundleIdentifier stringByAppendingString:@".filament"];
-        } else {
-            cachedDomain = @"jtakumi.VtuberCamera_KMP_ver.filament";
-        }
-    });
-    return cachedDomain;
-}
+static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.VtuberCamera_KMP_ver.filament";
 
 @interface VTCMetalContainerView : UIView
 @end
@@ -61,15 +50,25 @@ static NSString *VTCFilamentRendererErrorDomain(void) {
 }
 
 - (BOOL)loadAvatarAtURL:(NSURL *)url error:(NSError * _Nullable __autoreleasing *)error {
+    if (!url.fileURL) {
+        if (error != nil) {
+            *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain
+                                         code:VTCFilamentRendererErrorCodeInvalidInput
+                                     userInfo:@{
+                                         NSLocalizedDescriptionKey: @"Avatar URLs must point to a local file.",
+                                     }];
+        }
+        return NO;
+    }
+
     // Placeholder until the Filament-backed avatar loading path is implemented.
-    (void)url;
     if (error != nil) {
 #if VTC_FILAMENT_HEADERS_AVAILABLE
         NSString *message = @"Avatar loading is not implemented yet.";
 #else
         NSString *message = @"Filament SDK headers are not configured for iosApp yet.";
 #endif
-        *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain()
+        *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain
                                      code:VTCFilamentRendererErrorCodeUnavailable
                                  userInfo:@{
                                      NSLocalizedDescriptionKey: message,
@@ -86,7 +85,7 @@ static NSString *VTCFilamentRendererErrorDomain(void) {
 - (void)resizeToBounds:(CGRect)bounds contentScale:(CGFloat)contentScale {
     self.renderView.frame = bounds;
     // The future Filament-backed implementation will also need to resize its Metal surfaces here.
-    self.renderView.contentScaleFactor = contentScale;
+    self.renderView.contentScaleFactor = contentScale > 0 ? contentScale : UIScreen.mainScreen.scale;
 }
 
 - (void)drawIfNeeded {
