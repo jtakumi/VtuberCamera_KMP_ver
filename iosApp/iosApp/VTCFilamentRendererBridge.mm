@@ -13,11 +13,17 @@ typedef NS_ENUM(NSInteger, VTCFilamentRendererErrorCode) {
 };
 
 static NSString *VTCFilamentRendererErrorDomain(void) {
-    NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
-    if (bundleIdentifier.length > 0) {
-        return [bundleIdentifier stringByAppendingString:@".filament"];
-    }
-    return @"jtakumi.VtuberCamera_KMP_ver.filament";
+    static NSString *cachedDomain;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
+        if (bundleIdentifier.length > 0) {
+            cachedDomain = [bundleIdentifier stringByAppendingString:@".filament"];
+        } else {
+            cachedDomain = @"jtakumi.VtuberCamera_KMP_ver.filament";
+        }
+    });
+    return cachedDomain;
 }
 
 @interface VTCMetalContainerView : UIView
@@ -79,6 +85,7 @@ static NSString *VTCFilamentRendererErrorDomain(void) {
 
 - (void)resizeToBounds:(CGRect)bounds contentScale:(CGFloat)contentScale {
     self.renderView.frame = bounds;
+    // The future Filament-backed implementation will also need to resize its Metal surfaces here.
     self.renderView.contentScaleFactor = contentScale;
 }
 
