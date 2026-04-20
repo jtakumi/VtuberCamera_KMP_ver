@@ -26,7 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, readonly) UIView *renderView;
 
-+ (BOOL)isFilamentSdkConfigured;
+/// Returns whether Filament headers are discoverable at compile time for this target.
+/// This does not guarantee that the Filament SDK is fully configured, linkable, or runtime-ready.
++ (BOOL)isFilamentSdkConfigured
+    __attribute__((deprecated("This method only reports compile-time Filament header availability and does not guarantee a linkable/runtime-ready Filament integration.")));
 
 - (instancetype)init;
 /// Prepares avatar loading once the Filament-backed renderer implementation is added.
