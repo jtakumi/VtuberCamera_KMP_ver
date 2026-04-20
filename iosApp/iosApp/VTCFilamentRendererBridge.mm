@@ -50,7 +50,7 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
 }
 
 - (BOOL)loadAvatarAtURL:(NSURL *)url error:(NSError * _Nullable __autoreleasing *)error {
-    if (!url.fileURL) {
+    if (!url.isFileURL) {
         if (error != nil) {
             *error = [NSError errorWithDomain:VTCFilamentRendererErrorDomain
                                          code:VTCFilamentRendererErrorCodeInvalidInput
@@ -85,7 +85,11 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
 - (void)resizeToBounds:(CGRect)bounds contentScale:(CGFloat)contentScale {
     self.renderView.frame = bounds;
     // The future Filament-backed implementation will also need to resize its Metal surfaces here.
-    self.renderView.contentScaleFactor = contentScale > 0 ? contentScale : UIScreen.mainScreen.scale;
+    CGFloat fallbackScale = self.renderView.window.screen.scale;
+    if (fallbackScale <= 0) {
+        fallbackScale = 1.0;
+    }
+    self.renderView.contentScaleFactor = contentScale > 0 ? contentScale : fallbackScale;
 }
 
 - (void)drawIfNeeded {

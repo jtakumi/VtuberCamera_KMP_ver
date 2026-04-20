@@ -1,6 +1,6 @@
 import Foundation
 
-enum IOSFilamentBridgeSmokeCheck {
+enum FilamentBridgeSmokeCheck {
     static func isBridgeAvailable() -> Bool {
         VTCFilamentRendererBridge.isFilamentSdkConfigured()
     }
