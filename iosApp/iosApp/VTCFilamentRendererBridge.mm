@@ -12,7 +12,7 @@ typedef NS_ENUM(NSInteger, VTCFilamentRendererErrorCode) {
     VTCFilamentRendererErrorCodeUnavailable = 1,
 };
 
-static NSErrorDomain VTCFilamentRendererErrorDomain(void) {
+static NSString *VTCFilamentRendererErrorDomain(void) {
     NSString *bundleIdentifier = NSBundle.mainBundle.bundleIdentifier;
     if (bundleIdentifier.length > 0) {
         return [bundleIdentifier stringByAppendingString:@".filament"];
@@ -55,6 +55,7 @@ static NSErrorDomain VTCFilamentRendererErrorDomain(void) {
 }
 
 - (BOOL)loadAvatarAtURL:(NSURL *)url error:(NSError * _Nullable __autoreleasing *)error {
+    // Placeholder until the Filament-backed avatar loading path is implemented.
     (void)url;
     if (error != nil) {
 #if VTC_FILAMENT_HEADERS_AVAILABLE
@@ -72,6 +73,7 @@ static NSErrorDomain VTCFilamentRendererErrorDomain(void) {
 }
 
 - (void)updateAvatarState:(VTCAvatarRenderState *)state {
+    // Placeholder until tracked avatar pose and expression state drives the renderer.
     (void)state;
 }
 
