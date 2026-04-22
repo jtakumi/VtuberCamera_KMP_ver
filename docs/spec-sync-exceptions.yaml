@@ -56,20 +56,6 @@ exceptions:
       - README.md: AR / VRM / Filament integration is still listed as not implemented.
     reevaluate_when: README needs finer-grained shipped status for avatar renderer layer.
 
-  - id: GITHUB_ACTIONS_ANDROID_ONLY_BITRISE_IOS
-    category: Intentional platform asymmetry
-    status: active
-    severity: info
-    scope:
-      - ci
-      - github_actions
-      - bitrise
-    reason: GitHub Actions currently verifies Android, while Bitrise contains Android and iOS build workflows.
-    evidence:
-      - .github/workflows/android-ci.yml
-      - bitrise.yml
-    reevaluate_when: GitHub Actions adds an iOS simulator build or Bitrise is removed.
-
   - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
     category: Spec ahead of code
     status: active

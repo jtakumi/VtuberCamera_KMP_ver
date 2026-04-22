@@ -138,6 +138,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     copilot = read_text(".github/copilot-instructions.md")
     bitrise = read_text("bitrise.yml")
     android_ci = read_text(".github/workflows/android-ci.yml")
+    ios_ci = read_text(".github/workflows/ios-ci.yml")
 
     findings: list[Finding] = []
 
@@ -444,22 +445,24 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
 
     findings.append(
         make_finding(
-            check_id="ci_android_github_bitrise_ios",
-            title="CI ownership is explicit: GitHub Actions Android, Bitrise Android/iOS",
-            category="Intentional platform asymmetry",
+            check_id="ci_github_actions_and_bitrise",
+            title="CI ownership is explicit across GitHub Actions and Bitrise",
+            category="Code ahead of spec",
             ok=(
                 "assembleDebug" in android_ci
                 and "testDebugUnitTest" in android_ci
+                and "xcodebuild" in ios_ci
+                and "macos-15" in ios_ci
                 and "xcodebuild" in bitrise
                 and "Assemble Android debug app" in bitrise
             ),
             ok_evidence=(
                 ".github/workflows/android-ci.yml runs Android lint, unit tests, and assemble.",
+                ".github/workflows/ios-ci.yml runs an iOS simulator xcodebuild on macOS.",
                 "bitrise.yml has Android and iOS debug workflows.",
             ),
             problem_evidence=("CI build ownership changed or is not documented by the current files.",),
-            recommendation="If GitHub Actions gains iOS build coverage, expire GITHUB_ACTIONS_ANDROID_ONLY_BITRISE_IOS.",
-            exception_id="GITHUB_ACTIONS_ANDROID_ONLY_BITRISE_IOS",
+            recommendation="Keep GitHub Actions and Bitrise CI coverage aligned with the documented platform build surface.",
             active_exceptions=active_exceptions,
         )
     )
