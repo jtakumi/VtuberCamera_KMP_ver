@@ -4,8 +4,14 @@ import ComposeApp
 
 struct ContentView: View {
     var body: some View {
-        ComposeCameraRootView()
-            .ignoresSafeArea()
+        ZStack {
+            ComposeCameraRootView()
+                .ignoresSafeArea()
+
+            FilamentAvatarView()
+                .allowsHitTesting(false)
+                .ignoresSafeArea()
+        }
     }
 }
 
