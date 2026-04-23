@@ -41,6 +41,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				UIKit.framework
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
