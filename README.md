@@ -85,7 +85,7 @@ Windows:
 
 ### iOS シミュレータ向けビルド
 
-Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
+Xcode 26 系のツールチェーンで Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
 
 ```shell
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
