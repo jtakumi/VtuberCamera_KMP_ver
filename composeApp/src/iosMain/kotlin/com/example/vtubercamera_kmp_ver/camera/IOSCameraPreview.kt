@@ -288,7 +288,12 @@ actual fun AvatarBodyOverlay(
     modifier: Modifier,
 ) {
     DisposableEffect(avatarSelection.assetHandle) {
-        if (!IOSAvatarRenderInterop.publishSelectedAvatar(avatarSelection)) {
+        val didPublish = runCatching {
+            IOSAvatarRenderInterop.publishSelectedAvatar(avatarSelection)
+        }.getOrElse {
+            false
+        }
+        if (!didPublish) {
             onAvatarRenderLoadFailed(
                 avatarSelection.assetHandle,
                 Res.string.vrm_error_read_failed,

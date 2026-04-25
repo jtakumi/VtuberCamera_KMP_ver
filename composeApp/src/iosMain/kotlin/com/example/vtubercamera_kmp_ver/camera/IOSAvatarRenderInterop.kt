@@ -84,8 +84,8 @@ internal object IOSAvatarRenderInterop {
 
         // Pin the ByteArray while Foundation copies from its backing memory into NSData. This
         // copy is synchronous and thread-safe for the provided ByteArray contents, but it still
-        // assumes the selected asset fits in memory, and an allocation failure will surface back
-        // to the caller as a native exception instead of being swallowed here.
+        // assumes the selected asset fits in memory. Allocation failures propagate back to
+        // AvatarBodyOverlay, which converts the failure into the existing render-load callback.
         return usePinned { pinned ->
             NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
         }

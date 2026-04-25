@@ -17,7 +17,7 @@ enum IOSVrmAssetLoader {
         var errorDescription: String? {
             switch self {
             case .invalidPayload:
-                return "The selected avatar payload is missing required values."
+                return "The selected avatar payload must include assetId, contentHash, fileName, and assetBytes."
             }
         }
     }

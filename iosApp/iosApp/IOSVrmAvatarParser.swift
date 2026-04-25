@@ -28,7 +28,7 @@ enum IOSVrmAvatarParser {
     static func parse(fileName: String, data: Data) throws -> IOSAvatarPreview {
         let fileExtension = (fileName as NSString).pathExtension.lowercased()
         guard !fileName.isEmpty, !fileExtension.isEmpty else {
-            throw ParserError.invalidFileType
+            throw ParserError.invalidFileName
         }
         guard supportedExtensions.contains(fileExtension) else {
             throw ParserError.invalidFileType
@@ -143,6 +143,7 @@ enum IOSVrmAvatarParser {
     }
 
     private enum ParserError: LocalizedError {
+        case invalidFileName
         case invalidFileType
         case readFailed
         case invalidFormat
@@ -150,6 +151,8 @@ enum IOSVrmAvatarParser {
 
         var errorDescription: String? {
             switch self {
+            case .invalidFileName:
+                return "VRM/GLBファイル名が不正です。"
             case .invalidFileType:
                 return "VRM/GLBファイルを選択してください。"
             case .readFailed:
