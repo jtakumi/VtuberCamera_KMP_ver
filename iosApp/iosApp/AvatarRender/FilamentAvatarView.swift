@@ -17,6 +17,7 @@ struct FilamentAvatarView: UIViewRepresentable {
         hostView.addSubview(renderView)
 
         context.coordinator.lifecycle.attach(renderer: context.coordinator.renderer)
+        context.coordinator.avatarRenderBridge.connect()
         context.coordinator.lifecycle.viewDidAppear()
         return hostView
     }
@@ -28,13 +29,21 @@ struct FilamentAvatarView: UIViewRepresentable {
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
         coordinator.lifecycle.viewDidDisappear()
+        coordinator.avatarRenderBridge.disconnect()
         coordinator.lifecycle.teardown()
     }
 
     @MainActor
     final class Coordinator {
-        let renderer = FilamentAvatarRenderer()
+        let renderer: FilamentAvatarRenderer
         let lifecycle = FilamentLifecycleCoordinator()
+        let avatarRenderBridge: IOSAvatarRenderBridge
+
+        init() {
+            let renderer = FilamentAvatarRenderer()
+            self.renderer = renderer
+            avatarRenderBridge = IOSAvatarRenderBridge(renderer: renderer)
+        }
     }
 }
 

@@ -21,11 +21,15 @@ enum IOSVrmAvatarParser {
         }
 
         let fileName = url.lastPathComponent
-        guard supportedExtensions.contains(url.pathExtension.lowercased()) else {
+        let data = try Data(contentsOf: url)
+        return try parse(fileName: fileName, data: data)
+    }
+
+    static func parse(fileName: String, data: Data) throws -> IOSAvatarPreview {
+        guard supportedExtensions.contains((fileName as NSString).pathExtension.lowercased()) else {
             throw ParserError.invalidFileType
         }
 
-        let data = try Data(contentsOf: url)
         let fileBytes = [UInt8](data)
         guard fileBytes.count >= 20 else {
             throw ParserError.readFailed

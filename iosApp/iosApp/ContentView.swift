@@ -4,13 +4,19 @@ import ComposeApp
 
 struct ContentView: View {
     var body: some View {
-        ZStack {
-            ComposeCameraRootView()
-                .ignoresSafeArea()
+        GeometryReader { geometry in
+            ZStack(alignment: .bottom) {
+                ComposeCameraRootView()
+                    .ignoresSafeArea()
 
-            FilamentAvatarView()
-                .allowsHitTesting(false)
-                .ignoresSafeArea()
+                FilamentAvatarView()
+                    .frame(
+                        width: geometry.size.width * 0.56,
+                        height: geometry.size.height * 0.48
+                    )
+                    .padding(.bottom, 24)
+                    .allowsHitTesting(false)
+            }
         }
     }
 }
