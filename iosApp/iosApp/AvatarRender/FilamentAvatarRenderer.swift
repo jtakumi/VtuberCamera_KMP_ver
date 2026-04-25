@@ -5,6 +5,7 @@ import UIKit
 final class FilamentAvatarRenderer {
     private static let previewBackgroundAlpha: CGFloat = 0.82
     private static let previewCornerRadius: CGFloat = 28
+    private static let previewSubtitleSeparator = " • "
 
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
@@ -66,7 +67,9 @@ final class FilamentAvatarRenderer {
             payload.preview.authorName,
             payload.preview.vrmVersion,
         ].compactMap { $0 }
-        subtitleLabel.text = subtitleParts.isEmpty ? payload.preview.fileName : subtitleParts.joined(separator: " • ")
+        subtitleLabel.text = subtitleParts.isEmpty
+            ? payload.preview.fileName
+            : subtitleParts.joined(separator: Self.previewSubtitleSeparator)
         hasRenderableContent = true
     }
 

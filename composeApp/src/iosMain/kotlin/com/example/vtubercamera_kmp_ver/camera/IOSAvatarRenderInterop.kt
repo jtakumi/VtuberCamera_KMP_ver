@@ -36,9 +36,8 @@ internal object IOSAvatarRenderInterop {
     fun publishSelectedAvatar(avatarSelection: AvatarSelectionData): Boolean {
         val assetBytes = AvatarAssetStore.load(avatarSelection.assetHandle) ?: run {
             NSLog(
-                "Failed to load avatar bytes for assetId=%lld contentHash=%d",
-                avatarSelection.assetHandle.assetId,
-                avatarSelection.assetHandle.contentHash,
+                "Failed to load avatar bytes for assetId=${avatarSelection.assetHandle.assetId} " +
+                    "contentHash=${avatarSelection.assetHandle.contentHash}",
             )
             return false
         }
@@ -84,8 +83,9 @@ internal object IOSAvatarRenderInterop {
         }
 
         // Pin the ByteArray while Foundation copies from its backing memory into NSData. This
-        // still assumes the selected asset fits in memory, and an allocation failure will surface
-        // back to the caller as a native exception instead of being swallowed here.
+        // copy is synchronous and thread-safe for the provided ByteArray contents, but it still
+        // assumes the selected asset fits in memory, and an allocation failure will surface back
+        // to the caller as a native exception instead of being swallowed here.
         return usePinned { pinned ->
             NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
         }
