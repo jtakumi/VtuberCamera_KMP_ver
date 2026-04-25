@@ -4,10 +4,12 @@ import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -88,6 +90,7 @@ import kotlinx.coroutines.test.setMain
  *                onDismissFilePickerError() clears it.
  */
 // Collects pending unit-test scenarios for the shared camera state machine.
+@OptIn(ExperimentalCoroutinesApi::class)
 class CameraViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
@@ -112,10 +115,56 @@ class CameraViewModelTest {
      * [PreviewState.Preparing] (and eventually [PreviewState.Showing] once the platform signals
      * success via [CameraRepository.onPlatformPreviewStarted]).
      */
-    @Ignore
     @Test
-    fun initialize_whenPermissionGranted_startsCameraPreview() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun initialize_whenPermissionGranted_startsCameraPreview() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            resolveInitialLensResult = Result.success(CameraLensFacing.Front),
+            startPreviewResult = Result.success(CameraLensFacing.Front),
+        )
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Granted,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+
+        viewModel.initialize()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PermissionState.Granted, uiState.permissionState)
+        assertEquals(CameraLensFacing.Front, uiState.lensFacing)
+        assertEquals(PreviewState.Showing, uiState.previewState)
+        assertNull(uiState.errorState)
+        assertNull(uiState.message)
+        assertEquals(1, cameraRepository.resolveInitialLensCallCount)
+        assertEquals(listOf(CameraLensFacing.Back), cameraRepository.resolveInitialLensRequests)
+        assertEquals(1, cameraRepository.startPreviewCallCount)
+        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.startPreviewRequests)
+    }
+
+    @Test
+    fun initialize_whenPermissionUnknown_keepsWaitingAndDoesNotStartPreview() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Unknown,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+
+        viewModel.initialize()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PermissionState.Unknown, uiState.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.previewState)
+        assertNull(uiState.errorState)
+        assertNull(uiState.message)
+        assertEquals(0, cameraRepository.resolveInitialLensCallCount)
+        assertEquals(0, cameraRepository.startPreviewCallCount)
     }
 
     /**
@@ -142,8 +191,8 @@ class CameraViewModelTest {
         val uiState = viewModel.uiState.value
         assertEquals(PermissionState.Denied, uiState.permissionState)
         assertEquals(CameraError.PermissionDenied, uiState.errorState)
-        assertIs<PreviewState.Error>(uiState.previewState)
-        assertEquals(CameraError.PermissionDenied, (uiState.previewState as PreviewState.Error).error)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.PermissionDenied, previewState.error)
         assertEquals(0, cameraRepository.startPreviewCallCount)
     }
 
@@ -190,8 +239,8 @@ class CameraViewModelTest {
         val uiState = secondLaunchViewModel.uiState.value
         assertEquals(PermissionState.Denied, uiState.permissionState)
         assertEquals(CameraError.PermissionDenied, uiState.errorState)
-        assertIs<PreviewState.Error>(uiState.previewState)
-        assertEquals(CameraError.PermissionDenied, (uiState.previewState as PreviewState.Error).error)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.PermissionDenied, previewState.error)
         assertEquals(0, secondLaunchCameraRepository.startPreviewCallCount)
     }
 
@@ -209,10 +258,41 @@ class CameraViewModelTest {
      *
      * This covers the "denied → grant from Settings → preview recovery" scenario.
      */
-    @Ignore
     @Test
-    fun onPermissionStateChanged_fromDeniedToGranted_resetsErrorAndStartsPreview() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onPermissionStateChanged_fromDeniedToGranted_resetsErrorAndStartsPreview() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Unknown,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+        advanceUntilIdle()
+
+        viewModel.onPermissionStateChanged(isGranted = false, isChecking = false)
+        val deniedState = viewModel.uiState.value
+        assertEquals(PermissionState.Denied, deniedState.permissionState)
+        assertEquals(CameraError.PermissionDenied, deniedState.errorState)
+        assertIs<PreviewState.Error>(deniedState.previewState)
+
+        viewModel.onPermissionStateChanged(isGranted = true, isChecking = false)
+        val recoveringState = viewModel.uiState.value
+        assertEquals(PermissionState.Granted, recoveringState.permissionState)
+        assertEquals(PreviewState.Preparing, recoveringState.previewState)
+        assertNull(recoveringState.errorState)
+        assertNull(recoveringState.message)
+        assertEquals(0, cameraRepository.startPreviewCallCount)
+
+        advanceUntilIdle()
+
+        val recoveredState = viewModel.uiState.value
+        assertEquals(PermissionState.Granted, recoveredState.permissionState)
+        assertEquals(PreviewState.Showing, recoveredState.previewState)
+        assertNull(recoveredState.errorState)
+        assertNull(recoveredState.message)
+        assertEquals(1, cameraRepository.resolveInitialLensCallCount)
+        assertEquals(1, cameraRepository.startPreviewCallCount)
     }
 
     /**
@@ -220,10 +300,28 @@ class CameraViewModelTest {
      * is already [PermissionState.Granted], [CameraRepository.startPreview] must NOT be called
      * again (guard: previousPermissionState == Granted prevents duplicate preview starts).
      */
-    @Ignore
     @Test
-    fun onPermissionStateChanged_alreadyGranted_doesNotStartPreviewAgain() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onPermissionStateChanged_alreadyGranted_doesNotStartPreviewAgain() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Granted,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+        viewModel.initialize()
+        advanceUntilIdle()
+        assertEquals(1, cameraRepository.startPreviewCallCount)
+
+        viewModel.onPermissionStateChanged(isGranted = true, isChecking = false)
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PermissionState.Granted, uiState.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.previewState)
+        assertEquals(1, cameraRepository.resolveInitialLensCallCount)
+        assertEquals(1, cameraRepository.startPreviewCallCount)
     }
 
     /**
@@ -231,10 +329,91 @@ class CameraViewModelTest {
      * [CameraUiState.previewState] must be reset to [PreviewState.Preparing] and
      * [CameraUiState.errorState] must be cleared.
      */
-    @Ignore
     @Test
-    fun onPermissionStateChanged_toUnknownFromError_resetsPreviewStateToPreparing() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onPermissionStateChanged_toUnknownFromError_resetsPreviewStateToPreparing() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Unknown,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+        advanceUntilIdle()
+
+        viewModel.onPermissionStateChanged(isGranted = false, isChecking = false)
+        assertEquals(CameraError.PermissionDenied, viewModel.uiState.value.errorState)
+        assertIs<PreviewState.Error>(viewModel.uiState.value.previewState)
+
+        viewModel.onPermissionStateChanged(isGranted = false, isChecking = true)
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PermissionState.Unknown, uiState.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.previewState)
+        assertNull(uiState.errorState)
+        assertNull(uiState.message)
+        assertEquals(0, cameraRepository.startPreviewCallCount)
+    }
+
+    @Test
+    fun onPermissionStateChanged_fromUnknownToDenied_setsPermissionDeniedAndDoesNotStartPreview() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Unknown,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+        advanceUntilIdle()
+
+        viewModel.onPermissionStateChanged(isGranted = false, isChecking = false)
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PermissionState.Denied, uiState.permissionState)
+        assertEquals(CameraError.PermissionDenied, uiState.errorState)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.PermissionDenied, previewState.error)
+        assertEquals(CameraMessageType.Error, uiState.message?.type)
+        assertEquals(0, cameraRepository.resolveInitialLensCallCount)
+        assertEquals(0, cameraRepository.startPreviewCallCount)
+    }
+
+    @Test
+    fun observePreviewState_syncsPreparingShowingAndErrorToUiState() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val permissionRepository = FakePermissionRepository(
+            checkCameraPermissionResult = PermissionState.Unknown,
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = permissionRepository,
+        )
+        advanceUntilIdle()
+
+        cameraRepository.emitPreviewState(PreviewState.Showing)
+        advanceUntilIdle()
+
+        assertEquals(PreviewState.Showing, viewModel.uiState.value.previewState)
+        assertNull(viewModel.uiState.value.errorState)
+        assertNull(viewModel.uiState.value.message)
+
+        cameraRepository.emitPreviewState(PreviewState.Error(CameraError.CameraUnavailable))
+        advanceUntilIdle()
+
+        val errorState = viewModel.uiState.value
+        assertIs<PreviewState.Error>(errorState.previewState)
+        assertEquals(CameraError.CameraUnavailable, errorState.errorState)
+        assertEquals(CameraMessageType.Error, errorState.message?.type)
+
+        cameraRepository.emitPreviewState(PreviewState.Preparing)
+        advanceUntilIdle()
+
+        val preparingState = viewModel.uiState.value
+        assertEquals(PreviewState.Preparing, preparingState.previewState)
+        assertNull(preparingState.errorState)
+        assertNull(preparingState.message)
     }
 
     // ---------------------------------------------------------------------------
@@ -318,16 +497,29 @@ class CameraViewModelTest {
         TODO("Requires fake repositories + TestCoroutineScheduler")
     }
 
-    private class FakeCameraRepository : CameraRepository {
+    private class FakeCameraRepository(
+        private val resolveInitialLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Back),
+        private val startPreviewResult: Result<CameraLensFacing>? = null,
+    ) : CameraRepository {
         private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
 
         var startPreviewCallCount: Int = 0
             private set
 
+        var resolveInitialLensCallCount: Int = 0
+            private set
+
+        val startPreviewRequests = mutableListOf<CameraLensFacing>()
+        val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
+
         override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
             startPreviewCallCount += 1
-            previewState.value = PreviewState.Showing
-            return Result.success(lensFacing)
+            startPreviewRequests += lensFacing
+            val result = startPreviewResult ?: Result.success(lensFacing)
+            if (result.isSuccess) {
+                previewState.value = PreviewState.Showing
+            }
+            return result
         }
 
         override suspend fun stopPreview() {
@@ -339,7 +531,9 @@ class CameraViewModelTest {
         }
 
         override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
-            return Result.success(preferred)
+            resolveInitialLensCallCount += 1
+            resolveInitialLensRequests += preferred
+            return resolveInitialLensResult
         }
 
         override fun observePreviewState(): Flow<PreviewState> {
@@ -352,6 +546,10 @@ class CameraViewModelTest {
 
         override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
             previewState.value = PreviewState.Error(error)
+        }
+
+        fun emitPreviewState(state: PreviewState) {
+            previewState.value = state
         }
     }
 
