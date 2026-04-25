@@ -79,9 +79,11 @@ final class FilamentLifecycleCoordinator {
         displayLink = link
     }
 
-    private func stopDisplayLink() {
-        displayLink?.invalidate()
-        displayLink = nil
+    nonisolated private func stopDisplayLink() {
+        Task{ @MainActor [weak self] in
+            self?.displayLink?.invalidate()
+            self?.displayLink = nil
+        }
     }
 
     deinit {
