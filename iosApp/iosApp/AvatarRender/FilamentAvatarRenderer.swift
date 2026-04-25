@@ -50,7 +50,8 @@ final class FilamentAvatarRenderer {
 
     /// Applies the selected avatar as a static preview in the current render surface.
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {
-        guard currentAssetIdentity != payload.identity || !hasRenderableContent else { return }
+        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && hasRenderableContent
+        guard !isAlreadyShowingSelectedAvatar else { return }
 
         currentAssetIdentity = payload.identity
         previewBackgroundView.isHidden = false

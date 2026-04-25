@@ -75,6 +75,7 @@ internal object IOSAvatarRenderInterop {
             return NSData.create()
         }
 
+        // Pin the ByteArray while Foundation copies from its backing memory into NSData.
         return usePinned { pinned ->
             NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
         }
