@@ -27,7 +27,10 @@ enum IOSVrmAvatarParser {
 
     static func parse(fileName: String, data: Data) throws -> IOSAvatarPreview {
         let fileExtension = (fileName as NSString).pathExtension.lowercased()
-        guard !fileName.isEmpty, !fileExtension.isEmpty, supportedExtensions.contains(fileExtension) else {
+        guard !fileName.isEmpty, !fileExtension.isEmpty else {
+            throw ParserError.invalidFileType
+        }
+        guard supportedExtensions.contains(fileExtension) else {
             throw ParserError.invalidFileType
         }
 

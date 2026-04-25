@@ -91,6 +91,8 @@ final class IOSAvatarRenderBridge {
         return renderState
     }
 
+    /// Returns the bridged float value or `0` when the key is absent, which the renderer treats as
+    /// the neutral/default pose for that tracking channel.
     private static func floatValue(_ userInfo: [AnyHashable: Any]?, key: String) -> Float {
         if let number = userInfo?[key] as? NSNumber {
             return number.floatValue

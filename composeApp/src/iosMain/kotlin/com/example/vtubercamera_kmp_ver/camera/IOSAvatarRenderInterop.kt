@@ -75,7 +75,9 @@ internal object IOSAvatarRenderInterop {
             return NSData.create()
         }
 
-        // Pin the ByteArray while Foundation copies from its backing memory into NSData.
+        // Pin the ByteArray while Foundation copies from its backing memory into NSData. This
+        // still assumes the selected asset fits in memory, and an allocation failure will surface
+        // back to the caller as a native exception instead of being swallowed here.
         return usePinned { pinned ->
             NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
         }

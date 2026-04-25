@@ -139,8 +139,7 @@ final class FilamentAvatarRenderer {
 
             titleLabel.leadingAnchor.constraint(equalTo: previewBackgroundView.leadingAnchor, constant: 24),
             titleLabel.trailingAnchor.constraint(equalTo: previewBackgroundView.trailingAnchor, constant: -24),
-            titleLabel.topAnchor.constraint(greaterThanOrEqualTo: previewImageView.bottomAnchor, constant: 16),
-            titleLabel.centerYAnchor.constraint(greaterThanOrEqualTo: previewBackgroundView.centerYAnchor),
+            titleLabel.topAnchor.constraint(equalTo: previewImageView.bottomAnchor, constant: 16),
 
             subtitleLabel.leadingAnchor.constraint(equalTo: previewBackgroundView.leadingAnchor, constant: 24),
             subtitleLabel.trailingAnchor.constraint(equalTo: previewBackgroundView.trailingAnchor, constant: -24),
