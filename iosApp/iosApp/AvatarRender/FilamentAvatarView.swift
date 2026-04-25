@@ -22,7 +22,8 @@ struct FilamentAvatarView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        context.coordinator.renderer.resize(to: uiView.bounds, contentScale: uiView.contentScaleFactor)
+        let contentScale = uiView.window?.screen.scale ?? UIScreen.main.scale
+        context.coordinator.renderer.resize(to: uiView.bounds, contentScale: contentScale)
     }
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
