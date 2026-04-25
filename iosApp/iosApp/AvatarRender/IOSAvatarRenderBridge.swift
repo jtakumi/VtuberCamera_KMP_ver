@@ -73,7 +73,7 @@ final class IOSAvatarRenderBridge {
             let payload = try IOSVrmAssetLoader.loadAsset(from: notification)
             renderer?.applySelectedAvatar(payload)
         } catch {
-            NSLog("Failed to load selected iOS avatar payload: %@", String(describing: error))
+            NSLog("Failed to load selected avatar payload: %@", String(describing: error))
             renderer?.clearAvatar()
         }
     }

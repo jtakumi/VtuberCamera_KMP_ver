@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import platform.Foundation.NSLog
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
@@ -33,7 +34,14 @@ internal object IOSAvatarRenderInterop {
 
     // Publishes the currently selected avatar asset once so the native renderer can load it.
     fun publishSelectedAvatar(avatarSelection: AvatarSelectionData): Boolean {
-        val assetBytes = AvatarAssetStore.load(avatarSelection.assetHandle) ?: return false
+        val assetBytes = AvatarAssetStore.load(avatarSelection.assetHandle) ?: run {
+            NSLog(
+                "Failed to load avatar bytes for assetId=%lld contentHash=%d",
+                avatarSelection.assetHandle.assetId,
+                avatarSelection.assetHandle.contentHash,
+            )
+            return false
+        }
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarSelectionDidChangeNotification,
             null,

@@ -3,6 +3,9 @@ import UIKit
 
 @MainActor
 final class FilamentAvatarRenderer {
+    private static let previewBackgroundAlpha: CGFloat = 0.82
+    private static let previewCornerRadius: CGFloat = 28
+
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
     private let titleLabel = UILabel()
@@ -97,8 +100,8 @@ final class FilamentAvatarRenderer {
         let view = bridge.renderView
 
         previewBackgroundView.translatesAutoresizingMaskIntoConstraints = false
-        previewBackgroundView.backgroundColor = UIColor.systemBackground.withAlphaComponent(0.82)
-        previewBackgroundView.layer.cornerRadius = 28
+        previewBackgroundView.backgroundColor = UIColor.systemBackground.withAlphaComponent(Self.previewBackgroundAlpha)
+        previewBackgroundView.layer.cornerRadius = Self.previewCornerRadius
         previewBackgroundView.layer.cornerCurve = .continuous
         previewBackgroundView.clipsToBounds = true
         previewBackgroundView.isHidden = true

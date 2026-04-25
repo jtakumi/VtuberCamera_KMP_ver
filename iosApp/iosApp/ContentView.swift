@@ -2,6 +2,9 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
+private let avatarOverlayWidthRatio: CGFloat = 0.56
+private let avatarOverlayHeightRatio: CGFloat = 0.48
+
 struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
@@ -11,8 +14,8 @@ struct ContentView: View {
 
                 FilamentAvatarView()
                     .frame(
-                        width: geometry.size.width * 0.56,
-                        height: geometry.size.height * 0.48
+                        width: geometry.size.width * avatarOverlayWidthRatio,
+                        height: geometry.size.height * avatarOverlayHeightRatio
                     )
                     .padding(.bottom, 24)
                     .allowsHitTesting(false)

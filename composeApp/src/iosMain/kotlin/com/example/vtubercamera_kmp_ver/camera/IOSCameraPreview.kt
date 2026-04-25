@@ -300,7 +300,7 @@ actual fun AvatarBodyOverlay(
         }
     }
 
-    androidx.compose.runtime.SideEffect {
+    LaunchedEffect(avatarRenderState) {
         IOSAvatarRenderInterop.publishRenderState(avatarRenderState)
     }
 
