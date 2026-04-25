@@ -30,7 +30,7 @@ final class FilamentAvatarRenderer {
     }
 
     func resize(to bounds: CGRect, contentScale: CGFloat) {
-        bridge.resizeToBounds(bounds, contentScale: contentScale)
+        bridge.resize(toBounds: bounds, contentScale: contentScale)
     }
 
     func setPaused(_ paused: Bool) {
