@@ -1,10 +1,13 @@
 package com.example.vtubercamera_kmp_ver.camera
 
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,15 +18,14 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 
 /**
  * Unit test stubs for [CameraViewModel] state-machine logic.
  *
  * # Test infrastructure note
- * This file includes both:
- * - Executable unit tests that use a fake [CameraRepository] / [PermissionRepository] and
- *   kotlinx-coroutines-test dispatcher control.
- * - Pending scenarios still marked with @Ignore + TODO until dedicated fixtures are added.
+ * This file uses fake [CameraRepository] / [PermissionRepository] implementations plus
+ * kotlinx-coroutines-test dispatcher control to validate shared state-machine transitions.
  *
  * # Manual / E2E test checklist
  * The following scenarios require a real device or simulator and cannot be automated in commonTest:
@@ -428,10 +430,27 @@ class CameraViewModelTest {
      *
      * Verifies that [CameraRepositoryException.error] is extracted and not overwritten.
      */
-    @Ignore
     @Test
-    fun onRetryPreview_whenRepositoryThrowsCameraUnavailable_setsCameraUnavailableError() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onRetryPreview_whenRepositoryThrowsCameraUnavailable_setsCameraUnavailableError() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            startPreviewResult = Result.failure(
+                CameraRepositoryException(CameraError.CameraUnavailable),
+            ),
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onRetryPreview()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(CameraError.CameraUnavailable, uiState.errorState)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.CameraUnavailable, previewState.error)
+        assertEquals(1, cameraRepository.startPreviewCallCount)
     }
 
     /**
@@ -439,10 +458,25 @@ class CameraViewModelTest {
      * throwable, [CameraViewModel.onRetryPreview] must fall back to
      * [CameraError.PreviewInitializationFailed].
      */
-    @Ignore
     @Test
-    fun onRetryPreview_whenRepositoryThrowsGenericException_setsPreviewInitializationFailedError() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onRetryPreview_whenRepositoryThrowsGenericException_setsPreviewInitializationFailedError() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            startPreviewResult = Result.failure(IllegalStateException("boom")),
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onRetryPreview()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(CameraError.PreviewInitializationFailed, uiState.errorState)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.PreviewInitializationFailed, previewState.error)
+        assertEquals(1, cameraRepository.startPreviewCallCount)
     }
 
     // ---------------------------------------------------------------------------
@@ -455,10 +489,49 @@ class CameraViewModelTest {
      * [CameraViewModel.onToggleLensFacing] must set [CameraUiState.errorState] to
      * [CameraError.LensSwitchFailed].
      */
-    @Ignore
     @Test
-    fun onToggleLensFacing_whenSwitchFails_setsLensSwitchFailedError() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onToggleLensFacing_whenSwitchSucceeds_updatesLensFacing() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            switchLensResult = Result.success(CameraLensFacing.Front),
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        assertEquals(CameraLensFacing.Back, viewModel.uiState.value.lensFacing)
+
+        viewModel.onToggleLensFacing()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(CameraLensFacing.Front, uiState.lensFacing)
+        assertNull(uiState.errorState)
+        assertEquals(1, cameraRepository.switchLensCallCount)
+        assertEquals(listOf(CameraLensFacing.Back), cameraRepository.switchLensRequests)
+    }
+
+    @Test
+    fun onToggleLensFacing_whenSwitchFails_setsLensSwitchFailedError() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            switchLensResult = Result.failure(
+                CameraRepositoryException(CameraError.LensSwitchFailed),
+            ),
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onToggleLensFacing()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(CameraError.LensSwitchFailed, uiState.errorState)
+        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.LensSwitchFailed, previewState.error)
+        assertEquals(1, cameraRepository.switchLensCallCount)
     }
 
     // ---------------------------------------------------------------------------
@@ -470,20 +543,56 @@ class CameraViewModelTest {
      * [CameraUiState.avatarPreview] must be updated with the parsed avatar data and
      * [CameraUiState.filePickerErrorMessageRes] must be null.
      */
-    @Ignore
     @Test
-    fun onFilePicked_success_updatesAvatarPreviewAndClearsError() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onFilePicked_success_updatesAvatarPreviewAndClearsError() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val firstSelection = createAvatarSelectionData("first.vrm", "Avatar A", byteArrayOf(1, 2, 3))
+        val secondSelection = createAvatarSelectionData("second.vrm", "Avatar B", byteArrayOf(4, 5, 6))
+
+        try {
+            viewModel.onFilePicked(FilePickerResult.Success(firstSelection))
+            advanceUntilIdle()
+            assertEquals(firstSelection.preview, viewModel.uiState.value.avatarPreview)
+            assertNull(viewModel.uiState.value.filePickerErrorMessageRes)
+            assertNotNull(AvatarAssetStore.load(firstSelection.assetHandle))
+
+            viewModel.onFilePicked(FilePickerResult.Error(Res.string.vrm_error_select_file))
+            advanceUntilIdle()
+            assertEquals(Res.string.vrm_error_select_file, viewModel.uiState.value.filePickerErrorMessageRes)
+
+            viewModel.onFilePicked(FilePickerResult.Success(secondSelection))
+            advanceUntilIdle()
+            val uiState = viewModel.uiState.value
+            assertEquals(secondSelection.preview, uiState.avatarPreview)
+            assertNull(uiState.filePickerErrorMessageRes)
+            assertNull(AvatarAssetStore.load(firstSelection.assetHandle))
+            assertNotNull(AvatarAssetStore.load(secondSelection.assetHandle))
+        } finally {
+            AvatarAssetStore.remove(firstSelection.assetHandle)
+            AvatarAssetStore.remove(secondSelection.assetHandle)
+        }
     }
 
     /**
      * When [CameraViewModel.onFilePicked] receives [FilePickerResult.Cancelled],
      * [CameraUiState] must remain entirely unchanged.
      */
-    @Ignore
     @Test
-    fun onFilePicked_cancelled_doesNotChangeState() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onFilePicked_cancelled_doesNotChangeState() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        val stateBefore = viewModel.uiState.value
+
+        viewModel.onFilePicked(FilePickerResult.Cancelled)
+        advanceUntilIdle()
+
+        assertEquals(stateBefore, viewModel.uiState.value)
     }
 
     /**
@@ -491,15 +600,138 @@ class CameraViewModelTest {
      * [CameraUiState.filePickerErrorMessageRes] must be set to the error's [StringResource].
      * A subsequent call to [CameraViewModel.onDismissFilePickerError] must set it back to null.
      */
-    @Ignore
     @Test
-    fun onFilePicked_error_setsFilePickerErrorMessageRes_andDismissClears() {
-        TODO("Requires fake repositories + TestCoroutineScheduler")
+    fun onFilePicked_error_setsFilePickerErrorMessageRes_andDismissClears() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+
+        viewModel.onFilePicked(FilePickerResult.Error(Res.string.vrm_error_select_file))
+        advanceUntilIdle()
+        assertEquals(Res.string.vrm_error_select_file, viewModel.uiState.value.filePickerErrorMessageRes)
+
+        viewModel.onDismissFilePickerError()
+        advanceUntilIdle()
+        assertNull(viewModel.uiState.value.filePickerErrorMessageRes)
+    }
+
+    @Test
+    fun onAvatarRenderLoadFailed_whenCurrentHandle_matchesClearsSelectionAndRemovesAsset() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val selection = createAvatarSelectionData("active.vrm", "Avatar C", byteArrayOf(7, 8, 9))
+
+        try {
+            viewModel.onFilePicked(FilePickerResult.Success(selection))
+            advanceUntilIdle()
+            assertNotNull(AvatarAssetStore.load(selection.assetHandle))
+
+            viewModel.onAvatarRenderLoadFailed(
+                failedAssetHandle = selection.assetHandle,
+                messageRes = Res.string.camera_error_unknown,
+            )
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertNull(uiState.avatarSelection)
+            assertEquals(Res.string.camera_error_unknown, uiState.filePickerErrorMessageRes)
+            assertNull(AvatarAssetStore.load(selection.assetHandle))
+        } finally {
+            AvatarAssetStore.remove(selection.assetHandle)
+        }
+    }
+
+    @Test
+    fun onAvatarRenderLoadFailed_whenHandleIsStale_ignoresAndKeepsCurrentSelection() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val staleSelection = createAvatarSelectionData("stale.vrm", "Avatar Stale", byteArrayOf(11, 12))
+        val currentSelection = createAvatarSelectionData("current.vrm", "Avatar Current", byteArrayOf(13, 14))
+
+        try {
+            viewModel.onFilePicked(FilePickerResult.Success(staleSelection))
+            viewModel.onFilePicked(FilePickerResult.Success(currentSelection))
+            advanceUntilIdle()
+            assertNull(AvatarAssetStore.load(staleSelection.assetHandle))
+            assertNotNull(AvatarAssetStore.load(currentSelection.assetHandle))
+
+            viewModel.onAvatarRenderLoadFailed(
+                failedAssetHandle = staleSelection.assetHandle,
+                messageRes = Res.string.camera_error_unknown,
+            )
+            advanceUntilIdle()
+
+            val uiState = viewModel.uiState.value
+            assertEquals(currentSelection, uiState.avatarSelection)
+            assertNull(uiState.filePickerErrorMessageRes)
+            assertNotNull(AvatarAssetStore.load(currentSelection.assetHandle))
+        } finally {
+            AvatarAssetStore.remove(staleSelection.assetHandle)
+            AvatarAssetStore.remove(currentSelection.assetHandle)
+        }
+    }
+
+    @Test
+    fun onCleared_removesCurrentAvatarAssetHandle() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val selection = createAvatarSelectionData("active.vrm", "Avatar D", byteArrayOf(21, 22))
+
+        try {
+            viewModel.onFilePicked(FilePickerResult.Success(selection))
+            advanceUntilIdle()
+            assertNotNull(AvatarAssetStore.load(selection.assetHandle))
+
+            val onCleared = CameraViewModel::class.java.getDeclaredMethod("onCleared")
+            onCleared.isAccessible = true
+            onCleared.invoke(viewModel)
+
+            assertNull(AvatarAssetStore.load(selection.assetHandle))
+        } finally {
+            AvatarAssetStore.remove(selection.assetHandle)
+        }
+    }
+
+    private fun createAvatarSelectionData(
+        fileName: String,
+        avatarName: String,
+        assetBytes: ByteArray,
+    ): AvatarSelectionData {
+        val handle = AvatarAssetStore.store(assetBytes)
+        return AvatarSelectionData(
+            preview = AvatarPreviewData(
+                fileName = fileName,
+                avatarName = avatarName,
+                authorName = "Unit Test",
+                vrmVersion = "1.0",
+                thumbnailBytes = byteArrayOf(1, 9, 9, 0),
+            ),
+            assetHandle = handle,
+            runtimeDescriptor = VrmRuntimeAssetDescriptor(
+                specVersion = VrmSpecVersion.Vrm1,
+                rawSpecVersion = "1.0",
+                assetVersion = "2.0",
+                meta = VrmRuntimeMeta(
+                    avatarName = avatarName,
+                    authors = listOf("Unit Test"),
+                    version = "1.0",
+                ),
+                thumbnailImageIndex = null,
+            ),
+        )
     }
 
     private class FakeCameraRepository(
         private val resolveInitialLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Back),
         private val startPreviewResult: Result<CameraLensFacing>? = null,
+        private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
     ) : CameraRepository {
         private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
 
@@ -509,8 +741,12 @@ class CameraViewModelTest {
         var resolveInitialLensCallCount: Int = 0
             private set
 
+        var switchLensCallCount: Int = 0
+            private set
+
         val startPreviewRequests = mutableListOf<CameraLensFacing>()
         val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
+        val switchLensRequests = mutableListOf<CameraLensFacing>()
 
         override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
             startPreviewCallCount += 1
@@ -527,7 +763,13 @@ class CameraViewModelTest {
         }
 
         override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-            return Result.success(current)
+            switchLensCallCount += 1
+            switchLensRequests += current
+            val result = switchLensResult
+            if (result.isSuccess) {
+                previewState.value = PreviewState.Showing
+            }
+            return result
         }
 
         override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
