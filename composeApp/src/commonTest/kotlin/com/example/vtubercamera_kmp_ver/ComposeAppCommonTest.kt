@@ -11,10 +11,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
-import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
-import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_metadata_parse_failed
-import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
-import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 class ComposeAppCommonTest {
 
