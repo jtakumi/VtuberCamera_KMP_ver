@@ -11,6 +11,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+<<<<<<< HEAD
 <<<<<<< ours
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_metadata_parse_failed
@@ -18,6 +19,8 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 =======
 >>>>>>> theirs
+=======
+>>>>>>> 3895eb9c2fa3908d404abed407db584d25537d3e
 
 class ComposeAppCommonTest {
 
