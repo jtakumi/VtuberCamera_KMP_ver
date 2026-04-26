@@ -3,7 +3,7 @@ name: README Sync
 on:
   workflow_dispatch:
   schedule:
-    # Monday 06:00 JST.
+    # Sunday 21:00 UTC / Monday 06:00 JST.
     - cron: '0 21 * * 0'
 
 permissions:
