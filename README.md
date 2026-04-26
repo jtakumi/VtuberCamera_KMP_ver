@@ -21,6 +21,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
+
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
 - `UIDocumentPickerViewController` によるファイル選択

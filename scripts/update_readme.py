@@ -24,8 +24,14 @@ def all_in(text: str, needles: tuple[str, ...]) -> bool:
     return all(needle in text for needle in needles)
 
 
-def build_section(title: str, items: list[str]) -> list[str]:
-    return [title, "", *[f"- {item}" for item in items], ""]
+def build_section(title: str, items: list[str], blank_after_indexes: tuple[int, ...] = ()) -> list[str]:
+    lines = [title, ""]
+    for index, item in enumerate(items):
+        lines.append(f"- {item}")
+        if index in blank_after_indexes:
+            lines.append("")
+    lines.append("")
+    return lines
 
 
 def render_generated_block() -> str:
@@ -153,7 +159,7 @@ def render_generated_block() -> str:
         "## 現在の実装状況",
         "",
         *build_section("### Android", android_items),
-        *build_section("### iOS", ios_items),
+        *build_section("### iOS", ios_items, blank_after_indexes=(1,)),
         *build_section("### 共有コードで扱っているもの", shared_items),
         *build_section("### まだ未実装の主な機能", not_implemented_items),
         "## リポジトリ構成",
