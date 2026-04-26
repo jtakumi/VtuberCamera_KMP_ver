@@ -1,0 +1,216 @@
+name: Test Code Auto Merge
+
+# Triggered on PR lifecycle events so that the check runs whenever
+# the automerge-test label is applied/removed or the PR is updated.
+#
+# PREREQUISITE: Repository Settings > General > Pull Requests > Allow auto-merge
+# must be enabled, and "Android CI / android-verify" and "iOS CI / ios-verify"
+# must be configured as required status checks on the main branch so that
+# GitHub only squash-merges after CI passes.
+#
+# Security: pull_request_target is used to access secrets, but this workflow
+# never checks out or executes code from the PR head branch.
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - labeled
+      - unlabeled
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: test-code-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  assess:
+    # Only run for non-draft PRs not authored by dependabot
+    # (dependabot-auto-merge.yml handles those). The automerge-test label is
+    # evaluated as part of the policy so label removal can disable auto-merge.
+    if: >
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.policy.outputs.eligible }}
+      has_automerge_label: ${{ steps.policy.outputs.has_automerge_label }}
+      reason: ${{ steps.policy.outputs.reason }}
+    steps:
+      - name: Evaluate auto-merge policy
+        id: policy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const pr_number = pr.number;
+            const hasAutomergeLabel = pr.labels.some(label => label.name === 'automerge-test');
+
+            // Fetch all changed files (paginated to handle large PRs).
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number: pr_number, per_page: 100 }
+            );
+
+            // Files matching any of these patterns are unconditionally blocked.
+            const BLOCKED_PATTERNS = [
+              /^\.github\//,
+              /^gradle\//,
+              /^build\.gradle\.kts$/,
+              /^settings\.gradle\.kts$/,
+              /^gradle\.properties$/,
+              /^composeApp\/build\.gradle\.kts$/,
+              /^composeApp\/src\/commonMain\//,
+              /^composeApp\/src\/androidMain\//,
+              /^composeApp\/src\/iosMain\//,
+              /^iosApp\//,
+            ];
+
+            // A file is eligible only if it falls under one of these test paths.
+            const ALLOWED_PATTERNS = [
+              /^composeApp\/src\/commonTest\//,
+              /^composeApp\/src\/androidUnitTest\//,
+              /^composeApp\/src\/androidInstrumentedTest\//,
+              /^composeApp\/src\/iosTest\//,
+            ];
+
+            const blockedFiles = [];
+            const nonTestFiles = [];
+
+            for (const file of files) {
+              const filename = file.filename;
+              const previousFilename = file.previous_filename;
+              const pathsToEvaluate = previousFilename
+                ? [previousFilename, filename]
+                : [filename];
+
+              const isBlocked = pathsToEvaluate.some(path =>
+                BLOCKED_PATTERNS.some(p => p.test(path))
+              );
+              const isAllowed = pathsToEvaluate.every(path =>
+                ALLOWED_PATTERNS.some(p => p.test(path))
+              );
+              const fileLabel = previousFilename
+                ? `${previousFilename} -> ${filename}`
+                : filename;
+
+              if (isBlocked) {
+                blockedFiles.push(fileLabel);
+              } else if (!isAllowed) {
+                nonTestFiles.push(fileLabel);
+              }
+            }
+
+            const eligible = hasAutomergeLabel && blockedFiles.length === 0 && nonTestFiles.length === 0;
+
+            const reasons = [];
+            if (!hasAutomergeLabel) {
+              reasons.push('automerge-test label is not present');
+            }
+            if (blockedFiles.length > 0) {
+              reasons.push(`blocked files: ${blockedFiles.join(', ')}`);
+            }
+            if (nonTestFiles.length > 0) {
+              reasons.push(`non-test files: ${nonTestFiles.join(', ')}`);
+            }
+
+            core.setOutput('eligible', eligible ? 'true' : 'false');
+            core.setOutput('has_automerge_label', hasAutomergeLabel ? 'true' : 'false');
+            core.setOutput('reason', reasons.join('; ') || 'all files are test code');
+
+      - name: Apply review labels
+        uses: actions/github-script@v7
+        env:
+          ELIGIBLE: ${{ steps.policy.outputs.eligible }}
+          REASON: ${{ steps.policy.outputs.reason }}
+          HAS_AUTOMERGE_LABEL: ${{ steps.policy.outputs.has_automerge_label }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.payload.pull_request.number;
+            const eligible = process.env.ELIGIBLE === 'true';
+            const hasAutomergeLabel = process.env.HAS_AUTOMERGE_LABEL === 'true';
+
+            const labelsToAdd = !eligible && hasAutomergeLabel ? ['manual-review-required'] : [];
+            const labelsToRemove = eligible || !hasAutomergeLabel ? ['manual-review-required'] : [];
+
+            if (labelsToAdd.length > 0) {
+              await github.rest.issues.addLabels({ owner, repo, issue_number, labels: labelsToAdd });
+            }
+
+            for (const name of labelsToRemove) {
+              try {
+                await github.rest.issues.removeLabel({ owner, repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+
+            let summary;
+            if (eligible) {
+              summary = 'Test code PR is eligible for auto-merge';
+            } else if (!hasAutomergeLabel) {
+              summary = `Auto-merge not allowed: ${process.env.REASON}`;
+            } else {
+              summary = `Manual review required: ${process.env.REASON}`;
+            }
+            core.notice(summary);
+
+  disable-automerge:
+    if: needs.assess.result == 'success' && needs.assess.outputs.eligible != 'true'
+    needs:
+      - assess
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disable pull request auto-merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.payload.pull_request.number;
+            const { data: pullRequest } = await github.rest.pulls.get({ owner, repo, pull_number });
+
+            if (!pullRequest.auto_merge) {
+              core.notice('Pull request auto-merge is already disabled');
+              return;
+            }
+
+            await github.graphql(
+              `mutation($pullRequestId: ID!) {
+                disablePullRequestAutoMerge(input: { pullRequestId: $pullRequestId }) {
+                  pullRequest {
+                    number
+                    autoMergeRequest {
+                      enabledAt
+                    }
+                  }
+                }
+              }`,
+              { pullRequestId: pullRequest.node_id }
+            );
+
+            core.notice('Disabled pull request auto-merge because the PR is not eligible');
+
+  enable-automerge:
+    if: needs.assess.result == 'success' && needs.assess.outputs.eligible == 'true'
+    needs:
+      - assess
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enable pull request auto-merge
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ github.event.pull_request.number }}
+          merge-method: squash
