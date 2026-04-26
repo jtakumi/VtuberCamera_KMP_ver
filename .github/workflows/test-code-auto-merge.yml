@@ -36,7 +36,7 @@ jobs:
     if: >
       contains(github.event.pull_request.labels.*.name, 'automerge-test') &&
       github.event.pull_request.draft == false &&
-      github.actor != 'dependabot[bot]'
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     outputs:
       eligible: ${{ steps.policy.outputs.eligible }}
