@@ -6,6 +6,9 @@ on:
     # Sunday 21:00 UTC / Monday 06:00 JST.
     - cron: '0 21 * * 0'
 
+concurrency:
+  group: readme-sync
+  cancel-in-progress: true
 permissions:
   contents: write
   pull-requests: write
