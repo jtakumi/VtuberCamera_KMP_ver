@@ -380,7 +380,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     findings.append(
         make_finding(
             check_id="avatar_renderer_summary",
-            title="README distinguishes shipped avatar renderer groundwork from unfinished AR/VRM integration",
+            title="README distinguishes shipped avatar renderer groundwork from unfinished AR / VRM integration",
             category="README/spec mismatch",
             ok=(
                 "filament.android" in build_gradle

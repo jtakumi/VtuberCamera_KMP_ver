@@ -65,10 +65,10 @@ def render_generated_block() -> str:
         android_items.append("ドキュメントファイルピッカー起動")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
         android_items.append("ML Kit Face Detection による face tracking 解析と共有 state 反映")
-    if all_in(build_gradle, ("libs.filament.android", "libs.gltfio.android")) and all_in(
-        android_preview,
-        ("AvatarRendererHostView", "VrmAvatarParser.parse"),
-    ) and "AndroidFilamentAvatarRenderer" in android_avatar_host:
+    if all_in(build_gradle, ("libs.filament.android", "libs.gltfio.android")) and "VrmAvatarParser.parse" in android_preview and all_in(
+        android_avatar_host,
+        ("AndroidFilamentAvatarRenderer", "avatarSelection", "avatarRenderState"),
+    ):
         android_items.append("Filament renderer による VRM avatar 表示基盤")
     if "fun CameraScreen(" in camera_screen:
         android_items.append("Compose Multiplatform ベースのカメラ画面")

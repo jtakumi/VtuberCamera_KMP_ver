@@ -55,7 +55,7 @@ exceptions:
       - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render
       - iosApp/iosApp/AvatarRender/FilamentAvatarView.swift
       - README.md: renderer groundwork is listed separately from unfinished end-to-end AR / VRM integration.
-    reevaluate_when: Re-activate only if README collapses renderer groundwork back into a single unimplemented summary.
+    reevaluate_when: Remove or rewrite this historical note when end-to-end AR / VRM integration is fully documented as shipped or reclassified.
 
   - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
     category: Spec ahead of code
