@@ -28,7 +28,7 @@ object VrmAvatarParser {
         }
 
         val avatarName = previewDescriptor.meta.avatarName ?: fileName.substringBeforeLast('.')
-        val authorName = previewDescriptor.meta.authors.firstOrNull()
+        val authorName = previewDescriptor.meta.authors.firstOrNull { it.isNotBlank() }
         val vrmVersion = previewDescriptor.meta.version ?: previewDescriptor.rawSpecVersion ?: previewDescriptor.assetVersion
         val thumbnailBytes = previewDescriptor.thumbnailImageIndex?.let { imageIndex ->
             document.extractImageBytes(imageIndex)
