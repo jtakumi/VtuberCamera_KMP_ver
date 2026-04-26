@@ -281,37 +281,37 @@ actual fun AvatarPreviewOverlay(
 
 @Composable
 // カメラ画面の下部にアバター本体用のオーバーレイを表示する。
-@Suppress("UNUSED_PARAMETER")
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
-    val avatarPreview = avatarSelection.preview
-
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth(0.56f)
-                .fillMaxHeight(0.48f),
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
-            tonalElevation = 6.dp,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = avatarPreview.avatarName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(MaterialTheme.spacing.lg),
-                )
-            }
+    LaunchedEffect(avatarSelection.assetHandle) {
+        val didPublish = runCatching {
+            IOSAvatarRenderInterop.publishSelectedAvatar(avatarSelection)
+        }.getOrElse {
+            false
+        }
+        if (!didPublish) {
+            onAvatarRenderLoadFailed(
+                avatarSelection.assetHandle,
+                Res.string.vrm_error_read_failed,
+            )
         }
     }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            IOSAvatarRenderInterop.publishClearedAvatar()
+        }
+    }
+
+    LaunchedEffect(avatarRenderState) {
+        IOSAvatarRenderInterop.publishRenderState(avatarRenderState)
+    }
+
+    Box(modifier = modifier.fillMaxSize())
 }
 
 // AVFoundation preview layer と ARKit preview view を切り替えて保持する UIKit コンテナ。
