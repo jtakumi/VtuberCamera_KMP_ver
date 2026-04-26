@@ -5,6 +5,8 @@ import ComposeApp
 private let avatarOverlayWidthRatio: CGFloat = 0.56
 private let avatarOverlayHeightRatio: CGFloat = 0.48
 private let avatarOverlayBottomPadding: CGFloat = 24
+private let cameraLayerZIndex: Double = 0
+private let rendererLayerZIndex: Double = 1
 
 struct ContentView: View {
     var body: some View {
@@ -12,6 +14,7 @@ struct ContentView: View {
             ZStack(alignment: .bottom) {
                 ComposeCameraRootView()
                     .ignoresSafeArea()
+                    .zIndex(cameraLayerZIndex)
 
                 FilamentAvatarView()
                     .frame(
@@ -20,6 +23,7 @@ struct ContentView: View {
                     )
                     .padding(.bottom, avatarOverlayBottomPadding)
                     .allowsHitTesting(false)
+                    .zIndex(rendererLayerZIndex)
             }
         }
     }

@@ -2,6 +2,7 @@ import SwiftUI
 @preconcurrency import AVFoundation
 import ARKit
 import ComposeApp
+import Foundation
 
 @MainActor
 final class IOSCameraViewModel: ObservableObject {
@@ -117,6 +118,7 @@ final class IOSCameraViewModel: ObservableObject {
 
     func handleFaceTrackingFrameChanged(_ frame: IOSNormalizedFaceFrame?) {
         faceTrackingFrame = frame
+        publishAvatarRenderState(frame)
     }
 
     func stopSession() {
@@ -240,6 +242,34 @@ final class IOSCameraViewModel: ObservableObject {
         lensFacing = resolvedLensFacing
         isConfigured = true
         return true
+    }
+
+    private func publishAvatarRenderState(_ frame: IOSNormalizedFaceFrame?) {
+        let frame = frame ?? IOSNormalizedFaceFrame(
+            timestampMillis: 0,
+            trackingConfidence: 0,
+            headYawDegrees: 0,
+            headPitchDegrees: 0,
+            headRollDegrees: 0,
+            leftEyeBlink: 0,
+            rightEyeBlink: 0,
+            jawOpen: 0,
+            mouthSmile: 0
+        )
+
+        NotificationCenter.default.post(
+            name: IOSAvatarRenderBridge.avatarRenderStateDidChangeNotification,
+            object: nil,
+            userInfo: [
+                IOSAvatarRenderBridge.headYawDegreesKey: frame.headYawDegrees,
+                IOSAvatarRenderBridge.headPitchDegreesKey: frame.headPitchDegrees,
+                IOSAvatarRenderBridge.headRollDegreesKey: frame.headRollDegrees,
+                IOSAvatarRenderBridge.leftEyeBlinkKey: frame.leftEyeBlink,
+                IOSAvatarRenderBridge.rightEyeBlinkKey: frame.rightEyeBlink,
+                IOSAvatarRenderBridge.jawOpenKey: frame.jawOpen,
+                IOSAvatarRenderBridge.mouthSmileKey: frame.mouthSmile,
+            ]
+        )
     }
 
     private func openAppSettings() {
