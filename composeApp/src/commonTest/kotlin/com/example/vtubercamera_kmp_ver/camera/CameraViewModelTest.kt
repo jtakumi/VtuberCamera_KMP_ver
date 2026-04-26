@@ -19,6 +19,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
+import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 
 /**
  * Unit test stubs for [CameraViewModel] state-machine logic.
@@ -677,7 +679,7 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun onCleared_removesCurrentAvatarAssetHandle() = runTest {
+    fun releaseCurrentAvatarAsset_removesCurrentAvatarAssetHandle() = runTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
@@ -689,9 +691,7 @@ class CameraViewModelTest {
             advanceUntilIdle()
             assertNotNull(AvatarAssetStore.load(selection.assetHandle))
 
-            val onCleared = CameraViewModel::class.java.getDeclaredMethod("onCleared")
-            onCleared.isAccessible = true
-            onCleared.invoke(viewModel)
+            viewModel.releaseCurrentAvatarAsset()
 
             assertNull(AvatarAssetStore.load(selection.assetHandle))
         } finally {

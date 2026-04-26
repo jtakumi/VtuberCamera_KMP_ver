@@ -234,6 +234,11 @@ class CameraViewModel(
         }
     }
 
+    internal fun releaseCurrentAvatarAsset() {
+        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
+        currentAvatarAssetHandle = null
+    }
+
     // リポジトリのプレビュー状態を監視して UI 状態へ同期する。
     private suspend fun observePreviewState() {
         cameraRepository.observePreviewState().collect { previewState ->
@@ -278,8 +283,7 @@ class CameraViewModel(
     }
 
     override fun onCleared() {
-        currentAvatarAssetHandle?.let(AvatarAssetStore::remove)
-        currentAvatarAssetHandle = null
+        releaseCurrentAvatarAsset()
         super.onCleared()
     }
 }
