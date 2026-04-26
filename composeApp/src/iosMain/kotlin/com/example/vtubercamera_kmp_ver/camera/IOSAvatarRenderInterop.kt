@@ -2,6 +2,8 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import platform.Foundation.NSLog
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
@@ -77,9 +79,10 @@ internal object IOSAvatarRenderInterop {
     }
 
     // Copies avatar bytes into NSData so the host app can consume them via NotificationCenter.
+    @OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
     private fun ByteArray.toNSData(): NSData {
         if (isEmpty()) {
-            return NSData.create()
+            return NSData.create(bytes = null, length = 0u)
         }
 
         // Pin the ByteArray while Foundation copies from its backing memory into NSData. This
