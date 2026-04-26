@@ -23,6 +23,7 @@ final class IOSAvatarRenderBridge {
 
     private weak var renderer: FilamentAvatarRenderer?
     private var observerTokens: [NSObjectProtocol] = []
+    private let reusableRenderState = VTCAvatarRenderState()
 
     init(renderer: FilamentAvatarRenderer) {
         self.renderer = renderer
@@ -53,7 +54,7 @@ final class IOSAvatarRenderBridge {
                 object: nil,
                 queue: .main
             ) { [weak self] notification in
-                self?.renderer?.updateAvatarState(Self.makeRenderState(from: notification.userInfo))
+                self?.handleAvatarRenderStateChanged(notification)
             }
         ]
     }
@@ -78,17 +79,16 @@ final class IOSAvatarRenderBridge {
         }
     }
 
-    /// Converts the shared tracking state notification payload into the Objective-C render state.
-    private static func makeRenderState(from userInfo: [AnyHashable: Any]?) -> VTCAvatarRenderState {
-        let renderState = VTCAvatarRenderState()
-        renderState.headYawDegrees = floatValue(userInfo, key: headYawDegreesKey)
-        renderState.headPitchDegrees = floatValue(userInfo, key: headPitchDegreesKey)
-        renderState.headRollDegrees = floatValue(userInfo, key: headRollDegreesKey)
-        renderState.leftEyeBlink = floatValue(userInfo, key: leftEyeBlinkKey)
-        renderState.rightEyeBlink = floatValue(userInfo, key: rightEyeBlinkKey)
-        renderState.jawOpen = floatValue(userInfo, key: jawOpenKey)
-        renderState.mouthSmile = floatValue(userInfo, key: mouthSmileKey)
-        return renderState
+    /// Reuses a single render-state object while applying the latest tracking notification fields.
+    private func handleAvatarRenderStateChanged(_ notification: Notification) {
+        reusableRenderState.headYawDegrees = Self.floatValue(notification.userInfo, key: Self.headYawDegreesKey)
+        reusableRenderState.headPitchDegrees = Self.floatValue(notification.userInfo, key: Self.headPitchDegreesKey)
+        reusableRenderState.headRollDegrees = Self.floatValue(notification.userInfo, key: Self.headRollDegreesKey)
+        reusableRenderState.leftEyeBlink = Self.floatValue(notification.userInfo, key: Self.leftEyeBlinkKey)
+        reusableRenderState.rightEyeBlink = Self.floatValue(notification.userInfo, key: Self.rightEyeBlinkKey)
+        reusableRenderState.jawOpen = Self.floatValue(notification.userInfo, key: Self.jawOpenKey)
+        reusableRenderState.mouthSmile = Self.floatValue(notification.userInfo, key: Self.mouthSmileKey)
+        renderer?.updateAvatarState(reusableRenderState)
     }
 
     /// Returns the bridged float value or `0` when the key is absent, which the renderer treats as

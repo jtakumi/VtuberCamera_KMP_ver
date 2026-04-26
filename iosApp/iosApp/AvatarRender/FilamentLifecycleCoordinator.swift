@@ -11,7 +11,7 @@ final class FilamentLifecycleCoordinator {
 
     func attach(renderer: FilamentAvatarRenderer) {
         self.renderer = renderer
-        renderer.onRenderableContentChanged = { [weak self] in
+        renderer.onRenderingRequirementsChanged = { [weak self] in
             self?.syncRenderingState()
         }
         addObserversIfNeeded()
@@ -51,8 +51,8 @@ final class FilamentLifecycleCoordinator {
     }
 
     private func syncRenderingState() {
-        let hasContent = renderer?.hasRenderableContent ?? false
-        let shouldRender = isViewVisible && isAppActive && hasContent
+        let needsDisplayLink = renderer?.needsDisplayLink ?? false
+        let shouldRender = isViewVisible && isAppActive && needsDisplayLink
         renderer?.setPaused(!shouldRender)
         shouldRender ? startDisplayLinkIfNeeded() : stopDisplayLink()
     }

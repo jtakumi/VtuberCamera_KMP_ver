@@ -287,7 +287,7 @@ actual fun AvatarBodyOverlay(
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
-    DisposableEffect(avatarSelection.assetHandle) {
+    LaunchedEffect(avatarSelection.assetHandle) {
         val didPublish = runCatching {
             IOSAvatarRenderInterop.publishSelectedAvatar(avatarSelection)
         }.getOrElse {
@@ -299,7 +299,9 @@ actual fun AvatarBodyOverlay(
                 Res.string.vrm_error_read_failed,
             )
         }
+    }
 
+    DisposableEffect(Unit) {
         onDispose {
             IOSAvatarRenderInterop.publishClearedAvatar()
         }

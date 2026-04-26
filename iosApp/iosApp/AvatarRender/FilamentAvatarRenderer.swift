@@ -13,21 +13,21 @@ final class FilamentAvatarRenderer {
     private let subtitleLabel = UILabel()
     private let bridge: VTCFilamentRendererBridge
     private var currentAssetIdentity: IOSAvatarAssetIdentity?
+    private var isStaticPreviewVisible = false
     private(set) var isPaused = true
 
-    /// Set to `true` once the renderer has content worth drawing (e.g., an avatar is loaded).
-    /// Setting this automatically invokes `onRenderableContentChanged` so subscribers such as
-    /// `FilamentLifecycleCoordinator` can react without requiring a manual callback call.
-    var hasRenderableContent = false {
+    /// Set to `true` only when the underlying renderer needs a continuous draw loop.
+    /// Static UIKit preview content should stay visible without enabling `CADisplayLink`.
+    var needsDisplayLink = false {
         didSet {
-            guard hasRenderableContent != oldValue else { return }
-            onRenderableContentChanged?()
+            guard needsDisplayLink != oldValue else { return }
+            onRenderingRequirementsChanged?()
         }
     }
 
-    /// Called automatically whenever `hasRenderableContent` changes value.
+    /// Called automatically whenever `needsDisplayLink` changes value.
     /// `FilamentLifecycleCoordinator` sets this during `attach(renderer:)`.
-    var onRenderableContentChanged: (() -> Void)?
+    var onRenderingRequirementsChanged: (() -> Void)?
 
     init(bridge: VTCFilamentRendererBridge = VTCFilamentRendererBridge()) {
         self.bridge = bridge
@@ -54,10 +54,11 @@ final class FilamentAvatarRenderer {
 
     /// Applies the selected avatar as a static preview in the current render surface.
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {
-        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && hasRenderableContent
+        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && isStaticPreviewVisible
         guard !isAlreadyShowingSelectedAvatar else { return }
 
         currentAssetIdentity = payload.identity
+        isStaticPreviewVisible = true
         previewBackgroundView.isHidden = false
         previewImageView.image = payload.preview.thumbnail
         previewImageView.isHidden = payload.preview.thumbnail == nil
@@ -70,18 +71,17 @@ final class FilamentAvatarRenderer {
         subtitleLabel.text = subtitleParts.isEmpty
             ? payload.preview.fileName
             : subtitleParts.joined(separator: Self.previewSubtitleSeparator)
-        hasRenderableContent = true
     }
 
     /// Clears the currently displayed static avatar preview.
     func clearAvatar() {
         currentAssetIdentity = nil
+        isStaticPreviewVisible = false
         previewBackgroundView.isHidden = true
         previewImageView.image = nil
         previewImageView.isHidden = true
         titleLabel.text = nil
         subtitleLabel.text = nil
-        hasRenderableContent = false
     }
 
     /// Stores the latest tracking state so future dynamic rendering can consume it.
