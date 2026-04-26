@@ -15,6 +15,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - フロント / バックカメラ切り替え
 - ドキュメントファイルピッカー起動
 - ML Kit Face Detection による face tracking 解析と共有 state 反映
+- Filament renderer による VRM avatar 表示基盤
 - Compose Multiplatform ベースのカメラ画面
 
 ### iOS
@@ -25,6 +26,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
 - `UIDocumentPickerViewController` によるファイル選択
+- SwiftUI + Filament による avatar view ホスト
 
 ### 共有コードで扱っているもの
 
@@ -42,7 +44,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - フラッシュ制御
 - ズーム制御
 - ギャラリー関連機能
-- AR / VRM / Filament 連携
+- face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合
 
 ## リポジトリ構成
 

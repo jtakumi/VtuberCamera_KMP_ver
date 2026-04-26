@@ -39,10 +39,12 @@ def render_generated_block() -> str:
     versions = read_text("gradle/libs.versions.toml")
     manifest = read_text("composeApp/src/androidMain/AndroidManifest.xml")
     android_preview = read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt")
+    android_avatar_host = read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidFilamentAvatarHost.kt")
     ios_preview = read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt")
     camera_screen = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt")
     camera_view_model = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt")
     content_view = read_text("iosApp/iosApp/ContentView.swift")
+    ios_filament_view = read_text("iosApp/iosApp/AvatarRender/FilamentAvatarView.swift")
 
     android_items: list[str] = []
     if "android.permission.CAMERA" in manifest and "ActivityResultContracts.RequestPermission" in android_preview:
@@ -63,6 +65,11 @@ def render_generated_block() -> str:
         android_items.append("ドキュメントファイルピッカー起動")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
         android_items.append("ML Kit Face Detection による face tracking 解析と共有 state 反映")
+    if all_in(build_gradle, ("libs.filament.android", "libs.gltfio.android")) and all_in(
+        android_preview,
+        ("AvatarRendererHostView", "VrmAvatarParser.parse"),
+    ) and "AndroidFilamentAvatarRenderer" in android_avatar_host:
+        android_items.append("Filament renderer による VRM avatar 表示基盤")
     if "fun CameraScreen(" in camera_screen:
         android_items.append("Compose Multiplatform ベースのカメラ画面")
 
@@ -84,6 +91,8 @@ def render_generated_block() -> str:
         ios_items.append("フロント / バックカメラ切り替え")
     if "UIDocumentPickerViewController" in ios_preview:
         ios_items.append("`UIDocumentPickerViewController` によるファイル選択")
+    if "FilamentAvatarView()" in content_view and "struct FilamentAvatarView" in ios_filament_view:
+        ios_items.append("SwiftUI + Filament による avatar view ホスト")
 
     shared_items: list[str] = []
     if "fun CameraRoute(" in camera_screen:
@@ -105,7 +114,7 @@ def render_generated_block() -> str:
         "フラッシュ制御",
         "ズーム制御",
         "ギャラリー関連機能",
-        "AR / VRM / Filament 連携",
+        "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合",
     ]
 
     structure_items = [
