@@ -42,5 +42,4 @@
     <string name="vrm_error_read_failed">VRM/GLBファイルの読み込みに失敗しました。</string>
     <string name="vrm_error_invalid_format">VRM/GLBファイルの形式が不正です。</string>
     <string name="vrm_error_metadata_parse_failed">VRM/GLBメタデータの解析に失敗しました。</string>
-     <string name="vrm_error_select_file">Failed to select VRM file</string>
 </resources>
