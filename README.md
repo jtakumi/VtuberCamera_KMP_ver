@@ -4,6 +4,8 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 現時点では、カメラ MVP の土台作りが中心です。Android / iOS ともに Compose ベースの camera 画面を利用しつつ、platform ごとに Camera API を接続しています。
 
+<!-- BEGIN AUTO-GENERATED README STATUS -->
+
 ## 現在の実装状況
 
 ### Android
@@ -19,7 +21,6 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
-
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
 - `UIDocumentPickerViewController` によるファイル選択
@@ -97,6 +98,7 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 - iOS は `composeApp/src/iosMain` の `CameraPreviewHost` が AVFoundation preview と ARKit face tracking を担当します。
 - `iosApp` は現在も Compose Multiplatform host と Xcode プロジェクトの役割を持ちます。
 - package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。
+<!-- END AUTO-GENERATED README STATUS -->
 
 ## Dependabot 運用ポリシー
 

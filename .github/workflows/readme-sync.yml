@@ -1,0 +1,46 @@
+name: README Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Monday 06:00 JST.
+    - cron: '0 21 * * 0'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  readme-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Update README
+        run: python3 scripts/update_readme.py
+
+      - name: Check for README changes
+        id: diff
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: docs: sync auto-generated README status
+          title: docs: sync auto-generated README status
+          body: |
+            This PR updates the auto-generated README status block based on the current repository state.
+          branch: chore/readme-sync
+          delete-branch: true
+          add-paths: README.md
