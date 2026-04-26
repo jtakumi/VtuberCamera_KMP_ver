@@ -380,21 +380,24 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     findings.append(
         make_finding(
             check_id="avatar_renderer_summary",
-            title="Avatar renderer status remains intentionally finer-grained than README summary",
-            category="Code ahead of spec",
+            title="README distinguishes shipped avatar renderer groundwork from unfinished AR / VRM integration",
+            category="README/spec mismatch",
             ok=(
                 "filament.android" in build_gradle
                 and "gltfio.android" in build_gradle
                 and path_exists("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidFilamentAvatarHost.kt")
-                and "AR / VRM / Filament 連携" in readme
+                and path_exists("iosApp/iosApp/AvatarRender/FilamentAvatarView.swift")
+                and "Filament renderer による VRM avatar 表示基盤" in readme
+                and "SwiftUI + Filament による avatar view ホスト" in readme
+                and "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合" in readme
             ),
             ok_evidence=(
                 "Android Filament/gltfio dependencies and renderer host exist.",
-                "README still treats full AR / VRM / Filament integration as not implemented.",
+                "iOS Filament avatar view host exists.",
+                "README separates shipped renderer groundwork from unfinished end-to-end AR / VRM integration.",
             ),
-            problem_evidence=("Avatar renderer code and README wording need reclassification.",),
-            recommendation="Either document the renderer layer in more detail or keep README simplification under an active exception.",
-            exception_id="README_AVATAR_RENDERING_SUMMARY",
+            problem_evidence=("Avatar renderer code exists, but README still needs finer-grained classification.",),
+            recommendation="Document the shipped renderer layer separately from unfinished end-to-end AR / VRM integration.",
             active_exceptions=active_exceptions,
         )
     )

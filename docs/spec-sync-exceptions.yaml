@@ -44,17 +44,18 @@ exceptions:
 
   - id: README_AVATAR_RENDERING_SUMMARY
     category: Code ahead of spec
-    status: active
+    status: inactive
     severity: info
     scope:
       - avatar_renderer
       - readme_summary
-    reason: Android renderer dependencies and host code exist, but README intentionally keeps the current-status section short and treats full AR / VRM / Filament integration as not complete.
+    reason: README now distinguishes shipped avatar renderer groundwork from unfinished end-to-end AR / VRM integration, so this exception is no longer active.
     evidence:
       - composeApp/build.gradle.kts: Android Filament and gltfio dependencies.
       - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render
-      - README.md: AR / VRM / Filament integration is still listed as not implemented.
-    reevaluate_when: README needs finer-grained shipped status for avatar renderer layer.
+      - iosApp/iosApp/AvatarRender/FilamentAvatarView.swift
+      - README.md: renderer groundwork is listed separately from unfinished end-to-end AR / VRM integration.
+    reevaluate_when: Remove or rewrite this historical note when end-to-end AR / VRM integration is fully documented as shipped or reclassified.
 
   - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
     category: Spec ahead of code
