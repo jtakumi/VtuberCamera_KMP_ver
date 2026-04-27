@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
@@ -536,6 +537,123 @@ class CameraViewModelTest {
         assertEquals(1, cameraRepository.switchLensCallCount)
     }
 
+    @Test
+    fun onFaceTrackingFrameChanged_formatsAngleAndClampsPercentLabels() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val frame = createFaceFrame(
+            timestampMillis = 100L,
+            trackingConfidence = 0.9f,
+            headYawDegrees = 12.4f,
+            headPitchDegrees = -8.6f,
+            headRollDegrees = 30.2f,
+            leftEyeBlink = -0.1f,
+            rightEyeBlink = 0.453f,
+            jawOpen = 1.3f,
+            mouthSmile = 0.995f,
+        )
+
+        viewModel.onFaceTrackingFrameChanged(frame)
+        advanceUntilIdle()
+
+        val display = assertNotNull(viewModel.uiState.value.faceTracking.display)
+        assertEquals("12 deg", display.headYawLabel)
+        assertEquals("-9 deg", display.headPitchLabel)
+        assertEquals("30 deg", display.headRollLabel)
+        assertEquals("0%", display.leftEyeBlinkLabel)
+        assertEquals("45%", display.rightEyeBlinkLabel)
+        assertEquals("100%", display.jawOpenLabel)
+        assertEquals("100%", display.mouthSmileLabel)
+    }
+
+    @Test
+    fun onFaceTrackingFrameChanged_whenFrameIsNull_setsNotTrackingAndClearsDisplay() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        viewModel.onFaceTrackingFrameChanged(createFaceFrame())
+        advanceUntilIdle()
+
+        viewModel.onFaceTrackingFrameChanged(null)
+        advanceUntilIdle()
+
+        val faceTracking = viewModel.uiState.value.faceTracking
+        assertEquals(false, faceTracking.isTracking)
+        assertNull(faceTracking.frame)
+        assertNull(faceTracking.display)
+    }
+
+    @Test
+    fun onFaceTrackingFrameChanged_whenConfidenceLow_transitionsAvatarStateToLost() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val highConfidenceFrame = createFaceFrame(
+            timestampMillis = 200L,
+            trackingConfidence = 0.92f,
+            headYawDegrees = 9f,
+            headPitchDegrees = 1f,
+            headRollDegrees = -4f,
+        )
+        val lowConfidenceFrame = createFaceFrame(
+            timestampMillis = 201L,
+            trackingConfidence = 0.2f,
+            headYawDegrees = 3f,
+            headPitchDegrees = 2f,
+            headRollDegrees = 1f,
+        )
+
+        viewModel.onFaceTrackingFrameChanged(highConfidenceFrame)
+        advanceUntilIdle()
+        viewModel.onFaceTrackingFrameChanged(lowConfidenceFrame)
+        advanceUntilIdle()
+
+        val avatarState = viewModel.uiState.value.avatarRenderState
+        assertEquals(AvatarTrackingStatus.Lost, avatarState.trackingStatus)
+        assertEquals(0.2f, avatarState.trackingConfidence)
+        assertEquals(201L, avatarState.sourceTimestampMillis)
+    }
+
+    @Test
+    fun onFaceTrackingFrameChanged_usesPreviousAvatarStateAcrossSequentialFrames() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val firstFrame = createFaceFrame(
+            timestampMillis = 300L,
+            trackingConfidence = 0.95f,
+            headYawDegrees = 10f,
+        )
+        val secondFrame = createFaceFrame(
+            timestampMillis = 301L,
+            trackingConfidence = 0.1f,
+            headYawDegrees = 8f,
+        )
+
+        viewModel.onFaceTrackingFrameChanged(firstFrame)
+        advanceUntilIdle()
+        val trackedState = viewModel.uiState.value.avatarRenderState
+        assertEquals(AvatarTrackingStatus.Tracking, trackedState.trackingStatus)
+        assertEquals(300L, trackedState.sourceTimestampMillis)
+
+        viewModel.onFaceTrackingFrameChanged(secondFrame)
+        advanceUntilIdle()
+        val lostState = viewModel.uiState.value.avatarRenderState
+        assertEquals(AvatarTrackingStatus.Lost, lostState.trackingStatus)
+        assertEquals(301L, lostState.sourceTimestampMillis)
+
+        viewModel.onFaceTrackingFrameChanged(null)
+        advanceUntilIdle()
+        val notTrackedState = viewModel.uiState.value.avatarRenderState
+        assertEquals(AvatarTrackingStatus.NotTracked, notTrackedState.trackingStatus)
+        assertEquals(301L, notTrackedState.sourceTimestampMillis)
+    }
+
     // ---------------------------------------------------------------------------
     // onFilePicked()
     // ---------------------------------------------------------------------------
@@ -727,6 +845,28 @@ class CameraViewModelTest {
             ),
         )
     }
+
+    private fun createFaceFrame(
+        timestampMillis: Long = 42L,
+        trackingConfidence: Float = 0.8f,
+        headYawDegrees: Float = 0f,
+        headPitchDegrees: Float = 0f,
+        headRollDegrees: Float = 0f,
+        leftEyeBlink: Float = 0f,
+        rightEyeBlink: Float = 0f,
+        jawOpen: Float = 0f,
+        mouthSmile: Float = 0f,
+    ): NormalizedFaceFrame = NormalizedFaceFrame(
+        timestampMillis = timestampMillis,
+        trackingConfidence = trackingConfidence,
+        headYawDegrees = headYawDegrees,
+        headPitchDegrees = headPitchDegrees,
+        headRollDegrees = headRollDegrees,
+        leftEyeBlink = leftEyeBlink,
+        rightEyeBlink = rightEyeBlink,
+        jawOpen = jawOpen,
+        mouthSmile = mouthSmile,
+    )
 
     private class FakeCameraRepository(
         private val resolveInitialLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Back),
