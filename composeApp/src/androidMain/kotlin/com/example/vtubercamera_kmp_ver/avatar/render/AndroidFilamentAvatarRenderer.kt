@@ -83,6 +83,7 @@ internal class AndroidFilamentAvatarRenderer(
             assetLoader = assetLoader,
             resourceCleaner = FilamentResourceCleaner(),
             onSceneFramingChanged = ::updateSceneFraming,
+            onRenderStateChanged = ::updateRenderStateFromBridge,
         )
 
         configureRenderer()
@@ -96,7 +97,6 @@ internal class AndroidFilamentAvatarRenderer(
         nextRenderState: AvatarRenderState,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
-        renderState = nextRenderState
         renderBridge.update(
             avatarSelection = avatarSelection,
             avatarRenderState = nextRenderState,
@@ -213,6 +213,10 @@ internal class AndroidFilamentAvatarRenderer(
         this.sceneFraming = sceneFraming
     }
 
+    private fun updateRenderStateFromBridge(nextState: AvatarRenderState) {
+        renderState = nextState
+    }
+
     private fun updateCameraLookAt(
         sceneFraming: AvatarSceneFraming,
         renderState: AvatarRenderState,
@@ -222,6 +226,11 @@ internal class AndroidFilamentAvatarRenderer(
         } else {
             0.0
         }
+        val expressionInfluence = (
+            renderState.expressions.jawOpen * JAW_WEIGHT +
+                renderState.expressions.mouthSmile * SMILE_WEIGHT +
+                ((renderState.expressions.leftEyeBlink + renderState.expressions.rightEyeBlink) * 0.5f) * BLINK_WEIGHT
+            ).coerceIn(0f, 1f).toDouble()
         val yawRadians = Math.toRadians(
             renderState.rig.headYawDegrees.toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
         )
@@ -231,8 +240,10 @@ internal class AndroidFilamentAvatarRenderer(
 
         camera.lookAt(
             sceneFraming.targetX + sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
-            sceneFraming.targetY + sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence,
-            sceneFraming.targetZ + sceneFraming.cameraDistance,
+            sceneFraming.targetY +
+                sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence +
+                expressionInfluence * EXPRESSION_Y_OFFSET_SCALE,
+            sceneFraming.targetZ + sceneFraming.cameraDistance - expressionInfluence * EXPRESSION_Z_OFFSET_SCALE,
             sceneFraming.targetX,
             sceneFraming.targetY,
             sceneFraming.targetZ,
@@ -261,6 +272,11 @@ internal class AndroidFilamentAvatarRenderer(
         // Conservative clamps to avoid aggressive camera motion from noisy tracking input.
         private const val MAX_YAW_DEGREES = 45.0
         private const val MAX_PITCH_DEGREES = 30.0
+        private const val JAW_WEIGHT = 0.5f
+        private const val SMILE_WEIGHT = 0.35f
+        private const val BLINK_WEIGHT = 0.15f
+        private const val EXPRESSION_Y_OFFSET_SCALE = 0.18
+        private const val EXPRESSION_Z_OFFSET_SCALE = 0.24
         private const val LIGHT_DIRECTION_X = 0.35f
         private const val LIGHT_DIRECTION_Y = -1.0f
         private const val LIGHT_DIRECTION_Z = -0.45f

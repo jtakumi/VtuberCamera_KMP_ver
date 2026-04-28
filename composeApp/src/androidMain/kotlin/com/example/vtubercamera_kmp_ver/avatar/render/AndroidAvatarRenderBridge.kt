@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.tracking.AndroidFaceTrackingToAvatarMapper
 import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import com.google.android.filament.Scene
@@ -12,7 +13,9 @@ internal class AndroidAvatarRenderBridge(
     private val assetLoader: AndroidVrmAssetLoader,
     private val resourceCleaner: FilamentResourceCleaner,
     private val onSceneFramingChanged: (AvatarSceneFraming) -> Unit,
+    private val onRenderStateChanged: (AvatarRenderState) -> Unit,
 ) {
+    private val renderStateMapper = AndroidFaceTrackingToAvatarMapper()
     private var currentAsset: FilamentAsset? = null
     private var currentAssetKey: AvatarAssetKey? = null
 
@@ -22,8 +25,7 @@ internal class AndroidAvatarRenderBridge(
         avatarRenderState: AvatarRenderState,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
-        // TODO: Apply avatarRenderState to the loaded model here once expression / pose mapping is
-        // wired into the Android runtime renderer.
+        onRenderStateChanged(renderStateMapper.map(avatarRenderState))
 
         val nextAssetKey = AvatarAssetKey(
             assetId = avatarSelection.assetHandle.assetId,
