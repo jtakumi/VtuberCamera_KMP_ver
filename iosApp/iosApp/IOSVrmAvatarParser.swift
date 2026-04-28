@@ -11,17 +11,41 @@ struct IOSAvatarPreview {
 
 enum IOSVrmAvatarParser {
     private static let supportedExtensions: Set<String> = ["vrm", "glb"]
+    // Limit imported file size to reduce resource-exhaustion risk from malformed selections.
+    private static let maximumImportedFileSizeInBytes = 50 * 1024 * 1024
+    private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
 
     static func parse(url: URL) throws -> IOSAvatarPreview {
-        let didAccess = url.startAccessingSecurityScopedResource()
+        guard url.isFileURL else {
+            throw ParserError.invalidFileType
+        }
+
+        let importedFile = url.standardizedFileURL
+        let fileName = importedFile.lastPathComponent
+        let fileExtension = (fileName as NSString).pathExtension.lowercased()
+        guard !fileName.isEmpty, supportedExtensions.contains(fileExtension) else {
+            throw ParserError.invalidFileType
+        }
+
+        let didAccess = importedFile.startAccessingSecurityScopedResource()
         defer {
             if didAccess {
-                url.stopAccessingSecurityScopedResource()
+                importedFile.stopAccessingSecurityScopedResource()
             }
         }
 
-        let fileName = url.lastPathComponent
-        let data = try Data(contentsOf: url)
+        let resourceValues = try importedFile.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        let importedFileSize = try validatedImportFileSize(importedFile, preloadedResourceValues: resourceValues)
+
+        let sandboxedImport = try stageImportedFile(importedFile, fileExtension: fileExtension)
+        defer {
+            removeSandboxedImportIfNeeded(sandboxedImport.directoryURL)
+        }
+
+        let data = try loadValidatedImportData(
+            from: sandboxedImport.fileURL,
+            expectedFileSize: importedFileSize,
+        )
         return try parse(fileName: fileName, data: data)
     }
 
@@ -68,10 +92,19 @@ enum IOSVrmAvatarParser {
             offset = chunkEnd
         }
 
-        guard
-            let jsonChunk,
-            let jsonObject = try JSONSerialization.jsonObject(with: jsonChunk) as? [String: Any]
-        else {
+        guard let jsonChunk else {
+            throw ParserError.metadataFailed
+        }
+
+        let jsonObject: [String: Any]
+        do {
+            guard let parsedJsonObject = try JSONSerialization.jsonObject(with: jsonChunk) as? [String: Any] else {
+                throw ParserError.metadataFailed
+            }
+            jsonObject = parsedJsonObject
+        } catch is ParserError {
+            throw ParserError.metadataFailed
+        } catch {
             throw ParserError.metadataFailed
         }
 
@@ -83,6 +116,7 @@ enum IOSVrmAvatarParser {
         let authorName = (meta0?["author"] as? String)
             ?? ((meta1?["authors"] as? [String])?.first)
         let vrmVersion = (meta0?["version"] as? String)
+            ?? (meta1?["version"] as? String)
             ?? (((jsonObject["extensions"] as? [String: Any])?["VRMC_vrm"] as? [String: Any])?["specVersion"] as? String)
             ?? ((jsonObject["asset"] as? [String: Any])?["version"] as? String)
 
@@ -142,10 +176,122 @@ enum IOSVrmAvatarParser {
             | (Int(bytes[offset + 3]) << 24)
     }
 
+    private static func validatedImportFileSize(
+        _ url: URL,
+        preloadedResourceValues: URLResourceValues? = nil
+    ) throws -> Int {
+        let resolvedResourceValues = try preloadedResourceValues
+            ?? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard resolvedResourceValues.isRegularFile == true else {
+            throw ParserError.invalidFileType
+        }
+
+        let fileSize: Int
+        if let resolvedFileSize = resolvedResourceValues.fileSize {
+            fileSize = resolvedFileSize
+        } else {
+            fileSize = try fileSizeFromFileSystemAttributes(for: url)
+        }
+        guard fileSize > 0 else {
+            throw ParserError.invalidFileSize
+        }
+        guard fileSize <= maximumImportedFileSizeInBytes else {
+            throw ParserError.fileTooLarge
+        }
+        return fileSize
+    }
+
+    private static func loadValidatedImportData(from url: URL, expectedFileSize: Int) throws -> Data {
+        let stagedFileSize = try validatedImportFileSize(url)
+        guard stagedFileSize == expectedFileSize else {
+            throw ParserError.stagedFileSizeMismatch
+        }
+        return try Data(contentsOf: url, options: [.mappedIfSafe])
+    }
+
+    private static func fileSizeFromFileSystemAttributes(for url: URL) throws -> Int {
+        guard url.isFileURL else {
+            throw ParserError.fileSizeValidationFailed
+        }
+        return try url.withUnsafeFileSystemRepresentation { unsafePath -> Int in
+            guard let unsafePath else {
+                throw ParserError.fileSizeValidationFailed
+            }
+
+            let attributes = try FileManager.default.attributesOfItem(
+                atPath: String(cString: unsafePath)
+            )
+            guard let fileSizeNumber = attributes[.size] as? NSNumber else {
+                throw ParserError.fileSizeValidationFailed
+            }
+            let attributeFileSize = fileSizeNumber.int64Value
+            guard attributeFileSize > 0 else {
+                throw ParserError.fileSizeValidationFailed
+            }
+            return Int(attributeFileSize)
+        }
+    }
+
+    private static func stageImportedFile(_ url: URL, fileExtension: String) throws -> SandboxedImport {
+        let sandboxDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(importedPreviewDirectoryName, isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sandboxedFile = sandboxDirectory
+            .appendingPathComponent("avatar")
+            .appendingPathExtension(fileExtension)
+
+        do {
+            try FileManager.default.createDirectory(at: sandboxDirectory, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: sandboxedFile)
+            return SandboxedImport(
+                directoryURL: sandboxDirectory,
+                fileURL: sandboxedFile,
+            )
+        } catch {
+            let nsError = error as NSError
+            NSLog(
+                "Failed to stage sandboxed avatar preview file %@ (%@:%ld)",
+                sandboxedFile.lastPathComponent,
+                nsError.domain,
+                nsError.code,
+            )
+            removeSandboxedImportIfNeeded(sandboxDirectory)
+            throw ParserError.sandboxCopyFailed
+        }
+    }
+
+    private static func removeSandboxedImportIfNeeded(_ directoryURL: URL) {
+        guard FileManager.default.fileExists(atPath: directoryURL.path) else {
+            return
+        }
+
+        do {
+            try FileManager.default.removeItem(at: directoryURL)
+        } catch {
+            let nsError = error as NSError
+            NSLog(
+                "Failed to remove sandboxed avatar preview directory %@ (%@:%ld)",
+                directoryURL.lastPathComponent,
+                nsError.domain,
+                nsError.code,
+            )
+        }
+    }
+
+    private struct SandboxedImport {
+        let directoryURL: URL
+        let fileURL: URL
+    }
+
     private enum ParserError: LocalizedError {
         case invalidFileName
         case invalidFileType
         case readFailed
+        case fileSizeValidationFailed
+        case invalidFileSize
+        case fileTooLarge
+        case stagedFileSizeMismatch
+        case sandboxCopyFailed
         case invalidFormat
         case metadataFailed
 
@@ -157,6 +303,16 @@ enum IOSVrmAvatarParser {
                 return "VRM/GLBファイルを選択してください。"
             case .readFailed:
                 return "VRM/GLBファイルの読み込みに失敗しました。"
+            case .fileSizeValidationFailed:
+                return "VRM/GLBファイルサイズの確認に失敗しました。"
+            case .invalidFileSize:
+                return "VRM/GLBファイルサイズが不正です。"
+            case .fileTooLarge:
+                return "VRM/GLBファイルサイズが大きすぎます。"
+            case .stagedFileSizeMismatch:
+                return "VRM/GLBファイルの処理に失敗しました。"
+            case .sandboxCopyFailed:
+                return "VRM/GLBファイルの処理に失敗しました。"
             case .invalidFormat:
                 return "VRM/GLBファイルの形式が不正です。"
             case .metadataFailed:

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		1A2B3C4D5E6F7890ABCDEF01 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5AC11AEC8E5CA456A456FB53 /* VtuberCamera_KMP_ver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VtuberCamera_KMP_ver.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -29,6 +30,11 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		B1C2D3E4F5061728394A5B6C /* iosAppTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = iosAppTests;
+			sourceTree = "<group>";
+		};
 		DD3CAD0C25E49F35E7E1A928 /* Configuration */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Configuration;
@@ -37,6 +43,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2B3C4D5E6F708192A3B4C5D6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		FF0CEC7370C574DE3CF46621 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -52,6 +65,7 @@
 			isa = PBXGroup;
 			children = (
 				5AC11AEC8E5CA456A456FB53 /* VtuberCamera_KMP_ver.app */,
+				1A2B3C4D5E6F7890ABCDEF01 /* iosAppTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,6 +75,7 @@
 			children = (
 				DD3CAD0C25E49F35E7E1A928 /* Configuration */,
 				AA7B557DDCE017950D340666 /* iosApp */,
+				B1C2D3E4F5061728394A5B6C /* iosAppTests */,
 				BA7F9B9537C3B640DD1F7DCD /* Products */,
 			);
 			sourceTree = "<group>";
@@ -68,6 +83,29 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		3C4D5E6F708192A3B4C5D6E7 /* iosAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D5E6F708192A3B4C5D6E7F8 /* Build configuration list for PBXNativeTarget "iosAppTests" */;
+			buildPhases = (
+				5E6F708192A3B4C5D6E7F809 /* Sources */,
+				2B3C4D5E6F708192A3B4C5D6 /* Frameworks */,
+				6F708192A3B4C5D6E7F8091A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7F8091A2B3C4D5E6F708192A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B1C2D3E4F5061728394A5B6C /* iosAppTests */,
+			);
+			name = iosAppTests;
+			packageProductDependencies = (
+			);
+			productName = iosAppTests;
+			productReference = 1A2B3C4D5E6F7890ABCDEF01 /* iosAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		9D7D5F02EAD009405095B4B4 /* iosApp */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CAF973D12AD1F9BB075D5349 /* Build configuration list for PBXNativeTarget "iosApp" */;
@@ -101,6 +139,10 @@
 				LastSwiftUpdateCheck = 1620;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
+					3C4D5E6F708192A3B4C5D6E7 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 9D7D5F02EAD009405095B4B4;
+					};
 					9D7D5F02EAD009405095B4B4 = {
 						CreatedOnToolsVersion = 16.2;
 					};
@@ -121,11 +163,19 @@
 			projectRoot = "";
 			targets = (
 				9D7D5F02EAD009405095B4B4 /* iosApp */,
+				3C4D5E6F708192A3B4C5D6E7 /* iosAppTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		6F708192A3B4C5D6E7F8091A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8676DEAB4C454EDC4E27E793 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -158,6 +208,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5E6F708192A3B4C5D6E7F809 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9BE23445062CF758502CA1CA /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -167,7 +224,49 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		7F8091A2B3C4D5E6F708192A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9D7D5F02EAD009405095B4B4 /* iosApp */;
+			targetProxy = 8091A2B3C4D5E6F708192A3B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXContainerItemProxy section */
+		8091A2B3C4D5E6F708192A3B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6714DC9B35B99743F62F3404 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9D7D5F02EAD009405095B4B4;
+			remoteInfo = iosApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin XCBuildConfiguration section */
+		091A2B3C4D5E6F708192A3B4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = AW4XX4A8C2;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.vtubercamera.kmp.ver.vtubercamera.kmpverTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera_KMP_ver.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera_KMP_ver";
+			};
+			name = Debug;
+		};
 		18715BBE006200E8DC9546D6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -196,6 +295,27 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		1A2B3C4D5E6F708192A3B4C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.vtubercamera.kmp.ver.vtubercamera.kmpverTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera_KMP_ver.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera_KMP_ver";
 			};
 			name = Release;
 		};
@@ -357,6 +477,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		4D5E6F708192A3B4C5D6E7F8 /* Build configuration list for PBXNativeTarget "iosAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				091A2B3C4D5E6F708192A3B4 /* Debug */,
+				1A2B3C4D5E6F708192A3B4C5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		5FADEF1C7900D74C21D9EC62 /* Build configuration list for PBXProject "iosApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
