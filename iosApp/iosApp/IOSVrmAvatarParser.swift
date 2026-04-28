@@ -173,15 +173,35 @@ enum IOSVrmAvatarParser {
     }
 
     private static func copyImportedFileToSandbox(_ url: URL, fileExtension: String) throws -> URL {
+        let previewDirectory = try sandboxPreviewDirectory()
+        while true {
+            let sandboxedFile = previewDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(fileExtension)
+            guard !FileManager.default.fileExists(atPath: sandboxedFile.path) else {
+                continue
+            }
+
+            try FileManager.default.copyItem(at: url, to: sandboxedFile)
+            return sandboxedFile
+        }
+    }
+
+    private static func sandboxPreviewDirectory() throws -> URL {
         let previewDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(importedPreviewDirectoryName, isDirectory: true)
-        try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+        var isDirectory = ObjCBool(false)
+        if FileManager.default.fileExists(atPath: previewDirectory.path, isDirectory: &isDirectory) {
+            guard isDirectory.boolValue else {
+                try FileManager.default.removeItem(at: previewDirectory)
+                try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+                return previewDirectory
+            }
+            return previewDirectory
+        }
 
-        let sandboxedFile = previewDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(fileExtension)
-        try FileManager.default.copyItem(at: url, to: sandboxedFile)
-        return sandboxedFile
+        try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+        return previewDirectory
     }
 
     private enum ParserError: LocalizedError {
