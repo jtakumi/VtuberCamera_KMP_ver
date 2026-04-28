@@ -35,14 +35,17 @@ enum IOSVrmAvatarParser {
         }
 
         let resourceValues = try importedFile.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        let importedFileSize = try validateImportFile(importedFile, resourceValues: resourceValues)
+        let importedFileSize = try validatedImportFileSize(importedFile, resourceValues: resourceValues)
 
         let sandboxedImport = try stageImportedFile(importedFile, fileExtension: fileExtension)
         defer {
             removeSandboxedImportIfNeeded(sandboxedImport.directoryURL)
         }
 
-        _ = try validateImportFile(sandboxedImport.fileURL, expectedFileSize: importedFileSize)
+        let stagedFileSize = try validatedImportFileSize(sandboxedImport.fileURL)
+        guard stagedFileSize == importedFileSize else {
+            throw ParserError.stagedFileSizeMismatch
+        }
         let data = try Data(contentsOf: sandboxedImport.fileURL, options: [.mappedIfSafe])
         return try parse(fileName: fileName, data: data)
     }
@@ -164,9 +167,8 @@ enum IOSVrmAvatarParser {
             | (Int(bytes[offset + 3]) << 24)
     }
 
-    private static func validateImportFile(
+    private static func validatedImportFileSize(
         _ url: URL,
-        expectedFileSize: Int? = nil,
         resourceValues: URLResourceValues? = nil
     ) throws -> Int {
         let resolvedResourceValues = try resourceValues ?? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
@@ -180,13 +182,11 @@ enum IOSVrmAvatarParser {
         } else {
             fileSize = try fileSizeFromFileSystemAttributes(for: url)
         }
-        let expectedSizeMatches = expectedFileSize.map { $0 == fileSize } ?? true
-        guard
-            fileSize > 0,
-            fileSize <= maximumImportedFileSizeInBytes,
-            expectedSizeMatches
-        else {
-            throw ParserError.fileSizeValidationFailed
+        guard fileSize > 0 else {
+            throw ParserError.invalidFileSize
+        }
+        guard fileSize <= maximumImportedFileSizeInBytes else {
+            throw ParserError.fileTooLarge
         }
         return fileSize
     }
@@ -270,6 +270,9 @@ enum IOSVrmAvatarParser {
         case invalidFileType
         case readFailed
         case fileSizeValidationFailed
+        case invalidFileSize
+        case fileTooLarge
+        case stagedFileSizeMismatch
         case sandboxCopyFailed
         case invalidFormat
         case metadataFailed
@@ -284,6 +287,12 @@ enum IOSVrmAvatarParser {
                 return "VRM/GLBファイルの読み込みに失敗しました。"
             case .fileSizeValidationFailed:
                 return "VRM/GLBファイルサイズの確認に失敗しました。"
+            case .invalidFileSize:
+                return "VRM/GLBファイルサイズが不正です。"
+            case .fileTooLarge:
+                return "VRM/GLBファイルサイズが大きすぎます。"
+            case .stagedFileSizeMismatch:
+                return "VRM/GLBファイルの処理に失敗しました。"
             case .sandboxCopyFailed:
                 return "VRM/GLBファイルの処理に失敗しました。"
             case .invalidFormat:
