@@ -2,6 +2,7 @@ import SwiftUI
 @preconcurrency import AVFoundation
 import ARKit
 import ComposeApp
+import Foundation
 
 @MainActor
 final class IOSCameraViewModel: ObservableObject {
@@ -116,16 +117,21 @@ final class IOSCameraViewModel: ObservableObject {
     }
 
     func handleFaceTrackingFrameChanged(_ frame: IOSNormalizedFaceFrame?) {
-        faceTrackingFrame = frame
+        updateFaceTrackingFrame(frame)
     }
 
     func stopSession() {
         let captureSession = avCaptureSession
-        faceTrackingFrame = nil
+        updateFaceTrackingFrame(nil)
         guard captureSession.isRunning else { return }
         sessionQueue.async {
             captureSession.stopRunning()
         }
+    }
+
+    private func updateFaceTrackingFrame(_ frame: IOSNormalizedFaceFrame?) {
+        faceTrackingFrame = frame
+        publishAvatarRenderState(frame)
     }
 
     private func loadPermissionTexts() {
@@ -240,6 +246,34 @@ final class IOSCameraViewModel: ObservableObject {
         lensFacing = resolvedLensFacing
         isConfigured = true
         return true
+    }
+
+    private func publishAvatarRenderState(_ frame: IOSNormalizedFaceFrame?) {
+        let normalizedFaceFrame = frame ?? IOSNormalizedFaceFrame(
+            timestampMillis: 0,
+            trackingConfidence: 0,
+            headYawDegrees: 0,
+            headPitchDegrees: 0,
+            headRollDegrees: 0,
+            leftEyeBlink: 0,
+            rightEyeBlink: 0,
+            jawOpen: 0,
+            mouthSmile: 0
+        )
+
+        NotificationCenter.default.post(
+            name: IOSAvatarRenderBridge.avatarRenderStateDidChangeNotification,
+            object: nil,
+            userInfo: [
+                IOSAvatarRenderBridge.headYawDegreesKey: normalizedFaceFrame.headYawDegrees,
+                IOSAvatarRenderBridge.headPitchDegreesKey: normalizedFaceFrame.headPitchDegrees,
+                IOSAvatarRenderBridge.headRollDegreesKey: normalizedFaceFrame.headRollDegrees,
+                IOSAvatarRenderBridge.leftEyeBlinkKey: normalizedFaceFrame.leftEyeBlink,
+                IOSAvatarRenderBridge.rightEyeBlinkKey: normalizedFaceFrame.rightEyeBlink,
+                IOSAvatarRenderBridge.jawOpenKey: normalizedFaceFrame.jawOpen,
+                IOSAvatarRenderBridge.mouthSmileKey: normalizedFaceFrame.mouthSmile,
+            ]
+        )
     }
 
     private func openAppSettings() {
