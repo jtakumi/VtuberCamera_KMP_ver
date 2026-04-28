@@ -188,6 +188,13 @@ enum IOSVrmAvatarParser {
             do {
                 try FileManager.default.copyItem(at: url, to: sandboxedFile)
             } catch {
+                let nsError = error as NSError
+                NSLog(
+                    "Failed to stage sandboxed avatar preview file %@ (%@:%ld)",
+                    sandboxedFile.lastPathComponent,
+                    nsError.domain,
+                    nsError.code,
+                )
                 throw ParserError.sandboxCopyFailed
             }
             return sandboxedFile
@@ -203,14 +210,36 @@ enum IOSVrmAvatarParser {
         var isDirectory = ObjCBool(false)
         if FileManager.default.fileExists(atPath: previewDirectory.path, isDirectory: &isDirectory) {
             guard isDirectory.boolValue else {
-                try FileManager.default.removeItem(at: previewDirectory)
-                try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+                do {
+                    try FileManager.default.removeItem(at: previewDirectory)
+                    try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+                } catch {
+                    let nsError = error as NSError
+                    NSLog(
+                        "Failed to recover sandbox preview directory %@ (%@:%ld)",
+                        previewDirectory.lastPathComponent,
+                        nsError.domain,
+                        nsError.code,
+                    )
+                    throw ParserError.sandboxCopyFailed
+                }
                 return previewDirectory
             }
             return previewDirectory
         }
 
-        try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+        } catch {
+            let nsError = error as NSError
+            NSLog(
+                "Failed to create sandbox preview directory %@ (%@:%ld)",
+                previewDirectory.lastPathComponent,
+                nsError.domain,
+                nsError.code,
+            )
+            throw ParserError.sandboxCopyFailed
+        }
         return previewDirectory
     }
 
