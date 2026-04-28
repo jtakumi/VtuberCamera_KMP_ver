@@ -181,9 +181,12 @@ enum IOSVrmAvatarParser {
     }
 
     private static func fallbackFileSize(for url: URL) throws -> Int {
+        guard url.isFileURL else {
+            throw ParserError.invalidFileType
+        }
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         guard let fileSize = (attributes[.size] as? NSNumber)?.intValue else {
-            throw ParserError.readFailed
+            throw ParserError.fileSizeValidationFailed
         }
         return fileSize
     }
@@ -243,6 +246,7 @@ enum IOSVrmAvatarParser {
         case invalidFileName
         case invalidFileType
         case readFailed
+        case fileSizeValidationFailed
         case sandboxCopyFailed
         case invalidFormat
         case metadataFailed
@@ -255,6 +259,8 @@ enum IOSVrmAvatarParser {
                 return "VRM/GLBファイルを選択してください。"
             case .readFailed:
                 return "VRM/GLBファイルの読み込みに失敗しました。"
+            case .fileSizeValidationFailed:
+                return "VRM/GLBファイルサイズの確認に失敗しました。"
             case .sandboxCopyFailed:
                 return "VRM/GLBファイルの処理に失敗しました。"
             case .invalidFormat:
