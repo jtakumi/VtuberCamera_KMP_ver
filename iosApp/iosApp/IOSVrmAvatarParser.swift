@@ -92,10 +92,19 @@ enum IOSVrmAvatarParser {
             offset = chunkEnd
         }
 
-        guard
-            let jsonChunk,
-            let jsonObject = try JSONSerialization.jsonObject(with: jsonChunk) as? [String: Any]
-        else {
+        guard let jsonChunk else {
+            throw ParserError.metadataFailed
+        }
+
+        let jsonObject: [String: Any]
+        do {
+            guard let parsedJsonObject = try JSONSerialization.jsonObject(with: jsonChunk) as? [String: Any] else {
+                throw ParserError.metadataFailed
+            }
+            jsonObject = parsedJsonObject
+        } catch is ParserError {
+            throw ParserError.metadataFailed
+        } catch {
             throw ParserError.metadataFailed
         }
 
@@ -107,6 +116,7 @@ enum IOSVrmAvatarParser {
         let authorName = (meta0?["author"] as? String)
             ?? ((meta1?["authors"] as? [String])?.first)
         let vrmVersion = (meta0?["version"] as? String)
+            ?? (meta1?["version"] as? String)
             ?? (((jsonObject["extensions"] as? [String: Any])?["VRMC_vrm"] as? [String: Any])?["specVersion"] as? String)
             ?? ((jsonObject["asset"] as? [String: Any])?["version"] as? String)
 
