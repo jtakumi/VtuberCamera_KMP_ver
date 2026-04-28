@@ -185,7 +185,11 @@ enum IOSVrmAvatarParser {
                 return nil
             }
 
-            try FileManager.default.copyItem(at: url, to: sandboxedFile)
+            do {
+                try FileManager.default.copyItem(at: url, to: sandboxedFile)
+            } catch {
+                throw ParserError.sandboxCopyFailed
+            }
             return sandboxedFile
         }) {
             return sandboxedFile
@@ -218,9 +222,12 @@ enum IOSVrmAvatarParser {
         do {
             try FileManager.default.removeItem(at: url)
         } catch {
+            let nsError = error as NSError
             NSLog(
-                "Failed to remove sandboxed avatar preview file %@",
+                "Failed to remove sandboxed avatar preview file %@ (%@:%ld)",
                 url.lastPathComponent,
+                nsError.domain,
+                nsError.code,
             )
         }
     }
@@ -251,7 +258,7 @@ enum IOSVrmAvatarParser {
             case .readFailed:
                 return "VRM/GLBファイルの読み込みに失敗しました。"
             case .sandboxCopyFailed:
-                return "VRM/GLBファイルの読み込みに失敗しました。"
+                return "VRM/GLBファイルの処理に失敗しました。"
             case .invalidFormat:
                 return "VRM/GLBファイルの形式が不正です。"
             case .metadataFailed:
