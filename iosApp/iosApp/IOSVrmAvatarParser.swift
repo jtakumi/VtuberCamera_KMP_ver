@@ -35,18 +35,17 @@ enum IOSVrmAvatarParser {
         }
 
         let resourceValues = try importedFile.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        let importedFileSize = try validatedImportFileSize(importedFile, resourceValues: resourceValues)
+        let importedFileSize = try validatedImportFileSize(importedFile, preloadedResourceValues: resourceValues)
 
         let sandboxedImport = try stageImportedFile(importedFile, fileExtension: fileExtension)
         defer {
             removeSandboxedImportIfNeeded(sandboxedImport.directoryURL)
         }
 
-        let stagedFileSize = try validatedImportFileSize(sandboxedImport.fileURL)
-        guard stagedFileSize == importedFileSize else {
-            throw ParserError.stagedFileSizeMismatch
-        }
-        let data = try Data(contentsOf: sandboxedImport.fileURL, options: [.mappedIfSafe])
+        let data = try loadValidatedImportData(
+            from: sandboxedImport.fileURL,
+            expectedFileSize: importedFileSize,
+        )
         return try parse(fileName: fileName, data: data)
     }
 
@@ -169,9 +168,10 @@ enum IOSVrmAvatarParser {
 
     private static func validatedImportFileSize(
         _ url: URL,
-        resourceValues: URLResourceValues? = nil
+        preloadedResourceValues: URLResourceValues? = nil
     ) throws -> Int {
-        let resolvedResourceValues = try resourceValues ?? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        let resolvedResourceValues = try preloadedResourceValues
+            ?? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
         guard resolvedResourceValues.isRegularFile == true else {
             throw ParserError.invalidFileType
         }
@@ -191,6 +191,14 @@ enum IOSVrmAvatarParser {
         return fileSize
     }
 
+    private static func loadValidatedImportData(from url: URL, expectedFileSize: Int) throws -> Data {
+        let stagedFileSize = try validatedImportFileSize(url)
+        guard stagedFileSize == expectedFileSize else {
+            throw ParserError.stagedFileSizeMismatch
+        }
+        return try Data(contentsOf: url, options: [.mappedIfSafe])
+    }
+
     private static func fileSizeFromFileSystemAttributes(for url: URL) throws -> Int {
         guard url.isFileURL else {
             throw ParserError.fileSizeValidationFailed
@@ -207,7 +215,7 @@ enum IOSVrmAvatarParser {
                 throw ParserError.fileSizeValidationFailed
             }
             let attributeFileSize = fileSizeNumber.int64Value
-            guard attributeFileSize > 0, attributeFileSize <= Int64(Int.max) else {
+            guard attributeFileSize > 0 else {
                 throw ParserError.fileSizeValidationFailed
             }
             return Int(attributeFileSize)
