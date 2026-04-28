@@ -249,7 +249,7 @@ final class IOSCameraViewModel: ObservableObject {
     }
 
     private func publishAvatarRenderState(_ frame: IOSNormalizedFaceFrame?) {
-        let frame = frame ?? IOSNormalizedFaceFrame(
+        let normalizedFaceFrame = frame ?? IOSNormalizedFaceFrame(
             timestampMillis: 0,
             trackingConfidence: 0,
             headYawDegrees: 0,
@@ -265,13 +265,13 @@ final class IOSCameraViewModel: ObservableObject {
             name: IOSAvatarRenderBridge.avatarRenderStateDidChangeNotification,
             object: nil,
             userInfo: [
-                IOSAvatarRenderBridge.headYawDegreesKey: frame.headYawDegrees,
-                IOSAvatarRenderBridge.headPitchDegreesKey: frame.headPitchDegrees,
-                IOSAvatarRenderBridge.headRollDegreesKey: frame.headRollDegrees,
-                IOSAvatarRenderBridge.leftEyeBlinkKey: frame.leftEyeBlink,
-                IOSAvatarRenderBridge.rightEyeBlinkKey: frame.rightEyeBlink,
-                IOSAvatarRenderBridge.jawOpenKey: frame.jawOpen,
-                IOSAvatarRenderBridge.mouthSmileKey: frame.mouthSmile,
+                IOSAvatarRenderBridge.headYawDegreesKey: normalizedFaceFrame.headYawDegrees,
+                IOSAvatarRenderBridge.headPitchDegreesKey: normalizedFaceFrame.headPitchDegrees,
+                IOSAvatarRenderBridge.headRollDegreesKey: normalizedFaceFrame.headRollDegrees,
+                IOSAvatarRenderBridge.leftEyeBlinkKey: normalizedFaceFrame.leftEyeBlink,
+                IOSAvatarRenderBridge.rightEyeBlinkKey: normalizedFaceFrame.rightEyeBlink,
+                IOSAvatarRenderBridge.jawOpenKey: normalizedFaceFrame.jawOpen,
+                IOSAvatarRenderBridge.mouthSmileKey: normalizedFaceFrame.mouthSmile,
             ]
         )
     }
