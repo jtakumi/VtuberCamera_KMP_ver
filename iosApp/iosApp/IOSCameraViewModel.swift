@@ -117,17 +117,21 @@ final class IOSCameraViewModel: ObservableObject {
     }
 
     func handleFaceTrackingFrameChanged(_ frame: IOSNormalizedFaceFrame?) {
-        faceTrackingFrame = frame
-        publishAvatarRenderState(frame)
+        updateFaceTrackingFrame(frame)
     }
 
     func stopSession() {
         let captureSession = avCaptureSession
-        faceTrackingFrame = nil
+        updateFaceTrackingFrame(nil)
         guard captureSession.isRunning else { return }
         sessionQueue.async {
             captureSession.stopRunning()
         }
+    }
+
+    private func updateFaceTrackingFrame(_ frame: IOSNormalizedFaceFrame?) {
+        faceTrackingFrame = frame
+        publishAvatarRenderState(frame)
     }
 
     private func loadPermissionTexts() {
