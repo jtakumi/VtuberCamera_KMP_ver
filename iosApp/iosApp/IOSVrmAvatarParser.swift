@@ -14,8 +14,6 @@ enum IOSVrmAvatarParser {
     // Limit imported file size to reduce resource-exhaustion risk from malformed selections.
     private static let maximumImportedFileSizeInBytes = 50 * 1024 * 1024
     private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
-    // Retry a few times to tolerate rare UUID collisions without risking an unbounded loop.
-    private static let maximumSandboxCopyAttempts = 10
 
     static func parse(url: URL) throws -> IOSAvatarPreview {
         guard url.isFileURL else {
@@ -49,12 +47,12 @@ enum IOSVrmAvatarParser {
             throw ParserError.readFailed
         }
 
-        let sandboxedFile = try copyImportedFileToSandbox(importedFile, fileExtension: fileExtension)
+        let sandboxedImport = try stageImportedFile(importedFile, fileExtension: fileExtension)
         defer {
-            removeSandboxedFileIfNeeded(sandboxedFile)
+            removeSandboxedImportIfNeeded(sandboxedImport.directoryURL)
         }
 
-        let data = try Data(contentsOf: sandboxedFile, options: [.mappedIfSafe])
+        let data = try Data(contentsOf: sandboxedImport.fileURL, options: [.mappedIfSafe])
         return try parse(fileName: fileName, data: data)
     }
 
@@ -175,99 +173,55 @@ enum IOSVrmAvatarParser {
             | (Int(bytes[offset + 3]) << 24)
     }
 
-    private static func copyImportedFileToSandbox(_ url: URL, fileExtension: String) throws -> URL {
-        let previewDirectory = try sandboxPreviewDirectory()
-        if let sandboxedFile = try withAttempts(maximumSandboxCopyAttempts, block: {
-            let sandboxedFile = previewDirectory
-                .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension(fileExtension)
-            guard !FileManager.default.fileExists(atPath: sandboxedFile.path) else {
-                return nil
-            }
-
-            do {
-                try FileManager.default.copyItem(at: url, to: sandboxedFile)
-            } catch {
-                let nsError = error as NSError
-                NSLog(
-                    "Failed to stage sandboxed avatar preview file %@ (%@:%ld)",
-                    sandboxedFile.lastPathComponent,
-                    nsError.domain,
-                    nsError.code,
-                )
-                throw ParserError.sandboxCopyFailed
-            }
-            return sandboxedFile
-        }) {
-            return sandboxedFile
-        }
-        throw ParserError.sandboxCopyFailed
-    }
-
-    private static func sandboxPreviewDirectory() throws -> URL {
-        let previewDirectory = FileManager.default.temporaryDirectory
+    private static func stageImportedFile(_ url: URL, fileExtension: String) throws -> SandboxedImport {
+        let sandboxDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(importedPreviewDirectoryName, isDirectory: true)
-        var isDirectory = ObjCBool(false)
-        if FileManager.default.fileExists(atPath: previewDirectory.path, isDirectory: &isDirectory) {
-            guard isDirectory.boolValue else {
-                do {
-                    try FileManager.default.removeItem(at: previewDirectory)
-                    try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
-                } catch {
-                    let nsError = error as NSError
-                    NSLog(
-                        "Failed to recover sandbox preview directory %@ (%@:%ld)",
-                        previewDirectory.lastPathComponent,
-                        nsError.domain,
-                        nsError.code,
-                    )
-                    throw ParserError.sandboxCopyFailed
-                }
-                return previewDirectory
-            }
-            return previewDirectory
-        }
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sandboxedFile = sandboxDirectory
+            .appendingPathComponent("avatar")
+            .appendingPathExtension(fileExtension)
 
         do {
-            try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: sandboxDirectory, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: sandboxedFile)
+            return SandboxedImport(
+                directoryURL: sandboxDirectory,
+                fileURL: sandboxedFile,
+            )
         } catch {
             let nsError = error as NSError
             NSLog(
-                "Failed to create sandbox preview directory %@ (%@:%ld)",
-                previewDirectory.lastPathComponent,
+                "Failed to stage sandboxed avatar preview file %@ (%@:%ld)",
+                sandboxedFile.lastPathComponent,
                 nsError.domain,
                 nsError.code,
             )
+            removeSandboxedImportIfNeeded(sandboxDirectory)
             throw ParserError.sandboxCopyFailed
         }
-        return previewDirectory
     }
 
-    private static func removeSandboxedFileIfNeeded(_ url: URL) {
-        guard FileManager.default.fileExists(atPath: url.path) else {
+    private static func removeSandboxedImportIfNeeded(_ directoryURL: URL) {
+        guard FileManager.default.fileExists(atPath: directoryURL.path) else {
             return
         }
 
         do {
-            try FileManager.default.removeItem(at: url)
+            try FileManager.default.removeItem(at: directoryURL)
         } catch {
             let nsError = error as NSError
             NSLog(
-                "Failed to remove sandboxed avatar preview file %@ (%@:%ld)",
-                url.lastPathComponent,
+                "Failed to remove sandboxed avatar preview directory %@ (%@:%ld)",
+                directoryURL.lastPathComponent,
                 nsError.domain,
                 nsError.code,
             )
         }
     }
 
-    private static func withAttempts<T>(_ count: Int, block: () throws -> T?) throws -> T? {
-        for _ in 0..<count {
-            if let value = try block() {
-                return value
-            }
-        }
-        return nil
+    private struct SandboxedImport {
+        let directoryURL: URL
+        let fileURL: URL
     }
 
     private enum ParserError: LocalizedError {
