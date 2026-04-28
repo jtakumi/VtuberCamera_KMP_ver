@@ -13,6 +13,7 @@ enum IOSVrmAvatarParser {
     private static let supportedExtensions: Set<String> = ["vrm", "glb"]
     private static let maximumImportedFileSizeBytes = 50 * 1024 * 1024
     private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
+    private static let sandboxCopyAttemptLimit = 10
 
     static func parse(url: URL) throws -> IOSAvatarPreview {
         guard url.isFileURL else {
@@ -48,7 +49,7 @@ enum IOSVrmAvatarParser {
 
         let sandboxedFile = try copyImportedFileToSandbox(importedFile, fileExtension: fileExtension)
         defer {
-            try? FileManager.default.removeItem(at: sandboxedFile)
+            removeSandboxedFileIfNeeded(sandboxedFile)
         }
 
         let data = try Data(contentsOf: sandboxedFile, options: [.mappedIfSafe])
@@ -174,17 +175,20 @@ enum IOSVrmAvatarParser {
 
     private static func copyImportedFileToSandbox(_ url: URL, fileExtension: String) throws -> URL {
         let previewDirectory = try sandboxPreviewDirectory()
-        while true {
+        if let sandboxedFile = try withAttempts(sandboxCopyAttemptLimit, block: {
             let sandboxedFile = previewDirectory
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension(fileExtension)
             guard !FileManager.default.fileExists(atPath: sandboxedFile.path) else {
-                continue
+                return nil
             }
 
             try FileManager.default.copyItem(at: url, to: sandboxedFile)
             return sandboxedFile
+        }) {
+            return sandboxedFile
         }
+        throw ParserError.readFailed
     }
 
     private static func sandboxPreviewDirectory() throws -> URL {
@@ -202,6 +206,27 @@ enum IOSVrmAvatarParser {
 
         try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
         return previewDirectory
+    }
+
+    private static func removeSandboxedFileIfNeeded(_ url: URL) {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            NSLog("Failed to remove sandboxed avatar preview file: %@", error.localizedDescription)
+        }
+    }
+
+    private static func withAttempts<T>(_ count: Int, block: () throws -> T?) throws -> T? {
+        for _ in 0..<count {
+            if let value = try block() {
+                return value
+            }
+        }
+        return nil
     }
 
     private enum ParserError: LocalizedError {
