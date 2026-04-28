@@ -35,23 +35,14 @@ enum IOSVrmAvatarParser {
         }
 
         let resourceValues = try importedFile.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        guard resourceValues.isRegularFile == true else {
-            throw ParserError.invalidFileType
-        }
-
-        guard
-            let fileSize = resourceValues.fileSize,
-            fileSize > 0,
-            fileSize <= maximumImportedFileSizeInBytes
-        else {
-            throw ParserError.readFailed
-        }
+        _ = try validateImportFile(importedFile, resourceValues: resourceValues)
 
         let sandboxedImport = try stageImportedFile(importedFile, fileExtension: fileExtension)
         defer {
             removeSandboxedImportIfNeeded(sandboxedImport.directoryURL)
         }
 
+        _ = try validateImportFile(sandboxedImport.fileURL)
         let data = try Data(contentsOf: sandboxedImport.fileURL, options: [.mappedIfSafe])
         return try parse(fileName: fileName, data: data)
     }
@@ -171,6 +162,30 @@ enum IOSVrmAvatarParser {
             | (Int(bytes[offset + 1]) << 8)
             | (Int(bytes[offset + 2]) << 16)
             | (Int(bytes[offset + 3]) << 24)
+    }
+
+    private static func validateImportFile(
+        _ url: URL,
+        resourceValues: URLResourceValues? = nil
+    ) throws -> Int {
+        let resolvedResourceValues = try resourceValues ?? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard resolvedResourceValues.isRegularFile == true else {
+            throw ParserError.invalidFileType
+        }
+
+        let fileSize = resolvedResourceValues.fileSize ?? fallbackFileSize(for: url)
+        guard fileSize > 0, fileSize <= maximumImportedFileSizeInBytes else {
+            throw ParserError.readFailed
+        }
+        return fileSize
+    }
+
+    private static func fallbackFileSize(for url: URL) throws -> Int {
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard let fileSize = (attributes[.size] as? NSNumber)?.intValue else {
+            throw ParserError.readFailed
+        }
+        return fileSize
     }
 
     private static func stageImportedFile(_ url: URL, fileExtension: String) throws -> SandboxedImport {
