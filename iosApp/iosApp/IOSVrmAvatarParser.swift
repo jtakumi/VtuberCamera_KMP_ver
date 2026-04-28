@@ -11,17 +11,47 @@ struct IOSAvatarPreview {
 
 enum IOSVrmAvatarParser {
     private static let supportedExtensions: Set<String> = ["vrm", "glb"]
+    private static let maximumImportedFileSizeBytes = 50 * 1024 * 1024
+    private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
 
     static func parse(url: URL) throws -> IOSAvatarPreview {
-        let didAccess = url.startAccessingSecurityScopedResource()
+        guard url.isFileURL else {
+            throw ParserError.invalidFileType
+        }
+
+        let importedFile = url.standardizedFileURL
+        let fileName = importedFile.lastPathComponent
+        let fileExtension = (fileName as NSString).pathExtension.lowercased()
+        guard !fileName.isEmpty, supportedExtensions.contains(fileExtension) else {
+            throw ParserError.invalidFileType
+        }
+
+        let didAccess = importedFile.startAccessingSecurityScopedResource()
         defer {
             if didAccess {
-                url.stopAccessingSecurityScopedResource()
+                importedFile.stopAccessingSecurityScopedResource()
             }
         }
 
-        let fileName = url.lastPathComponent
-        let data = try Data(contentsOf: url)
+        let resourceValues = try importedFile.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+        guard resourceValues.isRegularFile == true else {
+            throw ParserError.invalidFileType
+        }
+
+        guard
+            let fileSize = resourceValues.fileSize,
+            fileSize > 0,
+            fileSize <= maximumImportedFileSizeBytes
+        else {
+            throw ParserError.readFailed
+        }
+
+        let sandboxedFile = try copyImportedFileToSandbox(importedFile, fileExtension: fileExtension)
+        defer {
+            try? FileManager.default.removeItem(at: sandboxedFile)
+        }
+
+        let data = try Data(contentsOf: sandboxedFile, options: [.mappedIfSafe])
         return try parse(fileName: fileName, data: data)
     }
 
@@ -140,6 +170,18 @@ enum IOSVrmAvatarParser {
             | (Int(bytes[offset + 1]) << 8)
             | (Int(bytes[offset + 2]) << 16)
             | (Int(bytes[offset + 3]) << 24)
+    }
+
+    private static func copyImportedFileToSandbox(_ url: URL, fileExtension: String) throws -> URL {
+        let previewDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(importedPreviewDirectoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+
+        let sandboxedFile = previewDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(fileExtension)
+        try FileManager.default.copyItem(at: url, to: sandboxedFile)
+        return sandboxedFile
     }
 
     private enum ParserError: LocalizedError {
