@@ -11,7 +11,7 @@ struct IOSAvatarPreview {
 
 enum IOSVrmAvatarParser {
     private static let supportedExtensions: Set<String> = ["vrm", "glb"]
-    // Keep preview imports bounded so malformed selections cannot force excessive memory use.
+    // Limit imported file size to reduce resource-exhaustion risk from malformed selections.
     private static let maximumImportedFileSizeInBytes = 50 * 1024 * 1024
     private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
     // Retry a few times to tolerate rare UUID collisions without risking an unbounded loop.
@@ -190,7 +190,7 @@ enum IOSVrmAvatarParser {
         }) {
             return sandboxedFile
         }
-        throw ParserError.readFailed
+        throw ParserError.sandboxCopyFailed
     }
 
     private static func sandboxPreviewDirectory() throws -> URL {
@@ -219,9 +219,8 @@ enum IOSVrmAvatarParser {
             try FileManager.default.removeItem(at: url)
         } catch {
             NSLog(
-                "Failed to remove sandboxed avatar preview file %@: %@",
+                "Failed to remove sandboxed avatar preview file %@",
                 url.lastPathComponent,
-                error.localizedDescription,
             )
         }
     }
@@ -239,6 +238,7 @@ enum IOSVrmAvatarParser {
         case invalidFileName
         case invalidFileType
         case readFailed
+        case sandboxCopyFailed
         case invalidFormat
         case metadataFailed
 
@@ -249,6 +249,8 @@ enum IOSVrmAvatarParser {
             case .invalidFileType:
                 return "VRM/GLBファイルを選択してください。"
             case .readFailed:
+                return "VRM/GLBファイルの読み込みに失敗しました。"
+            case .sandboxCopyFailed:
                 return "VRM/GLBファイルの読み込みに失敗しました。"
             case .invalidFormat:
                 return "VRM/GLBファイルの形式が不正です。"
