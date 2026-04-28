@@ -174,18 +174,23 @@ enum IOSVrmAvatarParser {
             throw ParserError.invalidFileType
         }
 
-        let fileSize = resolvedResourceValues.fileSize ?? fallbackFileSize(for: url)
+        let fileSize: Int
+        if let resolvedFileSize = resolvedResourceValues.fileSize {
+            fileSize = resolvedFileSize
+        } else {
+            fileSize = try fileSizeFromFileSystemAttributes(for: url)
+        }
         guard
             fileSize > 0,
             fileSize <= maximumImportedFileSizeInBytes,
-            expectedFileSize.map({ $0 == fileSize }) != false
+            expectedFileSize.map({ $0 == fileSize }) ?? true
         else {
             throw ParserError.fileSizeValidationFailed
         }
         return fileSize
     }
 
-    private static func fallbackFileSize(for url: URL) throws -> Int {
+    private static func fileSizeFromFileSystemAttributes(for url: URL) throws -> Int {
         guard url.isFileURL else {
             throw ParserError.invalidFileType
         }
@@ -197,10 +202,14 @@ enum IOSVrmAvatarParser {
             let attributes = try FileManager.default.attributesOfItem(
                 atPath: String(cString: fileSystemPath)
             )
-            guard let fileSize = (attributes[.size] as? NSNumber)?.intValue else {
+            guard let fileSizeNumber = attributes[.size] as? NSNumber else {
                 throw ParserError.fileSizeValidationFailed
             }
-            return fileSize
+            let fileSize = fileSizeNumber.int64Value
+            guard fileSize > 0, fileSize <= Int64(Int.max) else {
+                throw ParserError.fileSizeValidationFailed
+            }
+            return Int(fileSize)
         }
     }
 
