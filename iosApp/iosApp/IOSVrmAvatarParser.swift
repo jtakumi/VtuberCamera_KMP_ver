@@ -11,9 +11,9 @@ struct IOSAvatarPreview {
 
 enum IOSVrmAvatarParser {
     private static let supportedExtensions: Set<String> = ["vrm", "glb"]
-    private static let maximumImportedFileSizeBytes = 50 * 1024 * 1024
+    private static let maximumImportedFileSizeInBytes = 50 * 1024 * 1024
     private static let importedPreviewDirectoryName = "ImportedAvatarPreviews"
-    private static let sandboxCopyAttemptLimit = 10
+    private static let maximumSandboxCopyAttempts = 10
 
     static func parse(url: URL) throws -> IOSAvatarPreview {
         guard url.isFileURL else {
@@ -42,7 +42,7 @@ enum IOSVrmAvatarParser {
         guard
             let fileSize = resourceValues.fileSize,
             fileSize > 0,
-            fileSize <= maximumImportedFileSizeBytes
+            fileSize <= maximumImportedFileSizeInBytes
         else {
             throw ParserError.readFailed
         }
@@ -175,7 +175,7 @@ enum IOSVrmAvatarParser {
 
     private static func copyImportedFileToSandbox(_ url: URL, fileExtension: String) throws -> URL {
         let previewDirectory = try sandboxPreviewDirectory()
-        if let sandboxedFile = try withAttempts(sandboxCopyAttemptLimit, block: {
+        if let sandboxedFile = try withAttempts(maximumSandboxCopyAttempts, block: {
             let sandboxedFile = previewDirectory
                 .appendingPathComponent(UUID().uuidString)
                 .appendingPathExtension(fileExtension)
@@ -216,7 +216,11 @@ enum IOSVrmAvatarParser {
         do {
             try FileManager.default.removeItem(at: url)
         } catch {
-            NSLog("Failed to remove sandboxed avatar preview file: %@", error.localizedDescription)
+            NSLog(
+                "Failed to remove sandboxed avatar preview file at %@: %@",
+                url.path,
+                error.localizedDescription,
+            )
         }
     }
 
