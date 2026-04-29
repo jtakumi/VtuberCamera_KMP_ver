@@ -19,8 +19,10 @@ internal class AndroidFaceTrackingAnalyzer(
     private val lensFacing: CameraLensFacing,
     private val onFaceFrame: (NormalizedFaceFrame?) -> Unit,
     private val detectorClient: AndroidFaceDetectorClient = MlKitAndroidFaceDetectorClient(),
-    private val buildInputImage: (Image, Int) -> InputImage = { mediaImage, rotationDegrees ->
-        InputImage.fromMediaImage(mediaImage, rotationDegrees)
+    private val hasMediaImage: (ImageProxy) -> Boolean = { imageProxy -> imageProxy.image != null },
+    private val buildInputImage: (ImageProxy) -> InputImage = { imageProxy ->
+        val mediaImage = checkNotNull(imageProxy.image)
+        InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
     },
 ) : ImageAnalysis.Analyzer {
     private val isProcessing = AtomicBoolean(false)
@@ -29,7 +31,7 @@ internal class AndroidFaceTrackingAnalyzer(
     // Android lint recognizes @ExperimentalGetImage for ImageProxy.image access, while Kotlin reports @OptIn does not satisfy this CameraX check.
     @ExperimentalGetImage
     override fun analyze(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image ?: run {
+        if (!hasMediaImage(imageProxy)) {
             imageProxy.close()
             return
         }
@@ -39,7 +41,7 @@ internal class AndroidFaceTrackingAnalyzer(
             return
         }
 
-        val image = buildInputImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        val image = buildInputImage(imageProxy)
         detectorClient.process(
             image = image,
             onSuccess = { faces ->
