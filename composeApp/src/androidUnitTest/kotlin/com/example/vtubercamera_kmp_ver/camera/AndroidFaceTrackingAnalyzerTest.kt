@@ -122,15 +122,15 @@ class AndroidFaceTrackingAnalyzerTest {
             previousFrame = null,
         )
 
-        assertFloatEquals(expected = -12f, actual = frontFrame.headYawDegrees)
-        assertFloatEquals(expected = 12f, actual = backFrame.headYawDegrees)
-        assertFloatEquals(expected = -8f, actual = frontFrame.headRollDegrees)
-        assertFloatEquals(expected = 8f, actual = backFrame.headRollDegrees)
-        assertFloatEquals(expected = 0f, actual = frontFrame.leftEyeBlink)
-        assertFloatEquals(expected = 0.9f, actual = frontFrame.rightEyeBlink)
-        assertFloatEquals(expected = 0f, actual = frontFrame.jawOpen)
-        assertFloatEquals(expected = 0f, actual = frontFrame.mouthSmile)
-        assertFloatEquals(expected = 0.1f, actual = frontFrame.trackingConfidence)
+        assertEquals(expected = -12f, actual = frontFrame.headYawDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 12f, actual = backFrame.headYawDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -8f, actual = frontFrame.headRollDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 8f, actual = backFrame.headRollDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = frontFrame.leftEyeBlink, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.9f, actual = frontFrame.rightEyeBlink, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = frontFrame.jawOpen, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = frontFrame.mouthSmile, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.1f, actual = frontFrame.trackingConfidence, absoluteTolerance = 0.0001f)
     }
 
     @Test
@@ -162,13 +162,13 @@ class AndroidFaceTrackingAnalyzerTest {
             previousFrame = previousFrame,
         )
 
-        assertFloatEquals(expected = 4.5f, actual = smoothedFrame.headYawDegrees)
-        assertFloatEquals(expected = 1.8f, actual = smoothedFrame.headPitchDegrees)
-        assertFloatEquals(expected = 2.4f, actual = smoothedFrame.headRollDegrees)
-        assertFloatEquals(expected = 0.64f, actual = smoothedFrame.leftEyeBlink)
-        assertFloatEquals(expected = 0.576f, actual = smoothedFrame.rightEyeBlink)
-        assertFloatEquals(expected = 0.5448889f, actual = smoothedFrame.jawOpen)
-        assertFloatEquals(expected = 0.345f, actual = smoothedFrame.mouthSmile)
+        assertEquals(expected = 4.5f, actual = smoothedFrame.headYawDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 1.8f, actual = smoothedFrame.headPitchDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 2.4f, actual = smoothedFrame.headRollDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.64f, actual = smoothedFrame.leftEyeBlink, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.576f, actual = smoothedFrame.rightEyeBlink, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.5448889f, actual = smoothedFrame.jawOpen, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.345f, actual = smoothedFrame.mouthSmile, absoluteTolerance = 0.0001f)
         assertTrue(smoothedFrame.trackingConfidence > 0.9f)
     }
 
@@ -203,11 +203,14 @@ class AndroidFaceTrackingAnalyzerTest {
         val imageInfo = Proxy.newProxyInstance(
             ImageInfo::class.java.classLoader,
             arrayOf(ImageInfo::class.java),
-        ) { _, method, _ ->
+        ) { proxy, method, args ->
             when (method.name) {
                 "getRotationDegrees" -> rotationDegrees
                 "getTimestamp" -> timestampNanos
-                else -> defaultValue(method.returnType)
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> "FakeImageInfo"
+                "equals" -> proxy === args?.firstOrNull()
+                else -> error("Unexpected ImageInfo method: ${method.name}")
             }
         } as ImageInfo
 
@@ -215,7 +218,7 @@ class AndroidFaceTrackingAnalyzerTest {
         testImageProxy.proxy = Proxy.newProxyInstance(
             ImageProxy::class.java.classLoader,
             arrayOf(ImageProxy::class.java),
-        ) { _, method, _ ->
+        ) { proxy, method, args ->
             when (method.name) {
                 "close" -> {
                     testImageProxy.closeCount += 1
@@ -229,7 +232,10 @@ class AndroidFaceTrackingAnalyzerTest {
                 "getHeight" -> 2
                 "getFormat" -> ImageFormat.YUV_420_888
                 "getPlanes" -> emptyArray<ImageProxy.PlaneProxy>()
-                else -> defaultValue(method.returnType)
+                "hashCode" -> System.identityHashCode(proxy)
+                "toString" -> "FakeImageProxy"
+                "equals" -> proxy === args?.firstOrNull()
+                else -> error("Unexpected ImageProxy method: ${method.name}")
             }
         } as ImageProxy
         return testImageProxy
@@ -269,24 +275,6 @@ class AndroidFaceTrackingAnalyzerTest {
             0,
             InputImage.IMAGE_FORMAT_NV21,
         )
-    }
-
-    private fun assertFloatEquals(expected: Float, actual: Float, tolerance: Float = 0.0001f) {
-        assertTrue(
-            actual in (expected - tolerance)..(expected + tolerance),
-            "Expected $expected but was $actual",
-        )
-    }
-
-    private fun defaultValue(returnType: Class<*>): Any? {
-        return when (returnType) {
-            java.lang.Boolean.TYPE -> false
-            java.lang.Integer.TYPE -> 0
-            java.lang.Long.TYPE -> 0L
-            java.lang.Float.TYPE -> 0f
-            java.lang.Double.TYPE -> 0.0
-            else -> null
-        }
     }
 
     private class TestImageProxy {
