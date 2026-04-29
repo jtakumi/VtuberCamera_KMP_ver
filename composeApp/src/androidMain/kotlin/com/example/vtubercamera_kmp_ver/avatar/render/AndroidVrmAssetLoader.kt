@@ -13,7 +13,7 @@ internal class AndroidVrmAssetLoader(
 ) {
     private val materialProvider = UbershaderProvider(engine)
     private val assetLoader = AssetLoader(engine, materialProvider, EntityManager.get())
-    private val resourceLoader = ResourceLoader(engine)
+    private val resourceLoader = ResourceLoader(engine, true)
 
     fun loadAsset(bytes: ByteArray): Result<FilamentAsset> = runCatching {
         val asset = assetLoader.createAsset(ByteBuffer.wrap(bytes))

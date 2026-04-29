@@ -1,6 +1,5 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
-import android.util.Log
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.tracking.AndroidFaceTrackingToAvatarMapper
 import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
@@ -54,18 +53,9 @@ internal class AndroidAvatarRenderBridge(
             .onSuccess { nextAsset ->
                 runCatching {
                     nextAsset.normalizeRootTransform()
+                    nextAsset.configureRenderables()
                     nextAsset.instance.animator.updateBoneMatrices()
-                    Log.d(
-                        LOG_TAG,
-                        "Loaded asset entities=${nextAsset.entities.size}, renderables=${nextAsset.renderableEntities.size}, skins=${nextAsset.instance.skinCount}",
-                    )
-                    nextAsset.instance.materialInstances.forEachIndexed { index, materialInstance ->
-                        Log.d(
-                            LOG_TAG,
-                            "Material[$index] name=${materialInstance.name}, params=${materialInstance.material.parameters.joinToString { "${it.name}:${it.type}" }}",
-                        )
-                    }
-                    scene.addEntities(nextAsset.entities)
+                    scene.addEntities(nextAsset.sceneEntities())
                     onSceneFramingChanged(AvatarSceneFraming.Default)
                 }.onSuccess {
                     val previousAsset = currentAsset
@@ -121,6 +111,34 @@ internal class AndroidAvatarRenderBridge(
                 1f,
             ),
         )
+    }
+
+    private fun FilamentAsset.configureRenderables() {
+        val renderableManager = engine.renderableManager
+        renderableEntities.forEach { entity ->
+            val renderable = renderableManager.getInstance(entity)
+            renderableManager.setLayerMask(renderable, SCENE_LAYER_MASK, SCENE_LAYER_VISIBLE)
+            renderableManager.setCulling(renderable, false)
+            repeat(renderableManager.getPrimitiveCount(renderable)) { primitiveIndex ->
+                renderableManager.getMaterialInstanceAt(renderable, primitiveIndex).setDoubleSided(true)
+            }
+        }
+    }
+
+    private fun FilamentAsset.sceneEntities(): IntArray {
+        val renderables = buildList {
+            val readyRenderables = IntArray(READY_RENDERABLE_BATCH_SIZE)
+            var count: Int
+            do {
+                count = popRenderables(readyRenderables)
+                for (index in 0 until count) {
+                    add(readyRenderables[index])
+                }
+            } while (count == readyRenderables.size)
+        }
+        return (entities.asIterable() + renderableEntities.asIterable() + lightEntities.asIterable() + renderables)
+            .distinct()
+            .toIntArray()
     }
 
     fun destroy() {
@@ -181,7 +199,9 @@ internal class AndroidAvatarRenderBridge(
         private const val MIN_MODEL_HALF_EXTENT = 0.75f
         private const val MODEL_FIT_DISTANCE_MULTIPLIER = 2.8
         private const val NORMALIZED_MODEL_HALF_EXTENT = 1.0f
-        private const val LOG_TAG = "VrmAvatarRender"
+        private const val READY_RENDERABLE_BATCH_SIZE = 128
+        private const val SCENE_LAYER_MASK = 0xff
+        private const val SCENE_LAYER_VISIBLE = 0x1
     }
 }
 

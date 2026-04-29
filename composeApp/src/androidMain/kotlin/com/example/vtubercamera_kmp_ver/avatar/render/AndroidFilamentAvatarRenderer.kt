@@ -1,7 +1,6 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.content.Context
-import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -49,7 +48,6 @@ internal class AndroidFilamentAvatarRenderer(
     private var renderState: AvatarRenderState = AvatarRenderState.Neutral
     private var appliedRenderState: AvatarRenderState? = null
     private var destroyed = false
-    private var loggedFirstRenderedFrame = false
 
     init {
         initializeNativeBindings()
@@ -124,10 +122,6 @@ internal class AndroidFilamentAvatarRenderer(
         if (renderer.beginFrame(currentSwapChain, frameTimeNanos)) {
             renderer.render(view)
             renderer.endFrame()
-            if (!loggedFirstRenderedFrame) {
-                Log.d(LOG_TAG, "Rendered first avatar frame")
-                loggedFirstRenderedFrame = true
-            }
         }
     }
 
@@ -304,7 +298,6 @@ internal class AndroidFilamentAvatarRenderer(
         private const val LIGHT_COLOR_B = 0.95f
         private const val LIGHT_INTENSITY = 110_000.0f
         private const val INDIRECT_LIGHT_INTENSITY = 35_000.0f
-        private const val LOG_TAG = "VrmAvatarRender"
 
         private fun initializeNativeBindings() {
             if (nativeBindingsInitialized) {
