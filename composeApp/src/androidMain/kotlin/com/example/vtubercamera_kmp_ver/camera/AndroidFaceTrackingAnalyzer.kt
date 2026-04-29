@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import android.graphics.PointF
+import android.media.Image
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -17,15 +18,11 @@ import kotlin.math.abs
 internal class AndroidFaceTrackingAnalyzer(
     private val lensFacing: CameraLensFacing,
     private val onFaceFrame: (NormalizedFaceFrame?) -> Unit,
+    private val detectorClient: AndroidFaceDetectorClient = MlKitAndroidFaceDetectorClient(),
+    private val buildInputImage: (Image, Int) -> InputImage = { mediaImage, rotationDegrees ->
+        InputImage.fromMediaImage(mediaImage, rotationDegrees)
+    },
 ) : ImageAnalysis.Analyzer {
-    private val detector: FaceDetector = FaceDetection.getClient(
-        FaceDetectorOptions.Builder()
-            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
-            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
-            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-            .enableTracking()
-            .build(),
-    )
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
 
@@ -42,9 +39,10 @@ internal class AndroidFaceTrackingAnalyzer(
             return
         }
 
-        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        detector.process(image)
-            .addOnSuccessListener { faces ->
+        val image = buildInputImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+        detectorClient.process(
+            image = image,
+            onSuccess = { faces ->
                 val nextFrame = faces.firstOrNull()?.toNormalizedFrame(
                     timestampMillis = TimeUnit.NANOSECONDS.toMillis(imageProxy.imageInfo.timestamp),
                     lensFacing = lensFacing,
@@ -52,34 +50,106 @@ internal class AndroidFaceTrackingAnalyzer(
                 )
                 previousFrame = nextFrame
                 onFaceFrame(nextFrame)
-            }
-            .addOnFailureListener {
+            },
+            onFailure = {
                 previousFrame = null
                 onFaceFrame(null)
-            }
-            .addOnCompleteListener {
+            },
+            onComplete = {
                 isProcessing.set(false)
                 imageProxy.close()
-            }
+            },
+        )
     }
 
     fun close() {
+        detectorClient.close()
+    }
+}
+
+internal interface AndroidFaceDetectorClient {
+    fun process(
+        image: InputImage,
+        onSuccess: (List<AndroidDetectedFace>) -> Unit,
+        onFailure: (Throwable) -> Unit,
+        onComplete: () -> Unit,
+    )
+
+    fun close()
+}
+
+internal data class AndroidDetectedFace(
+    val boundingBoxHeight: Float,
+    val headEulerAngleX: Float,
+    val headEulerAngleY: Float,
+    val headEulerAngleZ: Float,
+    val leftEyeOpenProbability: Float?,
+    val rightEyeOpenProbability: Float?,
+    val smilingProbability: Float?,
+    val trackingId: Int?,
+    val upperLipBottomY: Float?,
+    val lowerLipTopY: Float?,
+)
+
+private class MlKitAndroidFaceDetectorClient : AndroidFaceDetectorClient {
+    private val detector: FaceDetector = FaceDetection.getClient(
+        FaceDetectorOptions.Builder()
+            .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
+            .setClassificationMode(FaceDetectorOptions.CLASSIFICATION_MODE_ALL)
+            .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+            .enableTracking()
+            .build(),
+    )
+
+    override fun process(
+        image: InputImage,
+        onSuccess: (List<AndroidDetectedFace>) -> Unit,
+        onFailure: (Throwable) -> Unit,
+        onComplete: () -> Unit,
+    ) {
+        detector.process(image)
+            .addOnSuccessListener { faces ->
+                onSuccess(faces.map(Face::toDetectedFace))
+            }
+            .addOnFailureListener { throwable ->
+                onFailure(throwable)
+            }
+            .addOnCompleteListener {
+                onComplete()
+            }
+    }
+
+    override fun close() {
         detector.close()
     }
 }
 
-private fun Face.toNormalizedFrame(
+private fun Face.toDetectedFace(): AndroidDetectedFace {
+    return AndroidDetectedFace(
+        boundingBoxHeight = boundingBox.height().toFloat().coerceAtLeast(1f),
+        headEulerAngleX = headEulerAngleX,
+        headEulerAngleY = headEulerAngleY,
+        headEulerAngleZ = headEulerAngleZ,
+        leftEyeOpenProbability = leftEyeOpenProbability,
+        rightEyeOpenProbability = rightEyeOpenProbability,
+        smilingProbability = smilingProbability,
+        trackingId = trackingId,
+        upperLipBottomY = contourCenterY(FaceContour.UPPER_LIP_BOTTOM),
+        lowerLipTopY = contourCenterY(FaceContour.LOWER_LIP_TOP),
+    )
+}
+
+internal fun AndroidDetectedFace.toNormalizedFrame(
     timestampMillis: Long,
     lensFacing: CameraLensFacing,
     previousFrame: NormalizedFaceFrame?,
 ): NormalizedFaceFrame {
-    val faceHeight = boundingBox.height().toFloat().coerceAtLeast(1f)
     val rawYaw = if (lensFacing == CameraLensFacing.Front) -headEulerAngleY else headEulerAngleY
     val rawRoll = if (lensFacing == CameraLensFacing.Front) -headEulerAngleZ else headEulerAngleZ
     val rawPitch = headEulerAngleX
     val rawLeftBlink = 1f - (leftEyeOpenProbability ?: 1f)
     val rawRightBlink = 1f - (rightEyeOpenProbability ?: 1f)
-    val rawJawOpen = estimateJawOpen(faceHeight)
+    val rawJawOpen = estimateJawOpen()
     val rawSmile = (smilingProbability ?: 0f).coerceIn(0f, 1f)
     val trackingConfidence = buildList {
         leftEyeOpenProbability?.let { add(it.coerceIn(0f, 1f)) }
@@ -103,14 +173,10 @@ private fun Face.toNormalizedFrame(
     return smoothFrame(previousFrame = previousFrame, currentFrame = currentFrame)
 }
 
-private fun Face.estimateJawOpen(faceHeight: Float): Float {
-    val upperLip = contourCenterY(FaceContour.UPPER_LIP_BOTTOM)
-    val lowerLip = contourCenterY(FaceContour.LOWER_LIP_TOP)
-    if (upperLip == null || lowerLip == null) {
-        return 0f
-    }
-
-    val mouthGapRatio = abs(lowerLip - upperLip) / faceHeight
+private fun AndroidDetectedFace.estimateJawOpen(): Float {
+    val upperLip = upperLipBottomY ?: return 0f
+    val lowerLip = lowerLipTopY ?: return 0f
+    val mouthGapRatio = abs(lowerLip - upperLip) / boundingBoxHeight.coerceAtLeast(1f)
     return ((mouthGapRatio - 0.015f) / 0.09f).coerceIn(0f, 1f)
 }
 

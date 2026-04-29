@@ -7,7 +7,6 @@ import android.graphics.BitmapFactory
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
@@ -65,7 +64,6 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_for
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 
@@ -381,38 +379,8 @@ private fun Context.resolveDisplayName(uri: android.net.Uri): String? {
         }
 }
 
-private fun CameraLensFacing.toCameraSelector(): CameraSelector {
-    return when (this) {
-        CameraLensFacing.Back -> CameraSelector.DEFAULT_BACK_CAMERA
-        CameraLensFacing.Front -> CameraSelector.DEFAULT_FRONT_CAMERA
-    }
-}
-
 private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.68f
 private const val AVATAR_RENDERER_HEIGHT_FRACTION = 0.6f
-
-private fun ProcessCameraProvider.resolveLensFacing(requested: CameraLensFacing): CameraLensFacing {
-    if (hasCameraSafely(requested.toCameraSelector())) {
-        return requested
-    }
-
-    val fallback = requested.toggled()
-    return if (hasCameraSafely(fallback.toCameraSelector())) {
-        fallback
-    } else {
-        requested
-    }
-}
-
-private fun ProcessCameraProvider.hasCameraSafely(selector: CameraSelector): Boolean {
-    return try {
-        hasCamera(selector)
-    } catch (_: CameraInfoUnavailableException) {
-        false
-    } catch (_: IllegalArgumentException) {
-        false
-    }
-}
 
 private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose.resources.StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
     return when (this) {
@@ -466,64 +434,12 @@ private fun createCameraRepositories(
     val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     return CameraRepositories(
-        cameraRepository = object : CameraRepository {
-            private var pendingLensFacing: CameraLensFacing? = null
-
-            override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
-                val cameraProvider = cameraProviderFuture.await()
-                val resolvedLens = cameraProvider.resolveLensFacing(lensFacing)
-                if (!cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
-                    previewState.value = PreviewState.Error(CameraError.CameraUnavailable)
-                    return Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
-                }
-                pendingLensFacing = resolvedLens
-                previewState.value = PreviewState.Preparing
-                return Result.success(resolvedLens)
-            }
-
-            override suspend fun stopPreview() {
-                pendingLensFacing = null
-                previewState.value = PreviewState.Preparing
-            }
-
-            override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-                val cameraProvider = cameraProviderFuture.await()
-                previewState.value = PreviewState.Preparing
-                val targetLens = current.toggled()
-                if (!cameraProvider.hasCameraSafely(targetLens.toCameraSelector())) {
-                    previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
-                    return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
-                }
-                pendingLensFacing = targetLens
-                return Result.success(targetLens)
-            }
-
-            override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
-                val cameraProvider = cameraProviderFuture.await()
-                val resolvedLens = cameraProvider.resolveLensFacing(preferred)
-                return if (cameraProvider.hasCameraSafely(resolvedLens.toCameraSelector())) {
-                    Result.success(resolvedLens)
-                } else {
-                    Result.failure(CameraRepositoryException(CameraError.CameraUnavailable))
-                }
-            }
-
-            override fun observePreviewState(): Flow<PreviewState> = previewState
-
-            override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
-                if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
-                    pendingLensFacing = lensFacing
-                    previewState.value = PreviewState.Showing
-                }
-            }
-
-            override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
-                if (pendingLensFacing == lensFacing) {
-                    pendingLensFacing = null
-                    previewState.value = PreviewState.Error(error)
-                }
-            }
-        },
+        cameraRepository = AndroidCameraRepository(
+            cameraAvailabilityProvider = {
+                ProcessCameraProviderLensAvailability(cameraProviderFuture.await())
+            },
+            previewState = previewState,
+        ),
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState {
                 return when {
