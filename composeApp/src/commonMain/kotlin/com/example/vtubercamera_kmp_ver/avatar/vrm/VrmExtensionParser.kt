@@ -132,7 +132,7 @@ object VrmExtensionParser {
                 meta = vrm0Extension.childObject("meta").toParsedVrm0Meta(),
                 thumbnailImageIndex = resolveVrm0ThumbnailImageIndex(vrm0Extension),
                 humanoidBones = vrm0Extension.parseVrm0HumanoidBones(),
-                expressions = vrm0Extension.parseVrm0Expressions(),
+                expressions = vrm0Extension.parseVrm0Expressions(root = this),
                 lookAt = vrm0Extension.childObject("firstPerson")?.toParsedVrm0LookAt(),
                 firstPerson = vrm0Extension.childObject("firstPerson")?.toParsedFirstPerson(),
             )
@@ -232,7 +232,8 @@ object VrmExtensionParser {
             .orEmpty()
     }
 
-    private fun JsonObject.parseVrm0Expressions(): List<ParsedVrmExpression> {
+    private fun JsonObject.parseVrm0Expressions(root: JsonObject): List<ParsedVrmExpression> {
+        val nodeIndexByMeshIndex = root.resolveNodeIndexByMeshIndex()
         return childObject("blendShapeMaster")
             ?.childArray("blendShapeGroups")
             ?.mapNotNull { element ->
@@ -248,6 +249,7 @@ object VrmExtensionParser {
                         bindsKey = "binds",
                         nodeKey = "mesh",
                         weightMultiplier = 0.01f,
+                        nodeIndexResolver = { meshIndex -> nodeIndexByMeshIndex[meshIndex] },
                     ),
                     overrideBlink = null,
                     overrideLookAt = null,
@@ -321,11 +323,13 @@ object VrmExtensionParser {
         bindsKey: String,
         nodeKey: String,
         weightMultiplier: Float,
+        nodeIndexResolver: (Int) -> Int? = { nodeIndex -> nodeIndex },
     ): List<ParsedMorphTargetBind> {
         return childArray(bindsKey)
             ?.mapNotNull { element ->
                 val bindObject = element.jsonObjectOrNull() ?: return@mapNotNull null
-                val nodeIndex = bindObject.int(nodeKey) ?: return@mapNotNull null
+                val rawNodeIndex = bindObject.int(nodeKey) ?: return@mapNotNull null
+                val nodeIndex = nodeIndexResolver(rawNodeIndex) ?: return@mapNotNull null
                 val morphTargetIndex = bindObject.int("index") ?: return@mapNotNull null
                 val rawWeight = bindObject.float("weight") ?: return@mapNotNull null
                 ParsedMorphTargetBind(
@@ -334,6 +338,16 @@ object VrmExtensionParser {
                     weight = rawWeight * weightMultiplier,
                 )
             }
+            .orEmpty()
+    }
+
+    private fun JsonObject.resolveNodeIndexByMeshIndex(): Map<Int, Int> {
+        return childArray("nodes")
+            ?.mapIndexedNotNull { nodeIndex, element ->
+                val meshIndex = element.jsonObjectOrNull()?.int("mesh") ?: return@mapIndexedNotNull null
+                meshIndex to nodeIndex
+            }
+            ?.toMap()
             .orEmpty()
     }
 
