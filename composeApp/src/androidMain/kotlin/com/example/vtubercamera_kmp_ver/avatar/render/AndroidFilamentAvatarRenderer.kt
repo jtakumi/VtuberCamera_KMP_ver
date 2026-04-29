@@ -1,9 +1,8 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.content.Context
-import android.graphics.PixelFormat
 import android.view.Surface
-import android.view.SurfaceView
+import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -29,7 +28,7 @@ internal class AndroidFilamentAvatarRenderer(
 ) {
     val hostView: AndroidView
 
-    private val surfaceView: SurfaceView
+    private val textureView: TextureView
     private val engine: Engine
     private val renderer: Renderer
     private val scene: Scene
@@ -51,12 +50,12 @@ internal class AndroidFilamentAvatarRenderer(
     init {
         initializeNativeBindings()
 
-        surfaceView = SurfaceView(context).apply {
+        textureView = TextureView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            holder.setFormat(PixelFormat.TRANSLUCENT)
+            isOpaque = false
         }
         hostView = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -65,7 +64,7 @@ internal class AndroidFilamentAvatarRenderer(
             )
             clipChildren = false
             clipToPadding = false
-            addView(surfaceView)
+            addView(textureView)
         }
 
         engine = Engine.create()
@@ -173,12 +172,11 @@ internal class AndroidFilamentAvatarRenderer(
 
     private fun configureSurface() {
         uiHelper.isOpaque = false
-        uiHelper.isMediaOverlay = true
         uiHelper.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(surface: Surface) {
                 destroySwapChain()
                 swapChain = engine.createSwapChain(surface, uiHelper.swapChainFlags)
-                displayHelper.attach(renderer, surfaceView.display)
+                displayHelper.attach(renderer, textureView.display)
             }
 
             override fun onDetachedFromSurface() {
@@ -191,7 +189,7 @@ internal class AndroidFilamentAvatarRenderer(
                 resize(width, height)
             }
         }
-        uiHelper.attachTo(surfaceView)
+        uiHelper.attachTo(textureView)
     }
 
     private fun resize(width: Int, height: Int) {
