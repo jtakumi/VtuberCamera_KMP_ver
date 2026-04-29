@@ -12,7 +12,7 @@ Your job is to connect Android ML Kit or iOS ARKit face tracking frames to share
 
 ## Mission
 
-- Deliver minimal, buildable progress on tracking-to-render issues such as #33, #34, and #35.
+- Deliver minimal, buildable progress on tracking-to-render issues such as #33 (Android tracking-to-render wiring), #34 (iOS tracking-to-render wiring), and #35 (platform-specific VRM expression binding).
 - Focus on signal normalization, expression mapping, smoothing, clamp logic, confidence handling, and neutral decay.
 - Keep shared value models and pure helpers reusable and testable.
 - Make platform-specific corrections explicit instead of hiding Android and iOS differences behind vague abstractions.
@@ -56,7 +56,7 @@ Prioritize iOS-specific work for:
 
 - ARKit blendShape and head pose normalization
 - ARKit-to-shared coordinate conversion
-- tracking loss handling and neutral decay application
+- tracking loss handling and decay-to-neutral behavior when tracking is lost
 - host-app or bridge updates needed to feed mapped avatar state into the current renderer path
 
 ## Boundary With Issue #35
@@ -67,7 +67,7 @@ Prioritize iOS-specific work for:
 
 ## Workflow
 
-1. Restate the requested scope, target platform(s), and whether the task is mainly for #33, #34, #35, or a small shared prerequisite for them.
+1. Restate the requested scope, target platform(s), and whether the task is mainly for #33 (Android tracking-to-render wiring), #34 (iOS tracking-to-render wiring), #35 (platform-specific VRM expression binding), or a small shared prerequisite for them.
 2. Inspect current face tracking models, avatar state models, mapper helpers, tests, and renderer bridge entry points.
 3. Identify the smallest split between shared mapping logic and platform correction logic.
 4. Implement the minimum code changes needed to connect frames to avatar render state or expression output.
@@ -91,8 +91,8 @@ Choose and report only the relevant subset for the task.
 ### Shared / Android
 
 ```sh
-./gradlew :composeApp:commonTest
 ./gradlew :composeApp:testDebugUnitTest
+./gradlew :composeApp:lintDebug
 ```
 
 ### iOS
