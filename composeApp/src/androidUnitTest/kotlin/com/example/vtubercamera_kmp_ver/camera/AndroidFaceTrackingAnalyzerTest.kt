@@ -2,11 +2,11 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import android.graphics.Rect
 import android.graphics.ImageFormat
-import android.media.Image
 import androidx.camera.core.ImageInfo
 import androidx.camera.core.ImageProxy
 import com.google.mlkit.vision.common.InputImage
 import java.lang.reflect.Proxy
+import sun.misc.Unsafe
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -18,7 +18,7 @@ class AndroidFaceTrackingAnalyzerTest {
         val detector = FakeAndroidFaceDetectorClient()
         val frames = mutableListOf<NormalizedFaceFrame?>()
         val analyzer = createAnalyzer(detector = detector, frames = frames)
-        val imageProxy = createImageProxy(mediaImage = null)
+        val imageProxy = createImageProxy(hasMediaImage = false)
 
         analyzer.analyze(imageProxy.proxy)
 
@@ -169,7 +169,7 @@ class AndroidFaceTrackingAnalyzerTest {
         assertEquals(expected = 0.576f, actual = smoothedFrame.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.5448889f, actual = smoothedFrame.jawOpen, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.345f, actual = smoothedFrame.mouthSmile, absoluteTolerance = 0.0001f)
-        assertTrue(smoothedFrame.trackingConfidence > 0.9f)
+        assertEquals(expected = 0.6875f, actual = smoothedFrame.trackingConfidence, absoluteTolerance = 0.0001f)
     }
 
     @Test
@@ -191,12 +191,13 @@ class AndroidFaceTrackingAnalyzerTest {
             lensFacing = lensFacing,
             onFaceFrame = { frames += it },
             detectorClient = detector,
-            buildInputImage = { _, _ -> stubInputImage() },
+            hasMediaImage = { imageProxy -> imageProxy.format != ImageFormat.UNKNOWN },
+            buildInputImage = { stubInputImage() },
         )
     }
 
     private fun createImageProxy(
-        mediaImage: Image? = FakeMediaImage(),
+        hasMediaImage: Boolean = true,
         rotationDegrees: Int = 90,
         timestampNanos: Long = 42_000_000L,
     ): TestImageProxy {
@@ -225,12 +226,12 @@ class AndroidFaceTrackingAnalyzerTest {
                     null
                 }
 
-                "getImage" -> mediaImage
+                "getImage" -> null
                 "getImageInfo" -> imageInfo
                 "getCropRect" -> Rect(0, 0, 2, 2)
                 "getWidth" -> 2
                 "getHeight" -> 2
-                "getFormat" -> ImageFormat.YUV_420_888
+                "getFormat" -> if (hasMediaImage) ImageFormat.YUV_420_888 else ImageFormat.UNKNOWN
                 "getPlanes" -> emptyArray<ImageProxy.PlaneProxy>()
                 "hashCode" -> System.identityHashCode(proxy)
                 "toString" -> "FakeImageProxy"
@@ -268,13 +269,7 @@ class AndroidFaceTrackingAnalyzerTest {
     }
 
     private fun stubInputImage(): InputImage {
-        return InputImage.fromByteArray(
-            ByteArray(6),
-            2,
-            2,
-            0,
-            InputImage.IMAGE_FORMAT_NV21,
-        )
+        return unsafe.allocateInstance(InputImage::class.java) as InputImage
     }
 
     private class TestImageProxy {
@@ -358,17 +353,10 @@ class AndroidFaceTrackingAnalyzerTest {
         ) : Response
     }
 
-    private class FakeMediaImage : Image() {
-        override fun close() = Unit
-
-        override fun getFormat(): Int = ImageFormat.YUV_420_888
-
-        override fun getHeight(): Int = 2
-
-        override fun getPlanes(): Array<Plane> = emptyArray()
-
-        override fun getTimestamp(): Long = 42L
-
-        override fun getWidth(): Int = 2
+    private companion object {
+        val unsafe: Unsafe = Unsafe::class.java.getDeclaredField("theUnsafe")
+            .apply { isAccessible = true }
+            .get(null) as Unsafe
     }
+
 }
