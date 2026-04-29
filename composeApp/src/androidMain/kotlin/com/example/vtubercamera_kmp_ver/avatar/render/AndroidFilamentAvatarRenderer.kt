@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.content.Context
+import android.util.Log
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -10,6 +11,7 @@ import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
+import com.google.android.filament.IndirectLight
 import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
@@ -32,6 +34,7 @@ internal class AndroidFilamentAvatarRenderer(
     private val engine: Engine
     private val renderer: Renderer
     private val scene: Scene
+    private val indirectLight: IndirectLight
     private val view: FilamentView
     private val cameraEntity: Int
     private val lightEntity: Int
@@ -46,6 +49,7 @@ internal class AndroidFilamentAvatarRenderer(
     private var renderState: AvatarRenderState = AvatarRenderState.Neutral
     private var appliedRenderState: AvatarRenderState? = null
     private var destroyed = false
+    private var loggedFirstRenderedFrame = false
 
     init {
         initializeNativeBindings()
@@ -70,6 +74,10 @@ internal class AndroidFilamentAvatarRenderer(
         engine = Engine.create()
         renderer = engine.createRenderer()
         scene = engine.createScene()
+        indirectLight = IndirectLight.Builder()
+            .irradiance(1, floatArrayOf(1.0f, 1.0f, 1.0f))
+            .intensity(INDIRECT_LIGHT_INTENSITY)
+            .build(engine)
         view = engine.createView()
         cameraEntity = EntityManager.get().create()
         lightEntity = EntityManager.get().create()
@@ -78,6 +86,7 @@ internal class AndroidFilamentAvatarRenderer(
         displayHelper = DisplayHelper(context)
         assetLoader = AndroidVrmAssetLoader(engine)
         renderBridge = AndroidAvatarRenderBridge(
+            engine = engine,
             scene = scene,
             assetLoader = assetLoader,
             resourceCleaner = FilamentResourceCleaner(),
@@ -87,6 +96,7 @@ internal class AndroidFilamentAvatarRenderer(
 
         configureRenderer()
         configureView()
+        configureIndirectLight()
         configureLight()
         configureSurface()
     }
@@ -110,9 +120,14 @@ internal class AndroidFilamentAvatarRenderer(
         }
 
         applyRenderState()
+        renderBridge.prepareFrame()
         if (renderer.beginFrame(currentSwapChain, frameTimeNanos)) {
             renderer.render(view)
             renderer.endFrame()
+            if (!loggedFirstRenderedFrame) {
+                Log.d(LOG_TAG, "Rendered first avatar frame")
+                loggedFirstRenderedFrame = true
+            }
         }
     }
 
@@ -128,6 +143,8 @@ internal class AndroidFilamentAvatarRenderer(
         destroySwapChain()
         scene.removeEntity(lightEntity)
         engine.destroyEntity(lightEntity)
+        scene.indirectLight = null
+        engine.destroyIndirectLight(indirectLight)
         assetLoader.destroy()
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
@@ -158,6 +175,10 @@ internal class AndroidFilamentAvatarRenderer(
             .intensity(LIGHT_INTENSITY)
             .build(engine, lightEntity)
         scene.addEntity(lightEntity)
+    }
+
+    private fun configureIndirectLight() {
+        scene.indirectLight = indirectLight
     }
 
     private fun applyRenderState() {
@@ -282,6 +303,8 @@ internal class AndroidFilamentAvatarRenderer(
         private const val LIGHT_COLOR_G = 0.98f
         private const val LIGHT_COLOR_B = 0.95f
         private const val LIGHT_INTENSITY = 110_000.0f
+        private const val INDIRECT_LIGHT_INTENSITY = 35_000.0f
+        private const val LOG_TAG = "VrmAvatarRender"
 
         private fun initializeNativeBindings() {
             if (nativeBindingsInitialized) {
