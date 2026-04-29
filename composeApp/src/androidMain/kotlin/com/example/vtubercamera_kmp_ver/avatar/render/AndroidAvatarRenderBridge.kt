@@ -52,11 +52,10 @@ internal class AndroidAvatarRenderBridge(
         assetLoader.loadAsset(assetBytes)
             .onSuccess { nextAsset ->
                 runCatching {
-                    nextAsset.normalizeRootTransform()
                     nextAsset.configureRenderables()
                     nextAsset.instance.animator.updateBoneMatrices()
-                    scene.addEntities(nextAsset.sceneEntities())
-                    onSceneFramingChanged(AvatarSceneFraming.Default)
+                    scene.addEntities(nextAsset.entities)
+                    onSceneFramingChanged(nextAsset.toSceneFraming())
                 }.onSuccess {
                     val previousAsset = currentAsset
                     currentAsset = nextAsset
@@ -88,31 +87,6 @@ internal class AndroidAvatarRenderBridge(
             }
     }
 
-    private fun FilamentAsset.normalizeRootTransform() {
-        val bounds = boundingBox
-        val center = bounds.center
-        val halfExtent = bounds.halfExtent
-        val maxHalfExtent = max(
-            max(halfExtent[0], halfExtent[1]),
-            max(halfExtent[2], MIN_MODEL_HALF_EXTENT),
-        )
-        val scale = NORMALIZED_MODEL_HALF_EXTENT / maxHalfExtent
-        val transformManager = engine.transformManager
-        val rootInstance = transformManager.getInstance(root)
-        transformManager.setTransform(
-            rootInstance,
-            floatArrayOf(
-                scale, 0f, 0f, 0f,
-                0f, scale, 0f, 0f,
-                0f, 0f, scale, 0f,
-                -center[0] * scale,
-                -center[1] * scale,
-                -center[2] * scale,
-                1f,
-            ),
-        )
-    }
-
     private fun FilamentAsset.configureRenderables() {
         val renderableManager = engine.renderableManager
         renderableEntities.forEach { entity ->
@@ -123,22 +97,6 @@ internal class AndroidAvatarRenderBridge(
                 renderableManager.getMaterialInstanceAt(renderable, primitiveIndex).setDoubleSided(true)
             }
         }
-    }
-
-    private fun FilamentAsset.sceneEntities(): IntArray {
-        val renderables = buildList {
-            val readyRenderables = IntArray(READY_RENDERABLE_BATCH_SIZE)
-            var count: Int
-            do {
-                count = popRenderables(readyRenderables)
-                for (index in 0 until count) {
-                    add(readyRenderables[index])
-                }
-            } while (count == readyRenderables.size)
-        }
-        return (entities.asIterable() + renderableEntities.asIterable() + lightEntities.asIterable() + renderables)
-            .distinct()
-            .toIntArray()
     }
 
     fun destroy() {
@@ -198,8 +156,6 @@ internal class AndroidAvatarRenderBridge(
         private const val DEFAULT_CAMERA_DISTANCE = 4.0
         private const val MIN_MODEL_HALF_EXTENT = 0.75f
         private const val MODEL_FIT_DISTANCE_MULTIPLIER = 2.8
-        private const val NORMALIZED_MODEL_HALF_EXTENT = 1.0f
-        private const val READY_RENDERABLE_BATCH_SIZE = 128
         private const val SCENE_LAYER_MASK = 0xff
         private const val SCENE_LAYER_VISIBLE = 0x1
     }
