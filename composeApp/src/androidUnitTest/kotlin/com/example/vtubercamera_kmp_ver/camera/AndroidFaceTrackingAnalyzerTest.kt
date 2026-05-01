@@ -352,7 +352,6 @@ class AndroidFaceTrackingAnalyzerTest {
             val completeImmediately: Boolean,
         ) : Response
     }
-
     private companion object {
         val unsafe: Unsafe = Unsafe::class.java.getDeclaredField("theUnsafe")
             .apply { isAccessible = true }
