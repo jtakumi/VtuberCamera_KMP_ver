@@ -18,3 +18,5 @@ captures
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
 __pycache__/
+discord-codex-bot/.env
+discord-codex-bot/logs/

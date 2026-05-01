@@ -1,9 +1,8 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.content.Context
-import android.graphics.PixelFormat
 import android.view.Surface
-import android.view.SurfaceView
+import android.view.TextureView
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -11,6 +10,7 @@ import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
+import com.google.android.filament.IndirectLight
 import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
@@ -29,10 +29,11 @@ internal class AndroidFilamentAvatarRenderer(
 ) {
     val hostView: AndroidView
 
-    private val surfaceView: SurfaceView
+    private val textureView: TextureView
     private val engine: Engine
     private val renderer: Renderer
     private val scene: Scene
+    private val indirectLight: IndirectLight
     private val view: FilamentView
     private val cameraEntity: Int
     private val lightEntity: Int
@@ -51,12 +52,12 @@ internal class AndroidFilamentAvatarRenderer(
     init {
         initializeNativeBindings()
 
-        surfaceView = SurfaceView(context).apply {
+        textureView = TextureView(context).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
             )
-            holder.setFormat(PixelFormat.TRANSLUCENT)
+            isOpaque = false
         }
         hostView = FrameLayout(context).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -65,12 +66,16 @@ internal class AndroidFilamentAvatarRenderer(
             )
             clipChildren = false
             clipToPadding = false
-            addView(surfaceView)
+            addView(textureView)
         }
 
         engine = Engine.create()
         renderer = engine.createRenderer()
         scene = engine.createScene()
+        indirectLight = IndirectLight.Builder()
+            .irradiance(1, floatArrayOf(1.0f, 1.0f, 1.0f))
+            .intensity(INDIRECT_LIGHT_INTENSITY)
+            .build(engine)
         view = engine.createView()
         cameraEntity = EntityManager.get().create()
         lightEntity = EntityManager.get().create()
@@ -79,14 +84,17 @@ internal class AndroidFilamentAvatarRenderer(
         displayHelper = DisplayHelper(context)
         assetLoader = AndroidVrmAssetLoader(engine)
         renderBridge = AndroidAvatarRenderBridge(
+            engine = engine,
             scene = scene,
             assetLoader = assetLoader,
             resourceCleaner = FilamentResourceCleaner(),
             onSceneFramingChanged = ::updateSceneFraming,
+            onRenderStateChanged = ::updateRenderStateFromBridge,
         )
 
         configureRenderer()
         configureView()
+        configureIndirectLight()
         configureLight()
         configureSurface()
     }
@@ -96,7 +104,6 @@ internal class AndroidFilamentAvatarRenderer(
         nextRenderState: AvatarRenderState,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
-        renderState = nextRenderState
         renderBridge.update(
             avatarSelection = avatarSelection,
             avatarRenderState = nextRenderState,
@@ -111,6 +118,7 @@ internal class AndroidFilamentAvatarRenderer(
         }
 
         applyRenderState()
+        renderBridge.prepareFrame()
         if (renderer.beginFrame(currentSwapChain, frameTimeNanos)) {
             renderer.render(view)
             renderer.endFrame()
@@ -129,6 +137,8 @@ internal class AndroidFilamentAvatarRenderer(
         destroySwapChain()
         scene.removeEntity(lightEntity)
         engine.destroyEntity(lightEntity)
+        scene.indirectLight = null
+        engine.destroyIndirectLight(indirectLight)
         assetLoader.destroy()
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
@@ -161,6 +171,10 @@ internal class AndroidFilamentAvatarRenderer(
         scene.addEntity(lightEntity)
     }
 
+    private fun configureIndirectLight() {
+        scene.indirectLight = indirectLight
+    }
+
     private fun applyRenderState() {
         val currentSceneFraming = sceneFraming
         if (renderState == appliedRenderState && currentSceneFraming == appliedSceneFraming) {
@@ -173,12 +187,11 @@ internal class AndroidFilamentAvatarRenderer(
 
     private fun configureSurface() {
         uiHelper.isOpaque = false
-        uiHelper.isMediaOverlay = true
         uiHelper.renderCallback = object : UiHelper.RendererCallback {
             override fun onNativeWindowChanged(surface: Surface) {
                 destroySwapChain()
                 swapChain = engine.createSwapChain(surface, uiHelper.swapChainFlags)
-                displayHelper.attach(renderer, surfaceView.display)
+                displayHelper.attach(renderer, textureView.display)
             }
 
             override fun onDetachedFromSurface() {
@@ -191,7 +204,7 @@ internal class AndroidFilamentAvatarRenderer(
                 resize(width, height)
             }
         }
-        uiHelper.attachTo(surfaceView)
+        uiHelper.attachTo(textureView)
     }
 
     private fun resize(width: Int, height: Int) {
@@ -213,6 +226,10 @@ internal class AndroidFilamentAvatarRenderer(
         this.sceneFraming = sceneFraming
     }
 
+    private fun updateRenderStateFromBridge(nextState: AvatarRenderState) {
+        renderState = nextState
+    }
+
     private fun updateCameraLookAt(
         sceneFraming: AvatarSceneFraming,
         renderState: AvatarRenderState,
@@ -222,6 +239,11 @@ internal class AndroidFilamentAvatarRenderer(
         } else {
             0.0
         }
+        val expressionInfluence = (
+            renderState.expressions.jawOpen * JAW_WEIGHT +
+                renderState.expressions.mouthSmile * SMILE_WEIGHT +
+                ((renderState.expressions.leftEyeBlink + renderState.expressions.rightEyeBlink) * 0.5f) * BLINK_WEIGHT
+            ).coerceIn(0f, 1f).toDouble()
         val yawRadians = Math.toRadians(
             renderState.rig.headYawDegrees.toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
         )
@@ -231,8 +253,10 @@ internal class AndroidFilamentAvatarRenderer(
 
         camera.lookAt(
             sceneFraming.targetX + sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
-            sceneFraming.targetY + sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence,
-            sceneFraming.targetZ + sceneFraming.cameraDistance,
+            sceneFraming.targetY +
+                sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence +
+                expressionInfluence * EXPRESSION_Y_OFFSET_SCALE,
+            sceneFraming.targetZ + sceneFraming.cameraDistance - expressionInfluence * EXPRESSION_Z_OFFSET_SCALE,
             sceneFraming.targetX,
             sceneFraming.targetY,
             sceneFraming.targetZ,
@@ -261,6 +285,11 @@ internal class AndroidFilamentAvatarRenderer(
         // Conservative clamps to avoid aggressive camera motion from noisy tracking input.
         private const val MAX_YAW_DEGREES = 45.0
         private const val MAX_PITCH_DEGREES = 30.0
+        private const val JAW_WEIGHT = 0.5f
+        private const val SMILE_WEIGHT = 0.35f
+        private const val BLINK_WEIGHT = 0.15f
+        private const val EXPRESSION_Y_OFFSET_SCALE = 0.18
+        private const val EXPRESSION_Z_OFFSET_SCALE = 0.24
         private const val LIGHT_DIRECTION_X = 0.35f
         private const val LIGHT_DIRECTION_Y = -1.0f
         private const val LIGHT_DIRECTION_Z = -0.45f
@@ -268,6 +297,7 @@ internal class AndroidFilamentAvatarRenderer(
         private const val LIGHT_COLOR_G = 0.98f
         private const val LIGHT_COLOR_B = 0.95f
         private const val LIGHT_INTENSITY = 110_000.0f
+        private const val INDIRECT_LIGHT_INTENSITY = 35_000.0f
 
         private fun initializeNativeBindings() {
             if (nativeBindingsInitialized) {

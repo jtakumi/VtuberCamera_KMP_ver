@@ -51,6 +51,10 @@ class VrmExtensionParserTest {
                       }
                     }
                   },
+                  "nodes": [
+                    {"name": "Root"},
+                    {"name": "Face", "mesh": 5}
+                  ],
                   "textures": [{"source": 0}],
                   "images": [{"bufferView": 0, "mimeType": "image/png"}],
                   "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 4}]
@@ -69,6 +73,7 @@ class VrmExtensionParserTest {
         assertEquals("head", descriptor.humanoidBones.first().boneName)
         assertEquals("leftUpperArm", descriptor.humanoidBones[1].boneName)
         assertEquals("joy", descriptor.expressions.single().runtimeName)
+        assertEquals(1, descriptor.expressions.single().morphTargetBinds.single().nodeIndex)
         assertEquals(1f, descriptor.expressions.single().morphTargetBinds.single().weight)
         assertEquals("Bone", descriptor.lookAt?.type)
         assertEquals(3, descriptor.firstPerson?.firstPersonBone)
