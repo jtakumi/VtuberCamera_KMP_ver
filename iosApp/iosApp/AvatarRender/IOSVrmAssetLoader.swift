@@ -8,6 +8,8 @@ struct IOSAvatarAssetIdentity: Equatable {
 struct IOSVrmAssetPayload {
     let identity: IOSAvatarAssetIdentity
     let preview: IOSAvatarPreview
+    let assetData: Data
+    let runtimeDescriptor: [String: Any]
 }
 
 enum IOSVrmAssetLoader {
@@ -39,7 +41,20 @@ enum IOSVrmAssetLoader {
                 assetId: assetId,
                 contentHash: contentHash
             ),
-            preview: try IOSVrmAvatarParser.parse(fileName: fileName, data: assetData)
+            preview: try IOSVrmAvatarParser.parse(fileName: fileName, data: assetData),
+            assetData: assetData,
+            runtimeDescriptor: Self.runtimeDescriptor(from: userInfo)
         )
+    }
+
+    private static func runtimeDescriptor(from userInfo: [AnyHashable: Any]) -> [String: Any] {
+        var descriptor: [String: Any] = [:]
+        descriptor[IOSAvatarRenderBridge.runtimeSpecVersionKey] =
+            userInfo[IOSAvatarRenderBridge.runtimeSpecVersionKey]
+        descriptor[IOSAvatarRenderBridge.headBoneNodeIndexKey] =
+            userInfo[IOSAvatarRenderBridge.headBoneNodeIndexKey]
+        descriptor[IOSAvatarRenderBridge.expressionBindingsKey] =
+            userInfo[IOSAvatarRenderBridge.expressionBindingsKey] ?? []
+        return descriptor
     }
 }
