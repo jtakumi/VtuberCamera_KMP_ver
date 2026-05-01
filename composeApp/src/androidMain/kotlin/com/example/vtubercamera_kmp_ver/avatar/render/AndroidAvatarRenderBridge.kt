@@ -1,20 +1,30 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.tracking.AndroidFaceTrackingToAvatarMapper
 import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
+import com.google.android.filament.Engine
 import com.google.android.filament.Scene
 import com.google.android.filament.gltfio.FilamentAsset
 import kotlin.math.max
 
 internal class AndroidAvatarRenderBridge(
+    private val engine: Engine,
     private val scene: Scene,
     private val assetLoader: AndroidVrmAssetLoader,
     private val resourceCleaner: FilamentResourceCleaner,
     private val onSceneFramingChanged: (AvatarSceneFraming) -> Unit,
+    private val onRenderStateChanged: (AvatarRenderState) -> Unit,
 ) {
+    private val renderStateMapper = AndroidFaceTrackingToAvatarMapper()
     private var currentAsset: FilamentAsset? = null
     private var currentAssetKey: AvatarAssetKey? = null
+    private var currentRuntimeController: AndroidAvatarRuntimeController? = null
+
+    fun prepareFrame() {
+        currentAsset?.instance?.animator?.updateBoneMatrices()
+    }
 
     @Suppress("UNUSED_PARAMETER")
     fun update(
@@ -22,14 +32,15 @@ internal class AndroidAvatarRenderBridge(
         avatarRenderState: AvatarRenderState,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
-        // TODO: Apply avatarRenderState to the loaded model here once expression / pose mapping is
-        // wired into the Android runtime renderer.
+        val mappedRenderState = renderStateMapper.map(avatarRenderState)
+        onRenderStateChanged(mappedRenderState)
 
         val nextAssetKey = AvatarAssetKey(
             assetId = avatarSelection.assetHandle.assetId,
             byteHash = avatarSelection.assetHandle.contentHash,
         )
         if (nextAssetKey == currentAssetKey) {
+            currentRuntimeController?.apply(mappedRenderState)
             return
         }
 
@@ -44,12 +55,22 @@ internal class AndroidAvatarRenderBridge(
         assetLoader.loadAsset(assetBytes)
             .onSuccess { nextAsset ->
                 runCatching {
+                    nextAsset.configureRenderables()
+                    val runtimeController = AndroidAvatarRuntimeController.create(
+                        engine = engine,
+                        asset = nextAsset,
+                        runtimeDescriptor = avatarSelection.runtimeDescriptor,
+                    )
+                    runtimeController.apply(mappedRenderState)
+                    nextAsset.instance.animator.updateBoneMatrices()
                     scene.addEntities(nextAsset.entities)
                     onSceneFramingChanged(nextAsset.toSceneFraming())
-                }.onSuccess {
+                    runtimeController
+                }.onSuccess { runtimeController ->
                     val previousAsset = currentAsset
                     currentAsset = nextAsset
                     currentAssetKey = nextAssetKey
+                    currentRuntimeController = runtimeController
                     resourceCleaner.destroyAsset(
                         scene = scene,
                         assetLoader = assetLoader,
@@ -77,6 +98,18 @@ internal class AndroidAvatarRenderBridge(
             }
     }
 
+    private fun FilamentAsset.configureRenderables() {
+        val renderableManager = engine.renderableManager
+        renderableEntities.forEach { entity ->
+            val renderable = renderableManager.getInstance(entity)
+            renderableManager.setLayerMask(renderable, SCENE_LAYER_MASK, SCENE_LAYER_VISIBLE)
+            renderableManager.setCulling(renderable, false)
+            repeat(renderableManager.getPrimitiveCount(renderable)) { primitiveIndex ->
+                renderableManager.getMaterialInstanceAt(renderable, primitiveIndex).setDoubleSided(true)
+            }
+        }
+    }
+
     fun destroy() {
         resourceCleaner.destroyAsset(
             scene = scene,
@@ -85,6 +118,7 @@ internal class AndroidAvatarRenderBridge(
         )
         currentAsset = null
         currentAssetKey = null
+        currentRuntimeController = null
     }
 
     private fun FilamentAsset.toSceneFraming(): AvatarSceneFraming {
@@ -128,12 +162,15 @@ internal class AndroidAvatarRenderBridge(
         )
         currentAsset = null
         currentAssetKey = null
+        currentRuntimeController = null
     }
 
     private companion object {
         private const val DEFAULT_CAMERA_DISTANCE = 4.0
         private const val MIN_MODEL_HALF_EXTENT = 0.75f
         private const val MODEL_FIT_DISTANCE_MULTIPLIER = 2.8
+        private const val SCENE_LAYER_MASK = 0xff
+        private const val SCENE_LAYER_VISIBLE = 0x1
     }
 }
 
