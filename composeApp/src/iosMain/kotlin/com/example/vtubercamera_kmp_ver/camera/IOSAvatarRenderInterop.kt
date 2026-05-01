@@ -1,6 +1,10 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.avatar.mapping.AvatarExpressionId
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmExpressionMap
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmExpressionDescriptor
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import platform.Foundation.NSLog
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -26,6 +30,9 @@ internal object IOSAvatarRenderInterop {
     const val contentHashKey = "contentHash"
     const val fileNameKey = "fileName"
     const val assetBytesKey = "assetBytes"
+    const val runtimeSpecVersionKey = "runtimeSpecVersion"
+    const val headBoneNodeIndexKey = "headBoneNodeIndex"
+    const val expressionBindingsKey = "expressionBindings"
     const val headYawDegreesKey = "headYawDegrees"
     const val headPitchDegreesKey = "headPitchDegrees"
     const val headRollDegreesKey = "headRollDegrees"
@@ -51,6 +58,9 @@ internal object IOSAvatarRenderInterop {
                 contentHashKey to avatarSelection.assetHandle.contentHash,
                 fileNameKey to avatarSelection.preview.fileName,
                 assetBytesKey to assetBytes.toNSData(),
+                runtimeSpecVersionKey to avatarSelection.runtimeDescriptor.specVersion.name,
+                headBoneNodeIndexKey to avatarSelection.runtimeDescriptor.headBoneNodeIndex(),
+                expressionBindingsKey to avatarSelection.runtimeDescriptor.toExpressionBindingPayloads(),
             ),
         )
         return true
@@ -78,6 +88,66 @@ internal object IOSAvatarRenderInterop {
         NSNotificationCenter.defaultCenter.postNotificationName(avatarSelectionDidClearNotification, null, null)
     }
 
+    private fun VrmRuntimeAssetDescriptor.headBoneNodeIndex(): Int? {
+        return humanoidBones.firstOrNull { bone -> bone.boneName == HEAD_BONE_NAME }?.nodeIndex
+    }
+
+    private fun VrmRuntimeAssetDescriptor.toExpressionBindingPayloads(): List<Map<String, Any>> {
+        val availableNames = availableExpressionNames
+        return listOfNotNull(
+            toExpressionBindingPayload(
+                channel = EXPRESSION_CHANNEL_BLINK_LEFT,
+                expressionId = AvatarExpressionId.BlinkLeft,
+                availableNames = availableNames,
+            ),
+            toExpressionBindingPayload(
+                channel = EXPRESSION_CHANNEL_BLINK_RIGHT,
+                expressionId = AvatarExpressionId.BlinkRight,
+                availableNames = availableNames,
+            ),
+            toExpressionBindingPayload(
+                channel = EXPRESSION_CHANNEL_JAW_OPEN,
+                expressionId = AvatarExpressionId.JawOpen,
+                availableNames = availableNames,
+            ),
+            toExpressionBindingPayload(
+                channel = EXPRESSION_CHANNEL_SMILE,
+                expressionId = AvatarExpressionId.Smile,
+                availableNames = availableNames,
+            ),
+        )
+    }
+
+    private fun VrmRuntimeAssetDescriptor.toExpressionBindingPayload(
+        channel: String,
+        expressionId: AvatarExpressionId,
+        availableNames: Set<String>,
+    ): Map<String, Any>? {
+        val runtimeName = VrmExpressionMap.resolve(
+            expression = expressionId,
+            specVersion = specVersion,
+            availableNames = availableNames,
+        ) ?: return null
+        val descriptor = expressions.firstOrNull { expression ->
+            expression.runtimeName == runtimeName
+        } ?: return null
+        return descriptor.toExpressionBindingPayload(channel)
+    }
+
+    private fun VrmExpressionDescriptor.toExpressionBindingPayload(channel: String): Map<String, Any> {
+        return mapOf(
+            EXPRESSION_CHANNEL_KEY to channel,
+            EXPRESSION_RUNTIME_NAME_KEY to runtimeName,
+            EXPRESSION_MORPH_BINDS_KEY to morphTargetBinds.map { bind ->
+                mapOf(
+                    MORPH_BIND_NODE_INDEX_KEY to bind.nodeIndex,
+                    MORPH_BIND_MORPH_TARGET_INDEX_KEY to bind.morphTargetIndex,
+                    MORPH_BIND_WEIGHT_KEY to bind.weight,
+                )
+            },
+        )
+    }
+
     // Copies avatar bytes into NSData so the host app can consume them via NotificationCenter.
     @OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)
     private fun ByteArray.toNSData(): NSData {
@@ -94,4 +164,16 @@ internal object IOSAvatarRenderInterop {
             NSData.create(bytes = pinned.addressOf(0), length = size.toULong())
         }
     }
+
+    private const val HEAD_BONE_NAME = "head"
+    private const val EXPRESSION_CHANNEL_KEY = "channel"
+    private const val EXPRESSION_RUNTIME_NAME_KEY = "runtimeName"
+    private const val EXPRESSION_MORPH_BINDS_KEY = "morphBinds"
+    private const val EXPRESSION_CHANNEL_BLINK_LEFT = "blinkLeft"
+    private const val EXPRESSION_CHANNEL_BLINK_RIGHT = "blinkRight"
+    private const val EXPRESSION_CHANNEL_JAW_OPEN = "jawOpen"
+    private const val EXPRESSION_CHANNEL_SMILE = "smile"
+    private const val MORPH_BIND_NODE_INDEX_KEY = "nodeIndex"
+    private const val MORPH_BIND_MORPH_TARGET_INDEX_KEY = "morphTargetIndex"
+    private const val MORPH_BIND_WEIGHT_KEY = "weight"
 }
