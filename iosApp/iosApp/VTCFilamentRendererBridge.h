@@ -34,8 +34,14 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)init;
 /// Prepares avatar loading once the Filament-backed renderer implementation is added.
 - (BOOL)loadAvatarAtURL:(NSURL *)url error:(NSError * _Nullable __autoreleasing * _Nullable)error;
+/// Loads the selected avatar bytes and runtime descriptor into the native renderer.
+- (BOOL)loadAvatarData:(NSData *)data
+     runtimeDescriptor:(NSDictionary<NSString *, id> *)runtimeDescriptor
+                 error:(NSError * _Nullable __autoreleasing * _Nullable)error;
 /// Applies the latest normalized avatar pose and expression state to the renderer.
 - (void)updateAvatarState:(VTCAvatarRenderState *)state;
+/// Removes the selected avatar and releases per-asset render resources.
+- (void)clearAvatar;
 /// Keeps the native render surface in sync with the host view bounds and scale.
 - (void)resizeToBounds:(CGRect)bounds contentScale:(CGFloat)contentScale;
 /// Draws a frame when the future renderer implementation needs one.
