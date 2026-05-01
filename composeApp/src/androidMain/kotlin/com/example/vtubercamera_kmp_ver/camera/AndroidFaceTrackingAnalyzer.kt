@@ -15,6 +15,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
+@ExperimentalGetImage
 internal class AndroidFaceTrackingAnalyzer(
     private val lensFacing: CameraLensFacing,
     private val onFaceFrame: (NormalizedFaceFrame?) -> Unit,
