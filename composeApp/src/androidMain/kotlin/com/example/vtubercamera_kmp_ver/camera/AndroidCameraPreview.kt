@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.provider.OpenableColumns
+import androidx.camera.core.ExperimentalGetImage
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -139,6 +140,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 }
 
 @Composable
+@ExperimentalGetImage
 actual fun CameraPreviewHost(
     modifier: Modifier,
     cameraRepository: CameraRepository,
