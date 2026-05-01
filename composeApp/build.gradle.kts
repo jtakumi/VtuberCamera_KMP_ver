@@ -39,6 +39,11 @@ kotlin {
             implementation(libs.filament.utils.android)
             implementation(libs.gltfio.android)
         }
+        androidUnitTest.dependencies {
+            implementation(libs.kotlin.testJunit)
+            implementation(libs.junit)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:${libs.versions.coroutines.get()}")
+        }
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
