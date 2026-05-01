@@ -54,8 +54,26 @@ final class FilamentAvatarRenderer {
 
     /// Applies the selected avatar as a static preview in the current render surface.
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {
-        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && isStaticPreviewVisible
+        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && !isStaticPreviewVisible
         guard !isAlreadyShowingSelectedAvatar else { return }
+
+        do {
+            try bridge.loadAvatarData(
+                payload.assetData,
+                runtimeDescriptor: payload.runtimeDescriptor
+            )
+            currentAssetIdentity = payload.identity
+            isStaticPreviewVisible = false
+            previewBackgroundView.isHidden = true
+            previewImageView.image = nil
+            previewImageView.isHidden = true
+            titleLabel.text = nil
+            subtitleLabel.text = nil
+            needsDisplayLink = true
+            return
+        } catch {
+            NSLog("Failed to load dynamic avatar renderer: %@", error.localizedDescription)
+        }
 
         currentAssetIdentity = payload.identity
         isStaticPreviewVisible = true
@@ -77,6 +95,8 @@ final class FilamentAvatarRenderer {
     func clearAvatar() {
         currentAssetIdentity = nil
         isStaticPreviewVisible = false
+        needsDisplayLink = false
+        bridge.clearAvatar()
         previewBackgroundView.isHidden = true
         previewImageView.image = nil
         previewImageView.isHidden = true
