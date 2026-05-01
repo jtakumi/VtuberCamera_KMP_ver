@@ -44,6 +44,7 @@ final class IOSCameraViewModel: ObservableObject {
     private var lensFacing: LensFacing = .front
     private var currentInput: AVCaptureDeviceInput?
     private let permissionTextsLoader = CameraPermissionTextsLoader()
+    private let avatarMapper = ARKitFaceTrackingToAvatarMapper()
 
     init() {
         refreshCameraCapabilities()
@@ -249,29 +250,18 @@ final class IOSCameraViewModel: ObservableObject {
     }
 
     private func publishAvatarRenderState(_ frame: IOSNormalizedFaceFrame?) {
-        let normalizedFaceFrame = frame ?? IOSNormalizedFaceFrame(
-            timestampMillis: 0,
-            trackingConfidence: 0,
-            headYawDegrees: 0,
-            headPitchDegrees: 0,
-            headRollDegrees: 0,
-            leftEyeBlink: 0,
-            rightEyeBlink: 0,
-            jawOpen: 0,
-            mouthSmile: 0
-        )
-
+        avatarMapper.map(frame)
         NotificationCenter.default.post(
             name: IOSAvatarRenderBridge.avatarRenderStateDidChangeNotification,
             object: nil,
             userInfo: [
-                IOSAvatarRenderBridge.headYawDegreesKey: normalizedFaceFrame.headYawDegrees,
-                IOSAvatarRenderBridge.headPitchDegreesKey: normalizedFaceFrame.headPitchDegrees,
-                IOSAvatarRenderBridge.headRollDegreesKey: normalizedFaceFrame.headRollDegrees,
-                IOSAvatarRenderBridge.leftEyeBlinkKey: normalizedFaceFrame.leftEyeBlink,
-                IOSAvatarRenderBridge.rightEyeBlinkKey: normalizedFaceFrame.rightEyeBlink,
-                IOSAvatarRenderBridge.jawOpenKey: normalizedFaceFrame.jawOpen,
-                IOSAvatarRenderBridge.mouthSmileKey: normalizedFaceFrame.mouthSmile,
+                IOSAvatarRenderBridge.headYawDegreesKey: avatarMapper.headYawDegrees,
+                IOSAvatarRenderBridge.headPitchDegreesKey: avatarMapper.headPitchDegrees,
+                IOSAvatarRenderBridge.headRollDegreesKey: avatarMapper.headRollDegrees,
+                IOSAvatarRenderBridge.leftEyeBlinkKey: avatarMapper.leftEyeBlink,
+                IOSAvatarRenderBridge.rightEyeBlinkKey: avatarMapper.rightEyeBlink,
+                IOSAvatarRenderBridge.jawOpenKey: avatarMapper.jawOpen,
+                IOSAvatarRenderBridge.mouthSmileKey: avatarMapper.mouthSmile,
             ]
         )
     }

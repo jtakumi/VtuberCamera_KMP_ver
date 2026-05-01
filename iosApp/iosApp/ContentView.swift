@@ -9,6 +9,8 @@ private let cameraLayerZIndex: Double = 0
 private let rendererLayerZIndex: Double = 1
 
 struct ContentView: View {
+    @StateObject private var cameraViewModel = IOSCameraViewModel()
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .bottom) {
