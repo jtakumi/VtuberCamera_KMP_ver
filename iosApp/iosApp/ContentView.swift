@@ -2,8 +2,8 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
-private let avatarOverlayWidthRatio: CGFloat = 0.56
-private let avatarOverlayHeightRatio: CGFloat = 0.48
+private let avatarOverlayWidthRatio: CGFloat = 0.68
+private let avatarOverlayHeightRatio: CGFloat = 0.60
 private let avatarOverlayBottomPadding: CGFloat = 24
 private let cameraLayerZIndex: Double = 0
 private let rendererLayerZIndex: Double = 1

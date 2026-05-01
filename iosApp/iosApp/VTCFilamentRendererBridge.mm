@@ -82,7 +82,13 @@ using utils::Entity;
 
 constexpr float kDefaultCameraDistance = 4.0f;
 constexpr float kMinimumModelHalfExtent = 0.75f;
-constexpr float kModelFitDistanceMultiplier = 2.8f;
+constexpr float kFallbackModelFitDistanceMultiplier = 3.25f;
+constexpr float kCameraVerticalFovDegrees = 45.0f;
+constexpr float kBustFramingHeadroomRatio = 0.12f;
+constexpr float kBustFramingChestDropRatio = 0.36f;
+constexpr float kBustFramingVerticalFill = 0.76f;
+constexpr float kBustFramingDepthDistanceMultiplier = 1.8f;
+constexpr float kMinimumBustFramedHeight = 1.1f;
 constexpr uint8_t kSceneLayerMask = 0xff;
 constexpr uint8_t kSceneLayerVisible = 0x1;
 
@@ -113,6 +119,12 @@ struct VTCHeadBinding {
 struct VTCRuntimeDescriptor {
     NSInteger headBoneNodeIndex = NSNotFound;
     std::vector<VTCExpressionBinding> expressionBindings;
+};
+
+struct VTCPoint3 {
+    float x;
+    float y;
+    float z;
 };
 
 float VTCDegreesToRadians(float degrees) {
@@ -424,12 +436,66 @@ private:
             std::max(halfExtent[0], halfExtent[1]),
             std::max(halfExtent[2], kMinimumModelHalfExtent)
         );
+
+        const std::optional<VTCPoint3> headPosition = headWorldPosition();
+        if (headPosition.has_value()) {
+            const float modelHeight = std::max(halfExtent[1] * 2.0f, kMinimumBustFramedHeight);
+            const float minY = center[1] - halfExtent[1];
+            const float maxY = center[1] + halfExtent[1];
+            const float topY = std::min(
+                maxY,
+                headPosition->y + modelHeight * kBustFramingHeadroomRatio
+            );
+            const float bottomY = std::max(
+                minY,
+                headPosition->y - modelHeight * kBustFramingChestDropRatio
+            );
+            const float framedHeight = std::max(topY - bottomY, kMinimumBustFramedHeight);
+            const float visibleHeight = framedHeight / kBustFramingVerticalFill;
+            const float fovRadians = VTCDegreesToRadians(kCameraVerticalFovDegrees);
+            const float distanceForHeight = visibleHeight / (2.0f * std::tan(fovRadians * 0.5f));
+            const float distanceForDepth = std::max(halfExtent[2], kMinimumModelHalfExtent) *
+                kBustFramingDepthDistanceMultiplier;
+
+            configureCamera(
+                std::max(kDefaultCameraDistance, std::max(distanceForHeight, distanceForDepth)),
+                center[0],
+                (topY + bottomY) * 0.5f,
+                center[2]
+            );
+            return;
+        }
+
         configureCamera(
-            std::max(kDefaultCameraDistance, maxHalfExtent * kModelFitDistanceMultiplier),
+            std::max(kDefaultCameraDistance, maxHalfExtent * kFallbackModelFitDistanceMultiplier),
             center[0],
             center[1],
             center[2]
         );
+    }
+
+    std::optional<VTCPoint3> headWorldPosition() {
+        if (asset == nullptr ||
+            runtimeDescriptor.headBoneNodeIndex < 0 ||
+            static_cast<size_t>(runtimeDescriptor.headBoneNodeIndex) >= asset->getEntityCount()) {
+            return std::nullopt;
+        }
+
+        TransformManager &transformManager = engine->getTransformManager();
+        Entity const *entities = asset->getEntities();
+        const Entity headEntity = entities[runtimeDescriptor.headBoneNodeIndex];
+        const TransformManager::Instance transformInstance = transformManager.getInstance(headEntity);
+        if (!transformInstance) {
+            return std::nullopt;
+        }
+
+        mat4f worldTransform;
+        transformManager.getWorldTransform(transformInstance, &worldTransform);
+        return VTCPoint3{
+            worldTransform[3][0],
+            worldTransform[3][1],
+            worldTransform[3][2],
+        };
     }
 
     void configureRenderableEntities() {
