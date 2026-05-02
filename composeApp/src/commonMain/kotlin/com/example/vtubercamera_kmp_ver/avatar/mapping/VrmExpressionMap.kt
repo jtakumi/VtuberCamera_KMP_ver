@@ -42,16 +42,16 @@ object VrmExpressionMap {
     }
 
     private val vrm0Aliases: Map<AvatarExpressionId, List<String>> = mapOf(
-        AvatarExpressionId.BlinkLeft to listOf("blink_l", "blinkLeft", "Blink_L"),
-        AvatarExpressionId.BlinkRight to listOf("blink_r", "blinkRight", "Blink_R"),
-        AvatarExpressionId.JawOpen to listOf("a", "aa", "jawOpen"),
-        AvatarExpressionId.Smile to listOf("joy", "smile", "happy"),
+        AvatarExpressionId.BlinkLeft to listOf("blink_l", "blinkLeft", "Blink_L", "blink", "Blink"),
+        AvatarExpressionId.BlinkRight to listOf("blink_r", "blinkRight", "Blink_R", "blink", "Blink"),
+        AvatarExpressionId.JawOpen to listOf("a", "aa", "jawOpen", "A", "mouthOpen", "MouthOpen"),
+        AvatarExpressionId.Smile to listOf("joy", "Joy", "smile", "Smile", "happy", "Happy"),
     )
 
     private val vrm1Aliases: Map<AvatarExpressionId, List<String>> = mapOf(
-        AvatarExpressionId.BlinkLeft to listOf("blinkLeft", "blink_l", "BlinkLeft"),
-        AvatarExpressionId.BlinkRight to listOf("blinkRight", "blink_r", "BlinkRight"),
-        AvatarExpressionId.JawOpen to listOf("aa", "a", "jawOpen"),
-        AvatarExpressionId.Smile to listOf("happy", "smile", "joy"),
+        AvatarExpressionId.BlinkLeft to listOf("blinkLeft", "blink_l", "BlinkLeft", "blink", "Blink"),
+        AvatarExpressionId.BlinkRight to listOf("blinkRight", "blink_r", "BlinkRight", "blink", "Blink"),
+        AvatarExpressionId.JawOpen to listOf("aa", "a", "jawOpen", "A", "mouthOpen", "MouthOpen"),
+        AvatarExpressionId.Smile to listOf("happy", "Happy", "smile", "Smile", "joy", "Joy"),
     )
 }
