@@ -55,6 +55,14 @@ enum IOSVrmAssetLoader {
             userInfo[IOSAvatarRenderBridge.headBoneNodeIndexKey]
         descriptor[IOSAvatarRenderBridge.expressionBindingsKey] =
             userInfo[IOSAvatarRenderBridge.expressionBindingsKey] ?? []
+        let bindings = descriptor[IOSAvatarRenderBridge.expressionBindingsKey] as? [Any] ?? []
+        NSLog(
+            "IOSVrmAssetLoader payload assetBytes=%ld runtimeSpecVersion=%@ headBoneNodeIndex=%@ expressionBindings=%ld",
+            (userInfo[IOSAvatarRenderBridge.assetBytesKey] as? Data)?.count ?? 0,
+            String(describing: descriptor[IOSAvatarRenderBridge.runtimeSpecVersionKey]),
+            String(describing: descriptor[IOSAvatarRenderBridge.headBoneNodeIndexKey]),
+            bindings.count
+        )
         return descriptor
     }
 }
