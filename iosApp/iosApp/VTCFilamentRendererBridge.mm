@@ -51,6 +51,13 @@ static NSString *const VTCMorphBindNodeIndexKey = @"nodeIndex";
 static NSString *const VTCMorphBindMorphTargetIndexKey = @"morphTargetIndex";
 static NSString *const VTCMorphBindWeightKey = @"weight";
 
+static void VTCLogFilamentConfiguration(void) {
+    NSLog(
+        @"VTCFilamentRendererBridge Filament headers available=%@",
+        VTC_FILAMENT_HEADERS_AVAILABLE ? @"YES" : @"NO"
+    );
+}
+
 static NSError *VTCFilamentError(VTCFilamentRendererErrorCode code, NSString *message) {
     return [NSError errorWithDomain:VTCFilamentRendererErrorDomain
                                code:code
@@ -119,6 +126,11 @@ struct VTCHeadBinding {
 struct VTCRuntimeDescriptor {
     NSInteger headBoneNodeIndex = NSNotFound;
     std::vector<VTCExpressionBinding> expressionBindings;
+};
+
+struct VTCBindingDiagnostics {
+    size_t morphTargetEntityCount = 0;
+    size_t resolvedExpressionBindingCount = 0;
 };
 
 struct VTCPoint3 {
@@ -257,6 +269,7 @@ public:
     explicit VTCFilamentRuntime(CAMetalLayer *layer) {
         engine = Engine::create(Engine::Backend::METAL);
         if (engine == nullptr) {
+            NSLog(@"VTCFilamentRuntime failed to create Metal backend engine.");
             return;
         }
 
@@ -273,6 +286,16 @@ public:
             view->setBlendMode(filament::View::BlendMode::TRANSLUCENT);
         }
         configureCamera(kDefaultCameraDistance, 0.0f, 0.0f, 0.0f);
+        NSLog(
+            @"VTCFilamentRuntime initialized ready=%@ renderer=%@ scene=%@ view=%@ camera=%@ swapChain=%@ metalLayer=%@",
+            isReady() ? @"YES" : @"NO",
+            renderer != nullptr ? @"YES" : @"NO",
+            scene != nullptr ? @"YES" : @"NO",
+            view != nullptr ? @"YES" : @"NO",
+            camera != nullptr ? @"YES" : @"NO",
+            swapChain != nullptr ? @"YES" : @"NO",
+            layer != nil ? @"YES" : @"NO"
+        );
     }
 
     ~VTCFilamentRuntime() {
@@ -326,6 +349,14 @@ public:
 
         clearAvatar();
         runtimeDescriptor = VTCRuntimeDescriptorFromDictionary(descriptor);
+        didLogFirstStateUpdate = false;
+        didLogFirstRender = false;
+        NSLog(
+            @"VTCFilamentRuntime loadAvatar started bytes=%lu headBoneNodeIndex=%ld expressionBindings=%zu",
+            static_cast<unsigned long>(data.length),
+            static_cast<long>(runtimeDescriptor.headBoneNodeIndex),
+            runtimeDescriptor.expressionBindings.size()
+        );
 
         materialProvider.reset(gltfio::createUbershaderProvider(engine));
         if (materialProvider == nullptr) {
@@ -361,16 +392,41 @@ public:
         }
 
         configureRenderableEntities();
-        createRuntimeBindings();
+        const VTCBindingDiagnostics diagnostics = createRuntimeBindings();
         asset->getInstance()->getAnimator()->updateBoneMatrices();
         scene->addEntities(asset->getEntities(), asset->getEntityCount());
         configureCameraForAsset();
+        NSLog(
+            @"VTCFilamentRuntime loadAvatar succeeded entityCount=%zu renderableEntityCount=%zu headBoneNodeIndex=%ld expressionBindings=%zu morphTargets=%zu resolvedExpressionBindings=%zu headBinding=%@",
+            asset->getEntityCount(),
+            asset->getRenderableEntityCount(),
+            static_cast<long>(runtimeDescriptor.headBoneNodeIndex),
+            runtimeDescriptor.expressionBindings.size(),
+            diagnostics.morphTargetEntityCount,
+            diagnostics.resolvedExpressionBindingCount,
+            headBinding.has_value() ? @"YES" : @"NO"
+        );
         return true;
     }
 
     void updateState(VTCAvatarRenderState *state) {
         if (asset == nullptr) {
             return;
+        }
+        if (!didLogFirstStateUpdate) {
+            didLogFirstStateUpdate = true;
+            NSLog(
+                @"VTCFilamentRuntime updateAvatarState called headYaw=%.2f headPitch=%.2f headRoll=%.2f blinkL=%.2f blinkR=%.2f jaw=%.2f smile=%.2f headBinding=%@ expressionBindings=%zu",
+                state.headYawDegrees,
+                state.headPitchDegrees,
+                state.headRollDegrees,
+                state.leftEyeBlink,
+                state.rightEyeBlink,
+                state.jawOpen,
+                state.mouthSmile,
+                headBinding.has_value() ? @"YES" : @"NO",
+                expressionBindings.size()
+            );
         }
         applyHeadPose(state);
         applyExpressions(state);
@@ -380,6 +436,10 @@ public:
     void render() {
         if (!isReady() || asset == nullptr) {
             return;
+        }
+        if (!didLogFirstRender) {
+            didLogFirstRender = true;
+            NSLog(@"VTCFilamentRuntime drawIfNeeded called; rendering first dynamic avatar frame.");
         }
         if (renderer->beginFrame(swapChain)) {
             renderer->render(view);
@@ -402,6 +462,8 @@ public:
         }
         assetLoader.reset();
         materialProvider.reset();
+        didLogFirstStateUpdate = false;
+        didLogFirstRender = false;
     }
 
 private:
@@ -517,12 +579,23 @@ private:
         }
     }
 
-    void createRuntimeBindings() {
+    VTCBindingDiagnostics createRuntimeBindings() {
+        VTCBindingDiagnostics diagnostics;
         TransformManager &transformManager = engine->getTransformManager();
         Entity const *entities = asset->getEntities();
         const size_t entityCount = asset->getEntityCount();
-        if (runtimeDescriptor.headBoneNodeIndex >= 0 &&
-            static_cast<size_t>(runtimeDescriptor.headBoneNodeIndex) < entityCount) {
+        if (runtimeDescriptor.headBoneNodeIndex < 0) {
+            NSLog(
+                @"VTCFilamentRuntime headBinding unresolved: headBoneNodeIndex is missing (%ld).",
+                static_cast<long>(runtimeDescriptor.headBoneNodeIndex)
+            );
+        } else if (static_cast<size_t>(runtimeDescriptor.headBoneNodeIndex) >= entityCount) {
+            NSLog(
+                @"VTCFilamentRuntime headBinding unresolved: headBoneNodeIndex=%ld is outside entityCount=%zu.",
+                static_cast<long>(runtimeDescriptor.headBoneNodeIndex),
+                entityCount
+            );
+        } else {
             const Entity headEntity = entities[runtimeDescriptor.headBoneNodeIndex];
             const TransformManager::Instance transformInstance = transformManager.getInstance(headEntity);
             if (transformInstance) {
@@ -530,6 +603,11 @@ private:
                 binding.transformInstance = transformInstance;
                 transformManager.getTransform(transformInstance, &binding.baseLocalTransform);
                 headBinding = binding;
+            } else {
+                NSLog(
+                    @"VTCFilamentRuntime headBinding unresolved: entity index %ld has no TransformManager instance.",
+                    static_cast<long>(runtimeDescriptor.headBoneNodeIndex)
+                );
             }
         }
 
@@ -545,7 +623,11 @@ private:
             const size_t morphTargetCount = renderableManager.getMorphTargetCount(instance);
             if (morphTargetCount > 0) {
                 morphTargets[entity] = std::vector<float>(morphTargetCount, 0.0f);
+                diagnostics.morphTargetEntityCount++;
             }
+        }
+        if (diagnostics.morphTargetEntityCount == 0) {
+            NSLog(@"VTCFilamentRuntime found no renderable entities with morph targets.");
         }
 
         for (const VTCExpressionBinding &payloadBinding : runtimeDescriptor.expressionBindings) {
@@ -553,18 +635,48 @@ private:
             binding.channel = payloadBinding.channel;
             for (VTCMorphBind morphBind : payloadBinding.morphBinds) {
                 if (morphBind.nodeIndex < 0 || static_cast<size_t>(morphBind.nodeIndex) >= entityCount) {
+                    NSLog(
+                        @"VTCFilamentRuntime expression binding skipped: nodeIndex=%ld is outside entityCount=%zu.",
+                        static_cast<long>(morphBind.nodeIndex),
+                        entityCount
+                    );
                     continue;
                 }
                 morphBind.entity = entities[morphBind.nodeIndex];
-                if (morphTargets.find(morphBind.entity) == morphTargets.end()) {
+                auto weights = morphTargets.find(morphBind.entity);
+                if (weights == morphTargets.end()) {
+                    NSLog(
+                        @"VTCFilamentRuntime expression binding skipped: nodeIndex=%ld has no morph targets.",
+                        static_cast<long>(morphBind.nodeIndex)
+                    );
+                    continue;
+                }
+                if (morphBind.morphTargetIndex < 0 ||
+                    static_cast<size_t>(morphBind.morphTargetIndex) >= weights->second.size()) {
+                    NSLog(
+                        @"VTCFilamentRuntime expression binding skipped: morphTargetIndex=%d is outside morphTargetCount=%zu for nodeIndex=%ld.",
+                        morphBind.morphTargetIndex,
+                        weights->second.size(),
+                        static_cast<long>(morphBind.nodeIndex)
+                    );
                     continue;
                 }
                 binding.morphBinds.push_back(morphBind);
             }
             if (!binding.morphBinds.empty()) {
                 expressionBindings.push_back(binding);
+                diagnostics.resolvedExpressionBindingCount++;
             }
         }
+        if (runtimeDescriptor.expressionBindings.empty()) {
+            NSLog(@"VTCFilamentRuntime has no expression binding payloads from KMP.");
+        } else if (diagnostics.resolvedExpressionBindingCount == 0) {
+            NSLog(
+                @"VTCFilamentRuntime resolved no expression bindings from %zu payload bindings.",
+                runtimeDescriptor.expressionBindings.size()
+            );
+        }
+        return diagnostics;
     }
 
     void applyHeadPose(VTCAvatarRenderState *state) {
@@ -630,6 +742,8 @@ private:
     std::optional<VTCHeadBinding> headBinding;
     std::vector<VTCExpressionBinding> expressionBindings;
     std::unordered_map<Entity, std::vector<float>, EntityHash> morphTargets;
+    bool didLogFirstStateUpdate = false;
+    bool didLogFirstRender = false;
 };
 
 } // namespace
@@ -655,6 +769,11 @@ private:
     self = [super init];
     if (self != nil) {
         _renderView = [[VTCMetalContainerView alloc] initWithFrame:CGRectZero];
+        VTCLogFilamentConfiguration();
+        NSLog(
+            @"VTCFilamentRendererBridge initialized metalLayer=%@",
+            [_renderView.layer isKindOfClass:[CAMetalLayer class]] ? @"YES" : @"NO"
+        );
 #if VTC_FILAMENT_HEADERS_AVAILABLE
         _runtime = std::make_unique<VTCFilamentRuntime>((CAMetalLayer *)_renderView.layer);
 #endif
@@ -694,6 +813,7 @@ private:
 
 #if VTC_FILAMENT_HEADERS_AVAILABLE
     if (_runtime == nullptr || !_runtime->isReady()) {
+        NSLog(@"VTCFilamentRendererBridge loadAvatarData failed: Filament runtime unavailable.");
         if (error != nil) {
             *error = VTCFilamentError(
                 VTCFilamentRendererErrorCodeUnavailable,
@@ -704,6 +824,9 @@ private:
     }
     return _runtime->loadAvatar(data, runtimeDescriptor ?: @{}, error);
 #else
+    NSLog(
+        @"VTCFilamentRendererBridge loadAvatarData failed: Filament SDK headers are not configured. Check iosApp/Configuration/Filament.xcconfig."
+    );
     if (error != nil) {
         *error = VTCFilamentError(
             VTCFilamentRendererErrorCodeUnavailable,
