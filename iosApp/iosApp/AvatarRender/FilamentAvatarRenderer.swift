@@ -6,6 +6,7 @@ final class FilamentAvatarRenderer {
     private static let previewBackgroundAlpha: CGFloat = 0.82
     private static let previewCornerRadius: CGFloat = 28
     private static let previewSubtitleSeparator = " • "
+    private static let sendsDebugPoseAfterDynamicLoad = false
 
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
@@ -70,9 +71,20 @@ final class FilamentAvatarRenderer {
             titleLabel.text = nil
             subtitleLabel.text = nil
             needsDisplayLink = true
+            NSLog(
+                "FilamentAvatarRenderer dynamic load succeeded assetId=%lld contentHash=%ld bytes=%ld expressionBindings=%ld",
+                payload.identity.assetId,
+                payload.identity.contentHash,
+                payload.assetData.count,
+                (payload.runtimeDescriptor[IOSAvatarRenderBridge.expressionBindingsKey] as? [Any])?.count ?? 0
+            )
+            applyDebugPoseIfEnabled()
             return
         } catch {
-            NSLog("Failed to load dynamic avatar renderer: %@", error.localizedDescription)
+            NSLog(
+                "FilamentAvatarRenderer dynamic load failed; falling back to static preview: %@",
+                error.localizedDescription
+            )
         }
 
         currentAssetIdentity = payload.identity
@@ -172,5 +184,19 @@ final class FilamentAvatarRenderer {
             subtitleLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             subtitleLabel.bottomAnchor.constraint(lessThanOrEqualTo: previewBackgroundView.bottomAnchor, constant: -24),
         ])
+    }
+
+    private func applyDebugPoseIfEnabled() {
+        guard Self.sendsDebugPoseAfterDynamicLoad else { return }
+        let state = VTCAvatarRenderState()
+        state.headYawDegrees = 20
+        state.headPitchDegrees = 10
+        state.headRollDegrees = 5
+        state.leftEyeBlink = 1
+        state.rightEyeBlink = 1
+        state.jawOpen = 0.8
+        state.mouthSmile = 0.5
+        bridge.updateAvatarState(state)
+        NSLog("FilamentAvatarRenderer applied one-shot debug pose after dynamic load.")
     }
 }
