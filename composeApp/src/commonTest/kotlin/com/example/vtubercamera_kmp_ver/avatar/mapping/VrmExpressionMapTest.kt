@@ -84,4 +84,55 @@ class VrmExpressionMapTest {
 
         assertNull(resolved)
     }
+
+    @Test
+    fun resolve_supportsSharedBlinkFallbackAliases() {
+        val vrm0 = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.BlinkLeft,
+            specVersion = VrmSpecVersion.Vrm0,
+            availableNames = setOf("Blink"),
+        )
+        val vrm1 = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.BlinkRight,
+            specVersion = VrmSpecVersion.Vrm1,
+            availableNames = setOf("blink"),
+        )
+
+        assertEquals("Blink", vrm0)
+        assertEquals("blink", vrm1)
+    }
+
+    @Test
+    fun resolve_supportsMouthOpenAndCapitalAForJawOpen() {
+        val capitalA = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.JawOpen,
+            specVersion = VrmSpecVersion.Vrm0,
+            availableNames = setOf("A"),
+        )
+        val mouthOpen = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.JawOpen,
+            specVersion = VrmSpecVersion.Vrm1,
+            availableNames = setOf("MouthOpen"),
+        )
+
+        assertEquals("A", capitalA)
+        assertEquals("MouthOpen", mouthOpen)
+    }
+
+    @Test
+    fun resolve_supportsCapitalizedSmileAliasesWithoutChangingPriority() {
+        val vrm0 = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.Smile,
+            specVersion = VrmSpecVersion.Vrm0,
+            availableNames = setOf("Happy", "Joy"),
+        )
+        val vrm1 = VrmExpressionMap.resolve(
+            expression = AvatarExpressionId.Smile,
+            specVersion = VrmSpecVersion.Vrm1,
+            availableNames = setOf("Happy", "Joy"),
+        )
+
+        assertEquals("Joy", vrm0)
+        assertEquals("Happy", vrm1)
+    }
 }
