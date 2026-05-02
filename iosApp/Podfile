@@ -1,0 +1,5 @@
+platform :ios, '15.0'
+
+target 'iosApp' do
+  pod 'Filament', '~> 1.71.0'
+end
