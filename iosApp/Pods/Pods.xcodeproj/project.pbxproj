@@ -1,0 +1,1001 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		AB2AB3A9FFC53A3435BDE55A0C9789AF /* Filament */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 970A2991FE740F654A4D7ACB8F958D1E /* Build configuration list for PBXAggregateTarget "Filament" */;
+			buildPhases = (
+			);
+			dependencies = (
+			);
+			name = Filament;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		556DBA11CC233CFC4D9DCCE918C53D9B /* Pods-iosApp-dummy.m in Sources */ = {isa = PBXBuildFile; fileRef = 7D596CB0337A83D2476B2BB5B00B9CCF /* Pods-iosApp-dummy.m */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D057F9EB53FD5077C758472ABA1FB9BE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AB2AB3A9FFC53A3435BDE55A0C9789AF;
+			remoteInfo = Filament;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		002A1FD4B5C399EB72C2AA4D33D73B4E /* SkinningBuffer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = SkinningBuffer.h; path = include/filament/SkinningBuffer.h; sourceTree = "<group>"; };
+		02399078A8C56808A01E420BA843A540 /* robin_map.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = robin_map.h; path = include/tsl/robin_map.h; sourceTree = "<group>"; };
+		030436810A2F385394F7CE0B338939FA /* debug.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = debug.h; path = include/utils/debug.h; sourceTree = "<group>"; };
+		05C5EB35B68CD9D084929747B0804B68 /* mat4.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = mat4.h; path = include/math/mat4.h; sourceTree = "<group>"; };
+		061C7700D65792B4A659B5A5C08FB03C /* Filament.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Filament.debug.xcconfig; sourceTree = "<group>"; };
+		068349E2FD2063B9F13C5C66E62F34E7 /* ColorTransform.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ColorTransform.h; path = include/image/ColorTransform.h; sourceTree = "<group>"; };
+		08B3C7C903EFD91CF298B6AA7229F225 /* ReadableArchive.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ReadableArchive.h; path = include/uberz/ReadableArchive.h; sourceTree = "<group>"; };
+		0C064116705F6EBCE2406EF05212631C /* Bookmark.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Bookmark.h; path = include/camutils/Bookmark.h; sourceTree = "<group>"; };
+		0D6BBBBEB2651ACDF31B47B315F71043 /* Viewport.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Viewport.h; path = include/filament/Viewport.h; sourceTree = "<group>"; };
+		0E9E6A5E166C29ABDD00DD37AF2FC2A8 /* FilamentInstance.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FilamentInstance.h; path = include/gltfio/FilamentInstance.h; sourceTree = "<group>"; };
+		0FE0EB04BC632BC11B67B0918A16792E /* DescriptorSetOffsetArray.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = DescriptorSetOffsetArray.h; path = include/backend/DescriptorSetOffsetArray.h; sourceTree = "<group>"; };
+		10AFAE0F3CE5888DD153E535DFC544B6 /* DebugRegistry.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = DebugRegistry.h; path = include/filament/DebugRegistry.h; sourceTree = "<group>"; };
+		1145F24A85909C6B558BFB7DA953A870 /* Log.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Log.h; path = include/utils/Log.h; sourceTree = "<group>"; };
+		11831864A1C1671AF3A3E27A7243711A /* libfilamat.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libfilamat.a; path = lib/universal/libfilamat.a; sourceTree = "<group>"; };
+		14ADF33A83E958134F9E2D80E06459FD /* utilities.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = utilities.h; path = include/ibl/utilities.h; sourceTree = "<group>"; };
+		14D8BF3DA58E2D5908DF6AC582620190 /* libgeometry.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libgeometry.a; path = lib/universal/libgeometry.a; sourceTree = "<group>"; };
+		1B17AC8D1A2B32FDCE899F03C6CAF13A /* TextureProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TextureProvider.h; path = include/gltfio/TextureProvider.h; sourceTree = "<group>"; };
+		20FAAD454F88862A5F697F17E83CB42B /* TargetBufferInfo.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TargetBufferInfo.h; path = include/backend/TargetBufferInfo.h; sourceTree = "<group>"; };
+		22649D9BC2AB1DB99D0C3B0468CABA01 /* vec2.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = vec2.h; path = include/math/vec2.h; sourceTree = "<group>"; };
+		231CF695D5021E9511F7C14522DC4934 /* TMatHelpers.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TMatHelpers.h; path = include/math/TMatHelpers.h; sourceTree = "<group>"; };
+		23B2653C45BBE0054584DEFD22B96859 /* AssetLoader.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AssetLoader.h; path = include/gltfio/AssetLoader.h; sourceTree = "<group>"; };
+		246EB86BBB9AD8530FF5E32575F1F8B1 /* Slice.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Slice.h; path = include/utils/Slice.h; sourceTree = "<group>"; };
+		263B4A5156E997118FA3DF05315E2332 /* Exposure.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Exposure.h; path = include/filament/Exposure.h; sourceTree = "<group>"; };
+		2A691A8D719EEFD8D7145398080C453E /* algorithm.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = algorithm.h; path = include/utils/algorithm.h; sourceTree = "<group>"; };
+		2B2894C40DB218DAF49312834B20C50F /* CString.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CString.h; path = include/utils/CString.h; sourceTree = "<group>"; };
+		2BACCECED1C4ABF887AA5E54687610A0 /* Renderer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Renderer.h; path = include/filament/Renderer.h; sourceTree = "<group>"; };
+		2BC778E0F244B2261B8198B5D6DB8056 /* EntityManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = EntityManager.h; path = include/utils/EntityManager.h; sourceTree = "<group>"; };
+		2C27518F76ACDAAEEFFB3937DCB71859 /* half.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = half.h; path = include/math/half.h; sourceTree = "<group>"; };
+		2D7120AFA7F6EE4192ADAE307331A85D /* robin_set.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = robin_set.h; path = include/tsl/robin_set.h; sourceTree = "<group>"; };
+		2E1C28B0CEF6C402B51651B643E0C585 /* libfilaflat.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libfilaflat.a; path = lib/universal/libfilaflat.a; sourceTree = "<group>"; };
+		301B281AF58CA0AD24E3E47F4FE62C7F /* Skybox.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Skybox.h; path = include/filament/Skybox.h; sourceTree = "<group>"; };
+		319B20569480EC19E0B038BE1C9B531D /* libfilameshio.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libfilameshio.a; path = lib/universal/libfilameshio.a; sourceTree = "<group>"; };
+		324B706F27215EA067ED05483D91327C /* AutomationEngine.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AutomationEngine.h; path = include/viewer/AutomationEngine.h; sourceTree = "<group>"; };
+		337FA4469F50471FA8A3170A39C4E57E /* NodeManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = NodeManager.h; path = include/gltfio/NodeManager.h; sourceTree = "<group>"; };
+		3471B12A81957C19032C830D1FE52D55 /* libibl.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libibl.a; path = lib/universal/libibl.a; sourceTree = "<group>"; };
+		35B0E4FBE7DC4045640869ED9727971A /* TransformManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TransformManager.h; path = include/filament/TransformManager.h; sourceTree = "<group>"; };
+		3638E17CE160FD940E574C1B30D9FE35 /* vec4.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = vec4.h; path = include/math/vec4.h; sourceTree = "<group>"; };
+		36AEA96A3877CC72A440AB2A34D42270 /* PrivateImplementation-impl.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = "PrivateImplementation-impl.h"; path = "include/utils/PrivateImplementation-impl.h"; sourceTree = "<group>"; };
+		36CFD2A091B8A272011ED7472CCD4FE3 /* ColorGrading.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ColorGrading.h; path = include/filament/ColorGrading.h; sourceTree = "<group>"; };
+		389BF5E96253D5861AD2D76F6288A997 /* Sync.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Sync.h; path = include/filament/Sync.h; sourceTree = "<group>"; };
+		39EC553F0B84DA4ED1DC649360C2D09B /* CubemapIBL.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CubemapIBL.h; path = include/ibl/CubemapIBL.h; sourceTree = "<group>"; };
+		3ABFAC5F8112EB801D02F8A620117FB2 /* libuberarchive.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libuberarchive.a; path = lib/universal/libuberarchive.a; sourceTree = "<group>"; };
+		3B7A24B26EA3074F52D6E17A318F4E3B /* compiler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/utils/compiler.h; sourceTree = "<group>"; };
+		4046257DD8D79BAD454DE729F0407A5B /* libstb.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libstb.a; path = lib/universal/libstb.a; sourceTree = "<group>"; };
+		40761E45E77FD5265D9EB0C37427637C /* LruCache.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = LruCache.h; path = include/utils/LruCache.h; sourceTree = "<group>"; };
+		4108CE2800984B2193E3A1026F8034AE /* InstanceBuffer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = InstanceBuffer.h; path = include/filament/InstanceBuffer.h; sourceTree = "<group>"; };
+		41B03FC6B605AD44DB7038C8E1A91B82 /* libgltfio_core.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libgltfio_core.a; path = lib/universal/libgltfio_core.a; sourceTree = "<group>"; };
+		41DC5535F2247926663F9006E4BA3E1D /* MaterialInstance.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MaterialInstance.h; path = include/filament/MaterialInstance.h; sourceTree = "<group>"; };
+		41FCBC8F8598223F33EDAB6261E660AD /* Enums.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Enums.h; path = include/filamat/Enums.h; sourceTree = "<group>"; };
+		431B62FD9BA28788FA2CBCD73FCA0194 /* norm.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = norm.h; path = include/math/norm.h; sourceTree = "<group>"; };
+		43F48864DAE271E41D27CA78C040A31C /* unwindows.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = unwindows.h; path = include/utils/unwindows.h; sourceTree = "<group>"; };
+		444B772B9A638F2559C145FAC91B462E /* libsmol-v.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = "libsmol-v.a"; path = "lib/universal/libsmol-v.a"; sourceTree = "<group>"; };
+		44C85D332691FC47F385BBF0F9971C0F /* quat.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = quat.h; path = include/math/quat.h; sourceTree = "<group>"; };
+		456DCDD494F13A6877D5CB2657C17FD3 /* ImageOps.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ImageOps.h; path = include/image/ImageOps.h; sourceTree = "<group>"; };
+		46341B1B9DCD40AE213123B8A6F89002 /* MorphTargetBuffer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MorphTargetBuffer.h; path = include/filament/MorphTargetBuffer.h; sourceTree = "<group>"; };
+		46E5C0CC0B2558C29039691CBE1C35B5 /* libfilabridge.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libfilabridge.a; path = lib/universal/libfilabridge.a; sourceTree = "<group>"; };
+		4747EA572F46F3E3724119C998FD819A /* TrsTransformManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TrsTransformManager.h; path = include/gltfio/TrsTransformManager.h; sourceTree = "<group>"; };
+		4786D35FC38D121FBFD40662D1A8AE56 /* Platform.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Platform.h; path = include/backend/Platform.h; sourceTree = "<group>"; };
+		4A57E346193D163B2EA9FBA2320CD19B /* Pods-iosApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iosApp.release.xcconfig"; sourceTree = "<group>"; };
+		4BC3A1AB5477B0764128F9D684136D61 /* InternPool.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = InternPool.h; path = include/utils/InternPool.h; sourceTree = "<group>"; };
+		4C2A874ADEE4C06D87D180EF6E089E15 /* libdracodec.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libdracodec.a; path = lib/universal/libdracodec.a; sourceTree = "<group>"; };
+		4C3C5BCC9D6B7FEE5371AB75931BCDB8 /* Transcoder.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Transcoder.h; path = include/geometry/Transcoder.h; sourceTree = "<group>"; };
+		4F84A942DA6583C468E31FE9DE179E3D /* Package.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Package.h; path = include/filamat/Package.h; sourceTree = "<group>"; };
+		5012BD3A2906927CD8272424E57F8DA5 /* Panic.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Panic.h; path = include/utils/Panic.h; sourceTree = "<group>"; };
+		51EBA8F80D03BDAAB706ECCB57D73107 /* scalar.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = scalar.h; path = include/math/scalar.h; sourceTree = "<group>"; };
+		5365FC078867E48D851344E5D6E0599D /* libmeshoptimizer.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libmeshoptimizer.a; path = lib/universal/libmeshoptimizer.a; sourceTree = "<group>"; };
+		538E88179F78BC6A26BC0269508ED2E7 /* BufferDescriptor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = BufferDescriptor.h; path = include/backend/BufferDescriptor.h; sourceTree = "<group>"; };
+		5585335A89D111C4948F13D71804DE52 /* IndirectLight.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = IndirectLight.h; path = include/filament/IndirectLight.h; sourceTree = "<group>"; };
+		570CA283D4B61FDCD613FA1D1DDF0E88 /* TVecHelpers.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TVecHelpers.h; path = include/math/TVecHelpers.h; sourceTree = "<group>"; };
+		5913985A098F725372B197A9B0F1C640 /* EntityInstance.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = EntityInstance.h; path = include/utils/EntityInstance.h; sourceTree = "<group>"; };
+		5AD7B8E623BB71CDDC08786E7624D01E /* bitset.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = bitset.h; path = include/utils/bitset.h; sourceTree = "<group>"; };
+		5B29BBDAE3067A10237BC466B6CC2E8D /* Mutex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Mutex.h; path = include/utils/generic/Mutex.h; sourceTree = "<group>"; };
+		5B4C312D4514DCE80A2DAC9F51711B4A /* libbackend.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libbackend.a; path = lib/universal/libbackend.a; sourceTree = "<group>"; };
+		5BA2132ED4BD2E0209AE16D81C463A1F /* FixedCapacityVector.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FixedCapacityVector.h; path = include/utils/FixedCapacityVector.h; sourceTree = "<group>"; };
+		5EC8D1BFCD9D43720E3A6C164747B8F3 /* Ktx2Reader.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Ktx2Reader.h; path = include/ktxreader/Ktx2Reader.h; sourceTree = "<group>"; };
+		6048A1BC093FF201FF9011AF03F9D812 /* DriverApiForward.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = DriverApiForward.h; path = include/backend/DriverApiForward.h; sourceTree = "<group>"; };
+		609883B231BA63C3C1BC8A419D832F0C /* ViewerGui.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ViewerGui.h; path = include/viewer/ViewerGui.h; sourceTree = "<group>"; };
+		609F83F0C734F0B7A0B8432C33A9583B /* SamplerDescriptor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = SamplerDescriptor.h; path = include/backend/SamplerDescriptor.h; sourceTree = "<group>"; };
+		62A6585FD67B0A6A9759A5A93225AACC /* SingleInstanceComponentManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = SingleInstanceComponentManager.h; path = include/utils/SingleInstanceComponentManager.h; sourceTree = "<group>"; };
+		64BB86419DF902620D118B6F39A5AF09 /* Options.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Options.h; path = include/filament/Options.h; sourceTree = "<group>"; };
+		6683EE9603F71B9C01183E1260AF6846 /* libbasis_transcoder.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libbasis_transcoder.a; path = lib/universal/libbasis_transcoder.a; sourceTree = "<group>"; };
+		66A117E97C7D103FC55E37AFA378C83A /* Stream.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Stream.h; path = include/filament/Stream.h; sourceTree = "<group>"; };
+		66FBE00919D94E4C3D86D83C7113D5DA /* mat3.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = mat3.h; path = include/math/mat3.h; sourceTree = "<group>"; };
+		698CDE6941EE6E185D0D4AC8B96D10A6 /* IndexBuffer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = IndexBuffer.h; path = include/filament/IndexBuffer.h; sourceTree = "<group>"; };
+		6B912AC760C63C86099DA9665F8CE159 /* memalign.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = memalign.h; path = include/utils/memalign.h; sourceTree = "<group>"; };
+		6CD7F6795D9DC994C9D21890F893D7A4 /* tribool.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = tribool.h; path = include/utils/tribool.h; sourceTree = "<group>"; };
+		6D292D44ACF2397971F9EBBBC69DCADC /* BitmaskEnum.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = BitmaskEnum.h; path = include/utils/BitmaskEnum.h; sourceTree = "<group>"; };
+		6E69F36AF2E793657B1190FDA694912A /* ImmutableCString.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ImmutableCString.h; path = include/utils/ImmutableCString.h; sourceTree = "<group>"; };
+		6F1A4C941ADC98573D501EC8B3C4AE6E /* libcivetweb.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libcivetweb.a; path = lib/universal/libcivetweb.a; sourceTree = "<group>"; };
+		6FA4B3D43787C0F7FB77D1D7498D3402 /* MaterialProvider.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MaterialProvider.h; path = include/gltfio/MaterialProvider.h; sourceTree = "<group>"; };
+		7026BAA33067140D5622E157BDD5935F /* Logger.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Logger.h; path = include/utils/Logger.h; sourceTree = "<group>"; };
+		704F2A5908EC2FB121B9946C484C65D3 /* compiler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/math/compiler.h; sourceTree = "<group>"; };
+		70D6116A952E0BF9F00D8DF1C7246F56 /* Filament.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Filament.release.xcconfig; sourceTree = "<group>"; };
+		71DD294DE61AFC323A7019CEEC9624FA /* mat2.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = mat2.h; path = include/math/mat2.h; sourceTree = "<group>"; };
+		726F440B7FD2DDA3FBF81E975009CC46 /* SurfaceOrientation.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = SurfaceOrientation.h; path = include/geometry/SurfaceOrientation.h; sourceTree = "<group>"; };
+		746268C9AC7CF7334E075AA8C2938AA1 /* Systrace.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Systrace.h; path = include/utils/Systrace.h; sourceTree = "<group>"; };
+		76587DF4355A4D970A9656E3DD15755A /* Box.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Box.h; path = include/filament/Box.h; sourceTree = "<group>"; };
+		794A4FA1356922EDCD4148241AC15927 /* Color.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Color.h; path = include/filament/Color.h; sourceTree = "<group>"; };
+		7C04E8D126C77BB648883C49C275DD35 /* MonotonicRingMap.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MonotonicRingMap.h; path = include/utils/MonotonicRingMap.h; sourceTree = "<group>"; };
+		7D10D307A33B26DFEDEC7955AD891C41 /* Pods-iosApp-acknowledgements.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = "Pods-iosApp-acknowledgements.plist"; sourceTree = "<group>"; };
+		7D596CB0337A83D2476B2BB5B00B9CCF /* Pods-iosApp-dummy.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = "Pods-iosApp-dummy.m"; sourceTree = "<group>"; };
+		7D70059ED5964DA9F3C8DC451D66FB2B /* Scene.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Scene.h; path = include/filament/Scene.h; sourceTree = "<group>"; };
+		7DD5F02F0188EE1D97D4DA73183F431A /* ColorSpace.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ColorSpace.h; path = include/filament/ColorSpace.h; sourceTree = "<group>"; };
+		7E68EB8188F21849FE89F73ABC26930D /* CubemapSH.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CubemapSH.h; path = include/ibl/CubemapSH.h; sourceTree = "<group>"; };
+		7F4A878C9E6818824924E56FE38DD989 /* CallbackHandler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CallbackHandler.h; path = include/backend/CallbackHandler.h; sourceTree = "<group>"; };
+		8255E3FFB21F0A2C4BF4D2BA2F62269E /* compiler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = compiler.h; path = include/camutils/compiler.h; sourceTree = "<group>"; };
+		82B69EEF4A079A1B1FF10555C58CBDF1 /* Handle.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Handle.h; path = include/backend/Handle.h; sourceTree = "<group>"; };
+		83FEEC065BDC7C0CDC20F51CBEC57299 /* ToneMapper.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ToneMapper.h; path = include/filament/ToneMapper.h; sourceTree = "<group>"; };
+		865EC0D7674ED8151C3CD0514D1163ED /* RenderableManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = RenderableManager.h; path = include/filament/RenderableManager.h; sourceTree = "<group>"; };
+		86D307BB5CF566482D968537EDC207AC /* Pods-iosApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = "Pods-iosApp.debug.xcconfig"; sourceTree = "<group>"; };
+		888E2AC5A8DF6F18159466CA13EEE83A /* LightManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = LightManager.h; path = include/filament/LightManager.h; sourceTree = "<group>"; };
+		88F149B1C264EBA5997EDCE799BD219D /* WritableArchive.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = WritableArchive.h; path = include/uberz/WritableArchive.h; sourceTree = "<group>"; };
+		8B87549C4092164A217CCA3689CB0525 /* Ktx1Bundle.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Ktx1Bundle.h; path = include/image/Ktx1Bundle.h; sourceTree = "<group>"; };
+		8C7D412CD7D142849B7CE1813EB890AB /* ArchiveEnums.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ArchiveEnums.h; path = include/uberz/ArchiveEnums.h; sourceTree = "<group>"; };
+		8E410B9AE367C18A48CAE3C72164F451 /* uberarchive.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = uberarchive.h; path = include/gltfio/materials/uberarchive.h; sourceTree = "<group>"; };
+		92CACE6BA9049EDDBF3F61E32D865D62 /* compressed_pair.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = compressed_pair.h; path = include/utils/compressed_pair.h; sourceTree = "<group>"; };
+		9770C75B5A4440327230096A680761E6 /* Image.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Image.h; path = include/ibl/Image.h; sourceTree = "<group>"; };
+		9785D047CAF404AF6E13AFE6C1E03093 /* Animator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Animator.h; path = include/gltfio/Animator.h; sourceTree = "<group>"; };
+		98496148021CD24A71974740977B2296 /* Mutex.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Mutex.h; path = include/utils/Mutex.h; sourceTree = "<group>"; };
+		98549A4D58BE062E6B5E4D9E281E5ABF /* View.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = View.h; path = include/filament/View.h; sourceTree = "<group>"; };
+		9B246E6115F2222E32D7EDD6C1C63AFA /* AcquiredImage.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AcquiredImage.h; path = include/backend/AcquiredImage.h; sourceTree = "<group>"; };
+		9D940727FF8FB9C785EB98E56350EF41 /* Podfile */ = {isa = PBXFileReference; explicitFileType = text.script.ruby; includeInIndex = 1; indentWidth = 2; lastKnownFileType = text; name = Podfile; path = ../Podfile; sourceTree = SOURCE_ROOT; tabWidth = 2; xcLanguageSpecificationIdentifier = xcode.lang.ruby; };
+		9DB54EA33B31228A14BA6D03383F516B /* Fence.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Fence.h; path = include/filament/Fence.h; sourceTree = "<group>"; };
+		A209DC6E5B0FE7C181ED1B6223B7D596 /* libuberzlib.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libuberzlib.a; path = lib/universal/libuberzlib.a; sourceTree = "<group>"; };
+		A2FCD52596095AA556C4CC33C7745349 /* libimage.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libimage.a; path = lib/universal/libimage.a; sourceTree = "<group>"; };
+		A35452242326DDBE2E59B01AA7468570 /* math.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = math.h; path = include/gltfio/math.h; sourceTree = "<group>"; };
+		A3CAFAD3EF5BF1541991CB4294FEE463 /* Invocable.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Invocable.h; path = include/utils/Invocable.h; sourceTree = "<group>"; };
+		A7B4956810C7E1398F0DD795B15FCC30 /* Cubemap.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Cubemap.h; path = include/ibl/Cubemap.h; sourceTree = "<group>"; };
+		A86169E383236823B32D7A6E3FBA0DCD /* libviewer.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libviewer.a; path = lib/universal/libviewer.a; sourceTree = "<group>"; };
+		A914DE88FB3665CFC968877FB875BF27 /* libfilament.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libfilament.a; path = lib/universal/libfilament.a; sourceTree = "<group>"; };
+		AB04309DB4D1D4659EAA2DE8ADA00EFC /* SwapChain.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = SwapChain.h; path = include/filament/SwapChain.h; sourceTree = "<group>"; };
+		AE59DEAC638CDA38CE5084EDBE4F61BC /* StructureOfArrays.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = StructureOfArrays.h; path = include/utils/StructureOfArrays.h; sourceTree = "<group>"; };
+		B097DD7534E741D5C41838011D755842 /* Pods-iosApp */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; name = "Pods-iosApp"; path = "libPods-iosApp.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1AC9E8429D9836B2A7CD0F44C0162B7 /* Settings.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Settings.h; path = include/viewer/Settings.h; sourceTree = "<group>"; };
+		B1E18259F1A38C9B7171C5ADE5AA1424 /* sstream.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = sstream.h; path = include/utils/sstream.h; sourceTree = "<group>"; };
+		B3171BD058E17DAADFCE478AC3A6F333 /* Path.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Path.h; path = include/utils/Path.h; sourceTree = "<group>"; };
+		B4D4137C81E2F6B9E79BD73515859716 /* libshaders.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libshaders.a; path = lib/universal/libshaders.a; sourceTree = "<group>"; };
+		B71BCDB7B69AC0843DCE01CCA718FC80 /* StaticString.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = StaticString.h; path = include/utils/StaticString.h; sourceTree = "<group>"; };
+		B765DB6AF3B8F075BF295EA875AF1C9F /* Allocator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Allocator.h; path = include/utils/Allocator.h; sourceTree = "<group>"; };
+		B788BC5B64BED1CE8360EFDE1EFC0775 /* robin_growth_policy.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = robin_growth_policy.h; path = include/tsl/robin_growth_policy.h; sourceTree = "<group>"; };
+		B8BD5231EB63FCEEABD7AB47C9527E54 /* Engine.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Engine.h; path = include/filament/Engine.h; sourceTree = "<group>"; };
+		B9D6E516FE243023851CBAF7EABCC17B /* PipelineState.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = PipelineState.h; path = include/backend/PipelineState.h; sourceTree = "<group>"; };
+		BD4CA955B601FF3EB119D7A9FD173869 /* Camera.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Camera.h; path = include/filament/Camera.h; sourceTree = "<group>"; };
+		BDE2C3C1CCBAB6EC927DE7B148A81148 /* CubemapUtils.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CubemapUtils.h; path = include/ibl/CubemapUtils.h; sourceTree = "<group>"; };
+		BECAFE530B68779FB6C104D2707BFF2B /* MaterialEnums.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MaterialEnums.h; path = include/filament/MaterialEnums.h; sourceTree = "<group>"; };
+		BF3AC7CA5D456B7671D846F7DD544CC1 /* DriverEnums.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = DriverEnums.h; path = include/backend/DriverEnums.h; sourceTree = "<group>"; };
+		C03094DBEBBA2CE366DD15421915E004 /* PrivateImplementation.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = PrivateImplementation.h; path = include/utils/PrivateImplementation.h; sourceTree = "<group>"; };
+		C40A17C7E7958999B7AB896F6C619EA0 /* ImageSampler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ImageSampler.h; path = include/image/ImageSampler.h; sourceTree = "<group>"; };
+		C503B0F0ABDAFB47512F50EA51D848C6 /* Status.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Status.h; path = include/utils/Status.h; sourceTree = "<group>"; };
+		C914F38E488B1101B40622066B8ACFFA /* FilamentAPI.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FilamentAPI.h; path = include/filament/FilamentAPI.h; sourceTree = "<group>"; };
+		C95EFECE045005704FF4EF8AE6468759 /* MeshReader.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MeshReader.h; path = include/filameshio/MeshReader.h; sourceTree = "<group>"; };
+		CB880916C4F4FA540B7FC3C95003D564 /* Pods-iosApp-acknowledgements.markdown */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = "Pods-iosApp-acknowledgements.markdown"; sourceTree = "<group>"; };
+		CCA728FF8374E61481771406A38D95C1 /* VertexBuffer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = VertexBuffer.h; path = include/filament/VertexBuffer.h; sourceTree = "<group>"; };
+		CD3A131F6191ECE8CF5897564910213E /* LinearImage.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = LinearImage.h; path = include/image/LinearImage.h; sourceTree = "<group>"; };
+		CFA14B2AF31A837E1AE54543532A1470 /* BufferObject.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = BufferObject.h; path = include/filament/BufferObject.h; sourceTree = "<group>"; };
+		CFA4E60D436E42F5446FE98158970C30 /* Entity.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Entity.h; path = include/utils/Entity.h; sourceTree = "<group>"; };
+		D16BB90AACFB2A6061804C2BF46370B6 /* CallStack.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = CallStack.h; path = include/utils/CallStack.h; sourceTree = "<group>"; };
+		D1BFB3E39055FFD10BDB99A18108BFD1 /* ostream.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ostream.h; path = include/utils/ostream.h; sourceTree = "<group>"; };
+		D24B29283B0D078FD4BB196AF5CBE42E /* TQuatHelpers.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TQuatHelpers.h; path = include/math/TQuatHelpers.h; sourceTree = "<group>"; };
+		D2710380185315A6058CBD5930732733 /* libutils.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libutils.a; path = lib/universal/libutils.a; sourceTree = "<group>"; };
+		D319C979B82CAA75FE8A03F57EC05795 /* vec3.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = vec3.h; path = include/math/vec3.h; sourceTree = "<group>"; };
+		D4E652329607F7C73948845000ECA4F7 /* MaterialBuilder.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MaterialBuilder.h; path = include/filamat/MaterialBuilder.h; sourceTree = "<group>"; };
+		D6267613CECE7B863A5FD2A5E0A4C954 /* AutomationSpec.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AutomationSpec.h; path = include/viewer/AutomationSpec.h; sourceTree = "<group>"; };
+		D747EA6D8F0BFBE21412491608023589 /* PresentCallable.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = PresentCallable.h; path = include/backend/PresentCallable.h; sourceTree = "<group>"; };
+		DBC0CD0764B585E9EC08367A6D023DD3 /* libktxreader.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libktxreader.a; path = lib/universal/libktxreader.a; sourceTree = "<group>"; };
+		DC6B0027987A90B5BE75481B08BE251B /* ResourceLoader.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = ResourceLoader.h; path = include/gltfio/ResourceLoader.h; sourceTree = "<group>"; };
+		DF813A5579D5D94653183D66CE35D991 /* TangentSpaceMesh.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TangentSpaceMesh.h; path = include/geometry/TangentSpaceMesh.h; sourceTree = "<group>"; };
+		E298F8FDACC6AC441B599B2A0D8F566B /* Ktx1Reader.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Ktx1Reader.h; path = include/ktxreader/Ktx1Reader.h; sourceTree = "<group>"; };
+		E3E70D3F37FA4DC5EBE98038C642DEAF /* FilamentAsset.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = FilamentAsset.h; path = include/gltfio/FilamentAsset.h; sourceTree = "<group>"; };
+		E418B6B8FEC417CC215272A6EFF0DE35 /* RemoteServer.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = RemoteServer.h; path = include/viewer/RemoteServer.h; sourceTree = "<group>"; };
+		E514D87D89A1C05D7BEA768517A954AB /* Material.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Material.h; path = include/filament/Material.h; sourceTree = "<group>"; };
+		E564372697F5F274CB330E5C3007ADEB /* MaterialChunkType.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = MaterialChunkType.h; path = include/filament/MaterialChunkType.h; sourceTree = "<group>"; };
+		E653B7A9246208B5D11139AB69B09443 /* libzstd.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libzstd.a; path = lib/universal/libzstd.a; sourceTree = "<group>"; };
+		ED907D8D4D54F0B69B1FC63B2D8F8E67 /* Frustum.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Frustum.h; path = include/filament/Frustum.h; sourceTree = "<group>"; };
+		EDDBC787C36B7C5959E0457360BC0AE2 /* mathfwd.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = mathfwd.h; path = include/math/mathfwd.h; sourceTree = "<group>"; };
+		EE818A301710339D770E695271736A56 /* libcamutils.a */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = archive.ar; name = libcamutils.a; path = lib/universal/libcamutils.a; sourceTree = "<group>"; };
+		EED455852C039A85D1E0F834160A2CFB /* RefCountedMap.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = RefCountedMap.h; path = include/utils/RefCountedMap.h; sourceTree = "<group>"; };
+		EFB4F4AAB835FD652D221ADE55B06824 /* TextureSampler.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = TextureSampler.h; path = include/filament/TextureSampler.h; sourceTree = "<group>"; };
+		F1726E6CC01723518E3108488BDFFBAA /* RenderTarget.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = RenderTarget.h; path = include/filament/RenderTarget.h; sourceTree = "<group>"; };
+		F1B40EBA63B5E21DACBDA2081D646470 /* fast.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = fast.h; path = include/math/fast.h; sourceTree = "<group>"; };
+		F575D935DCC4D0EC9CB13AAFBFF63D7C /* getopt.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = getopt.h; path = include/utils/getopt.h; sourceTree = "<group>"; };
+		F5B27910449D83E3FADA39CEAC82BBFD /* PixelBufferDescriptor.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = PixelBufferDescriptor.h; path = include/backend/PixelBufferDescriptor.h; sourceTree = "<group>"; };
+		F6BC36638437F912E18AD9D0554B804C /* NameComponentManager.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = NameComponentManager.h; path = include/utils/NameComponentManager.h; sourceTree = "<group>"; };
+		FA6F09F7647C7DF583A9380FB6681190 /* robin_hash.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = robin_hash.h; path = include/tsl/robin_hash.h; sourceTree = "<group>"; };
+		FDDE95D440482404A2CCBB9B345C2133 /* Program.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Program.h; path = include/backend/Program.h; sourceTree = "<group>"; };
+		FEA36F5FA0ED43959B2A9E4895957CB6 /* Hash.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Hash.h; path = include/utils/Hash.h; sourceTree = "<group>"; };
+		FEF3F597150DA87B4A2F7B60E56B7914 /* Manipulator.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Manipulator.h; path = include/camutils/Manipulator.h; sourceTree = "<group>"; };
+		FFB7EBCF7324F684B689CAE5F41B3458 /* Texture.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = Texture.h; path = include/filament/Texture.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FC80F724C7024DF185E7992502DC5814 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2416739E7938933DA0401063360502F9 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				35099CBEC1782FBF1197374E1CEF4828 /* Filament */,
+			);
+			name = Pods;
+			sourceTree = "<group>";
+		};
+		2B0739544872D5AD0FC6AC0BBFF407A0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6F1A4C941ADC98573D501EC8B3C4AE6E /* libcivetweb.a */,
+				A86169E383236823B32D7A6E3FBA0DCD /* libviewer.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		2E41ED8BB18F1CA67097C707892E0DBD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A2FCD52596095AA556C4CC33C7745349 /* libimage.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		35099CBEC1782FBF1197374E1CEF4828 /* Filament */ = {
+			isa = PBXGroup;
+			children = (
+				E6D4971937CA00AFE2ECCBA79C1A106A /* camutils */,
+				B3DB79D0A416E5F609AED37BEFE076CE /* filamat */,
+				E131BCED9B39A371CFA3D41A22F21C0E /* filament */,
+				AA62850FBE82F86E51EB08CD957B6CC6 /* filameshio */,
+				8B77D741C5E0F3D321F7E44AF8C223CB /* gltfio_core */,
+				DB18510D9D5B0013FDFB5829A6647171 /* image */,
+				BC92397637801059143A48F63C904414 /* ktxreader */,
+				99BE435A0A6E17417780B0DC63D5AA60 /* math */,
+				B1B68C73D6DB7A229F33830C48785FC1 /* Support Files */,
+				EDAB27849D6066381F30457C5A69A5D0 /* tsl */,
+				ECF8EB4E21B27F263109315CF99957C2 /* uberz */,
+				6103FB58498650A8A3C0ACADDC90FD11 /* utils */,
+				5F46D80235130A9908A53635D97E7E59 /* viewer */,
+			);
+			name = Filament;
+			path = Filament;
+			sourceTree = "<group>";
+		};
+		44FFE6BE17D4B24B423D31E64FBD892D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				5B4C312D4514DCE80A2DAC9F51711B4A /* libbackend.a */,
+				2E1C28B0CEF6C402B51651B643E0C585 /* libfilaflat.a */,
+				A914DE88FB3665CFC968877FB875BF27 /* libfilament.a */,
+				14D8BF3DA58E2D5908DF6AC582620190 /* libgeometry.a */,
+				3471B12A81957C19032C830D1FE52D55 /* libibl.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		46A271009D48FEFBC23D8EF2D9BC1644 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6683EE9603F71B9C01183E1260AF6846 /* libbasis_transcoder.a */,
+				DBC0CD0764B585E9EC08367A6D023DD3 /* libktxreader.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		581FA49DB5A7A4B87B09D3B65EAB9126 /* Pods-iosApp */ = {
+			isa = PBXGroup;
+			children = (
+				CB880916C4F4FA540B7FC3C95003D564 /* Pods-iosApp-acknowledgements.markdown */,
+				7D10D307A33B26DFEDEC7955AD891C41 /* Pods-iosApp-acknowledgements.plist */,
+				7D596CB0337A83D2476B2BB5B00B9CCF /* Pods-iosApp-dummy.m */,
+				86D307BB5CF566482D968537EDC207AC /* Pods-iosApp.debug.xcconfig */,
+				4A57E346193D163B2EA9FBA2320CD19B /* Pods-iosApp.release.xcconfig */,
+			);
+			name = "Pods-iosApp";
+			path = "Target Support Files/Pods-iosApp";
+			sourceTree = "<group>";
+		};
+		5F46D80235130A9908A53635D97E7E59 /* viewer */ = {
+			isa = PBXGroup;
+			children = (
+				324B706F27215EA067ED05483D91327C /* AutomationEngine.h */,
+				D6267613CECE7B863A5FD2A5E0A4C954 /* AutomationSpec.h */,
+				E418B6B8FEC417CC215272A6EFF0DE35 /* RemoteServer.h */,
+				B1AC9E8429D9836B2A7CD0F44C0162B7 /* Settings.h */,
+				609883B231BA63C3C1BC8A419D832F0C /* ViewerGui.h */,
+				2B0739544872D5AD0FC6AC0BBFF407A0 /* Frameworks */,
+			);
+			name = viewer;
+			sourceTree = "<group>";
+		};
+		6103FB58498650A8A3C0ACADDC90FD11 /* utils */ = {
+			isa = PBXGroup;
+			children = (
+				2A691A8D719EEFD8D7145398080C453E /* algorithm.h */,
+				B765DB6AF3B8F075BF295EA875AF1C9F /* Allocator.h */,
+				6D292D44ACF2397971F9EBBBC69DCADC /* BitmaskEnum.h */,
+				5AD7B8E623BB71CDDC08786E7624D01E /* bitset.h */,
+				D16BB90AACFB2A6061804C2BF46370B6 /* CallStack.h */,
+				3B7A24B26EA3074F52D6E17A318F4E3B /* compiler.h */,
+				92CACE6BA9049EDDBF3F61E32D865D62 /* compressed_pair.h */,
+				2B2894C40DB218DAF49312834B20C50F /* CString.h */,
+				030436810A2F385394F7CE0B338939FA /* debug.h */,
+				CFA4E60D436E42F5446FE98158970C30 /* Entity.h */,
+				5913985A098F725372B197A9B0F1C640 /* EntityInstance.h */,
+				2BC778E0F244B2261B8198B5D6DB8056 /* EntityManager.h */,
+				5BA2132ED4BD2E0209AE16D81C463A1F /* FixedCapacityVector.h */,
+				F575D935DCC4D0EC9CB13AAFBFF63D7C /* getopt.h */,
+				FEA36F5FA0ED43959B2A9E4895957CB6 /* Hash.h */,
+				6E69F36AF2E793657B1190FDA694912A /* ImmutableCString.h */,
+				4BC3A1AB5477B0764128F9D684136D61 /* InternPool.h */,
+				A3CAFAD3EF5BF1541991CB4294FEE463 /* Invocable.h */,
+				1145F24A85909C6B558BFB7DA953A870 /* Log.h */,
+				7026BAA33067140D5622E157BDD5935F /* Logger.h */,
+				40761E45E77FD5265D9EB0C37427637C /* LruCache.h */,
+				6B912AC760C63C86099DA9665F8CE159 /* memalign.h */,
+				7C04E8D126C77BB648883C49C275DD35 /* MonotonicRingMap.h */,
+				5B29BBDAE3067A10237BC466B6CC2E8D /* Mutex.h */,
+				98496148021CD24A71974740977B2296 /* Mutex.h */,
+				F6BC36638437F912E18AD9D0554B804C /* NameComponentManager.h */,
+				D1BFB3E39055FFD10BDB99A18108BFD1 /* ostream.h */,
+				5012BD3A2906927CD8272424E57F8DA5 /* Panic.h */,
+				B3171BD058E17DAADFCE478AC3A6F333 /* Path.h */,
+				C03094DBEBBA2CE366DD15421915E004 /* PrivateImplementation.h */,
+				36AEA96A3877CC72A440AB2A34D42270 /* PrivateImplementation-impl.h */,
+				EED455852C039A85D1E0F834160A2CFB /* RefCountedMap.h */,
+				62A6585FD67B0A6A9759A5A93225AACC /* SingleInstanceComponentManager.h */,
+				246EB86BBB9AD8530FF5E32575F1F8B1 /* Slice.h */,
+				B1E18259F1A38C9B7171C5ADE5AA1424 /* sstream.h */,
+				B71BCDB7B69AC0843DCE01CCA718FC80 /* StaticString.h */,
+				C503B0F0ABDAFB47512F50EA51D848C6 /* Status.h */,
+				AE59DEAC638CDA38CE5084EDBE4F61BC /* StructureOfArrays.h */,
+				746268C9AC7CF7334E075AA8C2938AA1 /* Systrace.h */,
+				6CD7F6795D9DC994C9D21890F893D7A4 /* tribool.h */,
+				43F48864DAE271E41D27CA78C040A31C /* unwindows.h */,
+				61C41FA0F32A6C71BA353266206AACA3 /* Frameworks */,
+			);
+			name = utils;
+			sourceTree = "<group>";
+		};
+		61C41FA0F32A6C71BA353266206AACA3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D2710380185315A6058CBD5930732733 /* libutils.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		6313169F7B4E974939F088CE88EF7329 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				EE818A301710339D770E695271736A56 /* libcamutils.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		83AE6F7E6CC2BF7992454898E3AF1793 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4C2A874ADEE4C06D87D180EF6E089E15 /* libdracodec.a */,
+				41B03FC6B605AD44DB7038C8E1A91B82 /* libgltfio_core.a */,
+				4046257DD8D79BAD454DE729F0407A5B /* libstb.a */,
+				3ABFAC5F8112EB801D02F8A620117FB2 /* libuberarchive.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		8B77D741C5E0F3D321F7E44AF8C223CB /* gltfio_core */ = {
+			isa = PBXGroup;
+			children = (
+				9785D047CAF404AF6E13AFE6C1E03093 /* Animator.h */,
+				23B2653C45BBE0054584DEFD22B96859 /* AssetLoader.h */,
+				E3E70D3F37FA4DC5EBE98038C642DEAF /* FilamentAsset.h */,
+				0E9E6A5E166C29ABDD00DD37AF2FC2A8 /* FilamentInstance.h */,
+				6FA4B3D43787C0F7FB77D1D7498D3402 /* MaterialProvider.h */,
+				A35452242326DDBE2E59B01AA7468570 /* math.h */,
+				337FA4469F50471FA8A3170A39C4E57E /* NodeManager.h */,
+				DC6B0027987A90B5BE75481B08BE251B /* ResourceLoader.h */,
+				1B17AC8D1A2B32FDCE899F03C6CAF13A /* TextureProvider.h */,
+				4747EA572F46F3E3724119C998FD819A /* TrsTransformManager.h */,
+				8E410B9AE367C18A48CAE3C72164F451 /* uberarchive.h */,
+				83AE6F7E6CC2BF7992454898E3AF1793 /* Frameworks */,
+			);
+			name = gltfio_core;
+			sourceTree = "<group>";
+		};
+		99BE435A0A6E17417780B0DC63D5AA60 /* math */ = {
+			isa = PBXGroup;
+			children = (
+				704F2A5908EC2FB121B9946C484C65D3 /* compiler.h */,
+				F1B40EBA63B5E21DACBDA2081D646470 /* fast.h */,
+				2C27518F76ACDAAEEFFB3937DCB71859 /* half.h */,
+				71DD294DE61AFC323A7019CEEC9624FA /* mat2.h */,
+				66FBE00919D94E4C3D86D83C7113D5DA /* mat3.h */,
+				05C5EB35B68CD9D084929747B0804B68 /* mat4.h */,
+				EDDBC787C36B7C5959E0457360BC0AE2 /* mathfwd.h */,
+				431B62FD9BA28788FA2CBCD73FCA0194 /* norm.h */,
+				44C85D332691FC47F385BBF0F9971C0F /* quat.h */,
+				51EBA8F80D03BDAAB706ECCB57D73107 /* scalar.h */,
+				231CF695D5021E9511F7C14522DC4934 /* TMatHelpers.h */,
+				D24B29283B0D078FD4BB196AF5CBE42E /* TQuatHelpers.h */,
+				570CA283D4B61FDCD613FA1D1DDF0E88 /* TVecHelpers.h */,
+				22649D9BC2AB1DB99D0C3B0468CABA01 /* vec2.h */,
+				D319C979B82CAA75FE8A03F57EC05795 /* vec3.h */,
+				3638E17CE160FD940E574C1B30D9FE35 /* vec4.h */,
+			);
+			name = math;
+			sourceTree = "<group>";
+		};
+		A616F3CCDF6449AD8C5AEF7F564ECA45 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B097DD7534E741D5C41838011D755842 /* Pods-iosApp */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA62850FBE82F86E51EB08CD957B6CC6 /* filameshio */ = {
+			isa = PBXGroup;
+			children = (
+				C95EFECE045005704FF4EF8AE6468759 /* MeshReader.h */,
+				BAC2182CC81F1790C67D5D20155CDA08 /* Frameworks */,
+			);
+			name = filameshio;
+			sourceTree = "<group>";
+		};
+		B0137115D055258C308F4C17983FAAF8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A209DC6E5B0FE7C181ED1B6223B7D596 /* libuberzlib.a */,
+				E653B7A9246208B5D11139AB69B09443 /* libzstd.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		B1B68C73D6DB7A229F33830C48785FC1 /* Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				061C7700D65792B4A659B5A5C08FB03C /* Filament.debug.xcconfig */,
+				70D6116A952E0BF9F00D8DF1C7246F56 /* Filament.release.xcconfig */,
+			);
+			name = "Support Files";
+			path = "../Target Support Files/Filament";
+			sourceTree = "<group>";
+		};
+		B3DB79D0A416E5F609AED37BEFE076CE /* filamat */ = {
+			isa = PBXGroup;
+			children = (
+				41FCBC8F8598223F33EDAB6261E660AD /* Enums.h */,
+				D4E652329607F7C73948845000ECA4F7 /* MaterialBuilder.h */,
+				E564372697F5F274CB330E5C3007ADEB /* MaterialChunkType.h */,
+				BECAFE530B68779FB6C104D2707BFF2B /* MaterialEnums.h */,
+				4F84A942DA6583C468E31FE9DE179E3D /* Package.h */,
+				EAD3E3CC027A616BB4371A42317E968B /* Frameworks */,
+			);
+			name = filamat;
+			sourceTree = "<group>";
+		};
+		BAC2182CC81F1790C67D5D20155CDA08 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				319B20569480EC19E0B038BE1C9B531D /* libfilameshio.a */,
+				5365FC078867E48D851344E5D6E0599D /* libmeshoptimizer.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BC92397637801059143A48F63C904414 /* ktxreader */ = {
+			isa = PBXGroup;
+			children = (
+				E298F8FDACC6AC441B599B2A0D8F566B /* Ktx1Reader.h */,
+				5EC8D1BFCD9D43720E3A6C164747B8F3 /* Ktx2Reader.h */,
+				46A271009D48FEFBC23D8EF2D9BC1644 /* Frameworks */,
+			);
+			name = ktxreader;
+			sourceTree = "<group>";
+		};
+		CB9A00CC917B1BB51E650B10CD7E6CC2 /* Targets Support Files */ = {
+			isa = PBXGroup;
+			children = (
+				581FA49DB5A7A4B87B09D3B65EAB9126 /* Pods-iosApp */,
+			);
+			name = "Targets Support Files";
+			sourceTree = "<group>";
+		};
+		CF1408CF629C7361332E53B88F7BD30C = {
+			isa = PBXGroup;
+			children = (
+				9D940727FF8FB9C785EB98E56350EF41 /* Podfile */,
+				D89477F20FB1DE18A04690586D7808C4 /* Frameworks */,
+				2416739E7938933DA0401063360502F9 /* Pods */,
+				A616F3CCDF6449AD8C5AEF7F564ECA45 /* Products */,
+				CB9A00CC917B1BB51E650B10CD7E6CC2 /* Targets Support Files */,
+			);
+			sourceTree = "<group>";
+		};
+		D89477F20FB1DE18A04690586D7808C4 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		DB18510D9D5B0013FDFB5829A6647171 /* image */ = {
+			isa = PBXGroup;
+			children = (
+				068349E2FD2063B9F13C5C66E62F34E7 /* ColorTransform.h */,
+				456DCDD494F13A6877D5CB2657C17FD3 /* ImageOps.h */,
+				C40A17C7E7958999B7AB896F6C619EA0 /* ImageSampler.h */,
+				8B87549C4092164A217CCA3689CB0525 /* Ktx1Bundle.h */,
+				CD3A131F6191ECE8CF5897564910213E /* LinearImage.h */,
+				2E41ED8BB18F1CA67097C707892E0DBD /* Frameworks */,
+			);
+			name = image;
+			sourceTree = "<group>";
+		};
+		E131BCED9B39A371CFA3D41A22F21C0E /* filament */ = {
+			isa = PBXGroup;
+			children = (
+				9B246E6115F2222E32D7EDD6C1C63AFA /* AcquiredImage.h */,
+				76587DF4355A4D970A9656E3DD15755A /* Box.h */,
+				538E88179F78BC6A26BC0269508ED2E7 /* BufferDescriptor.h */,
+				CFA14B2AF31A837E1AE54543532A1470 /* BufferObject.h */,
+				7F4A878C9E6818824924E56FE38DD989 /* CallbackHandler.h */,
+				BD4CA955B601FF3EB119D7A9FD173869 /* Camera.h */,
+				794A4FA1356922EDCD4148241AC15927 /* Color.h */,
+				36CFD2A091B8A272011ED7472CCD4FE3 /* ColorGrading.h */,
+				7DD5F02F0188EE1D97D4DA73183F431A /* ColorSpace.h */,
+				A7B4956810C7E1398F0DD795B15FCC30 /* Cubemap.h */,
+				39EC553F0B84DA4ED1DC649360C2D09B /* CubemapIBL.h */,
+				7E68EB8188F21849FE89F73ABC26930D /* CubemapSH.h */,
+				BDE2C3C1CCBAB6EC927DE7B148A81148 /* CubemapUtils.h */,
+				10AFAE0F3CE5888DD153E535DFC544B6 /* DebugRegistry.h */,
+				0FE0EB04BC632BC11B67B0918A16792E /* DescriptorSetOffsetArray.h */,
+				6048A1BC093FF201FF9011AF03F9D812 /* DriverApiForward.h */,
+				BF3AC7CA5D456B7671D846F7DD544CC1 /* DriverEnums.h */,
+				B8BD5231EB63FCEEABD7AB47C9527E54 /* Engine.h */,
+				263B4A5156E997118FA3DF05315E2332 /* Exposure.h */,
+				9DB54EA33B31228A14BA6D03383F516B /* Fence.h */,
+				C914F38E488B1101B40622066B8ACFFA /* FilamentAPI.h */,
+				ED907D8D4D54F0B69B1FC63B2D8F8E67 /* Frustum.h */,
+				82B69EEF4A079A1B1FF10555C58CBDF1 /* Handle.h */,
+				9770C75B5A4440327230096A680761E6 /* Image.h */,
+				698CDE6941EE6E185D0D4AC8B96D10A6 /* IndexBuffer.h */,
+				5585335A89D111C4948F13D71804DE52 /* IndirectLight.h */,
+				4108CE2800984B2193E3A1026F8034AE /* InstanceBuffer.h */,
+				888E2AC5A8DF6F18159466CA13EEE83A /* LightManager.h */,
+				E514D87D89A1C05D7BEA768517A954AB /* Material.h */,
+				41DC5535F2247926663F9006E4BA3E1D /* MaterialInstance.h */,
+				46341B1B9DCD40AE213123B8A6F89002 /* MorphTargetBuffer.h */,
+				64BB86419DF902620D118B6F39A5AF09 /* Options.h */,
+				B9D6E516FE243023851CBAF7EABCC17B /* PipelineState.h */,
+				F5B27910449D83E3FADA39CEAC82BBFD /* PixelBufferDescriptor.h */,
+				4786D35FC38D121FBFD40662D1A8AE56 /* Platform.h */,
+				D747EA6D8F0BFBE21412491608023589 /* PresentCallable.h */,
+				FDDE95D440482404A2CCBB9B345C2133 /* Program.h */,
+				865EC0D7674ED8151C3CD0514D1163ED /* RenderableManager.h */,
+				2BACCECED1C4ABF887AA5E54687610A0 /* Renderer.h */,
+				F1726E6CC01723518E3108488BDFFBAA /* RenderTarget.h */,
+				609F83F0C734F0B7A0B8432C33A9583B /* SamplerDescriptor.h */,
+				7D70059ED5964DA9F3C8DC451D66FB2B /* Scene.h */,
+				002A1FD4B5C399EB72C2AA4D33D73B4E /* SkinningBuffer.h */,
+				301B281AF58CA0AD24E3E47F4FE62C7F /* Skybox.h */,
+				66A117E97C7D103FC55E37AFA378C83A /* Stream.h */,
+				726F440B7FD2DDA3FBF81E975009CC46 /* SurfaceOrientation.h */,
+				AB04309DB4D1D4659EAA2DE8ADA00EFC /* SwapChain.h */,
+				389BF5E96253D5861AD2D76F6288A997 /* Sync.h */,
+				DF813A5579D5D94653183D66CE35D991 /* TangentSpaceMesh.h */,
+				20FAAD454F88862A5F697F17E83CB42B /* TargetBufferInfo.h */,
+				FFB7EBCF7324F684B689CAE5F41B3458 /* Texture.h */,
+				EFB4F4AAB835FD652D221ADE55B06824 /* TextureSampler.h */,
+				83FEEC065BDC7C0CDC20F51CBEC57299 /* ToneMapper.h */,
+				4C3C5BCC9D6B7FEE5371AB75931BCDB8 /* Transcoder.h */,
+				35B0E4FBE7DC4045640869ED9727971A /* TransformManager.h */,
+				14ADF33A83E958134F9E2D80E06459FD /* utilities.h */,
+				CCA728FF8374E61481771406A38D95C1 /* VertexBuffer.h */,
+				98549A4D58BE062E6B5E4D9E281E5ABF /* View.h */,
+				0D6BBBBEB2651ACDF31B47B315F71043 /* Viewport.h */,
+				44FFE6BE17D4B24B423D31E64FBD892D /* Frameworks */,
+			);
+			name = filament;
+			sourceTree = "<group>";
+		};
+		E6D4971937CA00AFE2ECCBA79C1A106A /* camutils */ = {
+			isa = PBXGroup;
+			children = (
+				0C064116705F6EBCE2406EF05212631C /* Bookmark.h */,
+				8255E3FFB21F0A2C4BF4D2BA2F62269E /* compiler.h */,
+				FEF3F597150DA87B4A2F7B60E56B7914 /* Manipulator.h */,
+				6313169F7B4E974939F088CE88EF7329 /* Frameworks */,
+			);
+			name = camutils;
+			sourceTree = "<group>";
+		};
+		EAD3E3CC027A616BB4371A42317E968B /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				46E5C0CC0B2558C29039691CBE1C35B5 /* libfilabridge.a */,
+				11831864A1C1671AF3A3E27A7243711A /* libfilamat.a */,
+				B4D4137C81E2F6B9E79BD73515859716 /* libshaders.a */,
+				444B772B9A638F2559C145FAC91B462E /* libsmol-v.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		ECF8EB4E21B27F263109315CF99957C2 /* uberz */ = {
+			isa = PBXGroup;
+			children = (
+				8C7D412CD7D142849B7CE1813EB890AB /* ArchiveEnums.h */,
+				08B3C7C903EFD91CF298B6AA7229F225 /* ReadableArchive.h */,
+				88F149B1C264EBA5997EDCE799BD219D /* WritableArchive.h */,
+				B0137115D055258C308F4C17983FAAF8 /* Frameworks */,
+			);
+			name = uberz;
+			sourceTree = "<group>";
+		};
+		EDAB27849D6066381F30457C5A69A5D0 /* tsl */ = {
+			isa = PBXGroup;
+			children = (
+				B788BC5B64BED1CE8360EFDE1EFC0775 /* robin_growth_policy.h */,
+				FA6F09F7647C7DF583A9380FB6681190 /* robin_hash.h */,
+				02399078A8C56808A01E420BA843A540 /* robin_map.h */,
+				2D7120AFA7F6EE4192ADAE307331A85D /* robin_set.h */,
+			);
+			name = tsl;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		F598543010D737577A4DB1DBC720F5A3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		ED39C638569286489CD697A6C8964146 /* Pods-iosApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = ACDA1CB371D5E4542273D3B2654C59D3 /* Build configuration list for PBXNativeTarget "Pods-iosApp" */;
+			buildPhases = (
+				F598543010D737577A4DB1DBC720F5A3 /* Headers */,
+				2A22EDFEB70F39A518A146A771D87474 /* Sources */,
+				FC80F724C7024DF185E7992502DC5814 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2A8DEDCD440FA4258A79C1FCB4DDBE8A /* PBXTargetDependency */,
+			);
+			name = "Pods-iosApp";
+			productName = "Pods-iosApp";
+			productReference = B097DD7534E741D5C41838011D755842 /* Pods-iosApp */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		BFDFE7DC352907FC980B868725387E98 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+			};
+			buildConfigurationList = 4821239608C13582E20E6DA73FD5F1F9 /* Build configuration list for PBXProject "Pods" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CF1408CF629C7361332E53B88F7BD30C;
+			minimizedProjectReferenceProxies = 0;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A616F3CCDF6449AD8C5AEF7F564ECA45 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AB2AB3A9FFC53A3435BDE55A0C9789AF /* Filament */,
+				ED39C638569286489CD697A6C8964146 /* Pods-iosApp */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2A22EDFEB70F39A518A146A771D87474 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				556DBA11CC233CFC4D9DCCE918C53D9B /* Pods-iosApp-dummy.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		2A8DEDCD440FA4258A79C1FCB4DDBE8A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = Filament;
+			target = AB2AB3A9FFC53A3435BDE55A0C9789AF /* Filament */;
+			targetProxy = D057F9EB53FD5077C758472ABA1FB9BE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		554FD87A7DA067E49C525B4245E41364 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 70D6116A952E0BF9F00D8DF1C7246F56 /* Filament.release.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		90D4D09BCB6A4660E43ACBE9ECB6FE9A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_DEBUG=1",
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Debug;
+		};
+		9553C89E183877A5CB2F3C6801BEC129 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"POD_CONFIGURATION_RELEASE=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRIP_INSTALLED_PRODUCT = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				SYMROOT = "${SRCROOT}/../build";
+			};
+			name = Release;
+		};
+		9F831821A8038FA736BED0E393881658 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 061C7700D65792B4A659B5A5C08FB03C /* Filament.debug.xcconfig */;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EBD8842D322AF24C69618F5716BAD502 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 86D307BB5CF566482D968537EDC207AC /* Pods-iosApp.debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACH_O_TYPE = staticlib;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		FE121D4AF4220D06DF576F0AC3C615B6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4A57E346193D163B2EA9FBA2320CD19B /* Pods-iosApp.release.xcconfig */;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				"CODE_SIGN_IDENTITY[sdk=appletvos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
+				"CODE_SIGN_IDENTITY[sdk=watchos*]" = "";
+				ENABLE_MODULE_VERIFIER = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = arm64;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MACH_O_TYPE = staticlib;
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOLFLAGS = "";
+				PODS_ROOT = "$(SRCROOT)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.${PRODUCT_NAME:rfc1034identifier}";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4821239608C13582E20E6DA73FD5F1F9 /* Build configuration list for PBXProject "Pods" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				90D4D09BCB6A4660E43ACBE9ECB6FE9A /* Debug */,
+				9553C89E183877A5CB2F3C6801BEC129 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		970A2991FE740F654A4D7ACB8F958D1E /* Build configuration list for PBXAggregateTarget "Filament" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9F831821A8038FA736BED0E393881658 /* Debug */,
+				554FD87A7DA067E49C525B4245E41364 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		ACDA1CB371D5E4542273D3B2654C59D3 /* Build configuration list for PBXNativeTarget "Pods-iosApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBD8842D322AF24C69618F5716BAD502 /* Debug */,
+				FE121D4AF4220D06DF576F0AC3C615B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = BFDFE7DC352907FC980B868725387E98 /* Project object */;
+}

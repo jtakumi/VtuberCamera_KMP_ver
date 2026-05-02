@@ -10,11 +10,13 @@
 
 #if VTC_FILAMENT_HEADERS_AVAILABLE
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <unordered_map>
 #include <vector>
 
+#include <filament/Box.h>
 #include <filament/Camera.h>
 #include <filament/Engine.h>
 #include <filament/RenderableManager.h>
@@ -23,11 +25,16 @@
 #include <filament/SwapChain.h>
 #include <filament/TransformManager.h>
 #include <filament/View.h>
+#include <filament/Viewport.h>
+#include <gltfio/Animator.h>
 #include <gltfio/AssetLoader.h>
 #include <gltfio/FilamentAsset.h>
+#include <gltfio/FilamentInstance.h>
 #include <gltfio/ResourceLoader.h>
 #include <gltfio/TextureProvider.h>
+#include <gltfio/materials/uberarchive.h>
 #include <math/mat4.h>
+#include <math/vec3.h>
 #include <utils/EntityManager.h>
 
 #if __has_include(<gltfio/MaterialProvider.h>)
@@ -126,6 +133,23 @@ struct VTCHeadBinding {
 struct VTCRuntimeDescriptor {
     NSInteger headBoneNodeIndex = NSNotFound;
     std::vector<VTCExpressionBinding> expressionBindings;
+};
+
+struct VTCAssetLoaderDeleter {
+    void operator()(filament::gltfio::AssetLoader *loader) const {
+        if (loader != nullptr) {
+            filament::gltfio::AssetLoader::destroy(&loader);
+        }
+    }
+};
+
+struct VTCMaterialProviderDeleter {
+    void operator()(filament::gltfio::MaterialProvider *provider) const {
+        if (provider != nullptr) {
+            provider->destroyMaterials();
+            delete provider;
+        }
+    }
 };
 
 struct VTCBindingDiagnostics {
@@ -333,7 +357,7 @@ public:
         }
         const uint32_t width = static_cast<uint32_t>(std::max<CGFloat>(1.0, size.width * contentScale));
         const uint32_t height = static_cast<uint32_t>(std::max<CGFloat>(1.0, size.height * contentScale));
-        view->setViewport({0, 0, width, height});
+        view->setViewport(filament::Viewport(0, 0, width, height));
         if (camera != nullptr && height > 0) {
             camera->setProjection(45.0, static_cast<double>(width) / static_cast<double>(height), 0.05, 100.0);
         }
@@ -358,7 +382,11 @@ public:
             runtimeDescriptor.expressionBindings.size()
         );
 
-        materialProvider.reset(gltfio::createUbershaderProvider(engine));
+        materialProvider.reset(filament::gltfio::createUbershaderProvider(
+            engine,
+            UBERARCHIVE_DEFAULT_DATA,
+            UBERARCHIVE_DEFAULT_SIZE
+        ));
         if (materialProvider == nullptr) {
             if (error != nullptr) {
                 *error = VTCFilamentError(VTCFilamentRendererErrorCodeUnavailable, @"Failed to create glTF material provider.");
@@ -366,7 +394,7 @@ public:
             return false;
         }
 
-        assetLoader.reset(gltfio::AssetLoader::create({engine, materialProvider.get()}));
+        assetLoader.reset(filament::gltfio::AssetLoader::create({engine, materialProvider.get()}));
         if (assetLoader == nullptr) {
             if (error != nullptr) {
                 *error = VTCFilamentError(VTCFilamentRendererErrorCodeUnavailable, @"Failed to create glTF asset loader.");
@@ -374,7 +402,17 @@ public:
             return false;
         }
 
-        asset = assetLoader->createAssetFromBinary(static_cast<const uint8_t *>(data.bytes), data.length);
+        if (data.length > std::numeric_limits<uint32_t>::max()) {
+            if (error != nullptr) {
+                *error = VTCFilamentError(VTCFilamentRendererErrorCodeInvalidInput, @"Avatar GLB/VRM bytes are too large.");
+            }
+            return false;
+        }
+
+        asset = assetLoader->createAsset(
+            static_cast<const uint8_t *>(data.bytes),
+            static_cast<uint32_t>(data.length)
+        );
         if (asset == nullptr) {
             if (error != nullptr) {
                 *error = VTCFilamentError(VTCFilamentRendererErrorCodeLoadFailed, @"Failed to parse avatar GLB/VRM bytes.");
@@ -382,7 +420,7 @@ public:
             return false;
         }
 
-        gltfio::ResourceLoader resourceLoader({engine});
+        filament::gltfio::ResourceLoader resourceLoader({engine});
         if (!resourceLoader.loadResources(asset)) {
             if (error != nullptr) {
                 *error = VTCFilamentError(VTCFilamentRendererErrorCodeLoadFailed, @"Failed to load avatar resources.");
@@ -478,22 +516,16 @@ private:
             return;
         }
         camera->lookAt(
-            targetX,
-            targetY,
-            targetZ + distance,
-            targetX,
-            targetY,
-            targetZ,
-            0.0,
-            1.0,
-            0.0
+            filament::math::double3(targetX, targetY, targetZ + distance),
+            filament::math::double3(targetX, targetY, targetZ),
+            filament::math::double3(0.0, 1.0, 0.0)
         );
     }
 
     void configureCameraForAsset() {
-        const filament::Box bounds = asset->getBoundingBox();
-        const auto center = bounds.center;
-        const auto halfExtent = bounds.halfExtent;
+        const filament::Aabb bounds = asset->getBoundingBox();
+        const auto center = bounds.center();
+        const auto halfExtent = bounds.extent();
         const float maxHalfExtent = std::max(
             std::max(halfExtent[0], halfExtent[1]),
             std::max(halfExtent[2], kMinimumModelHalfExtent)
@@ -551,8 +583,7 @@ private:
             return std::nullopt;
         }
 
-        mat4f worldTransform;
-        transformManager.getWorldTransform(transformInstance, &worldTransform);
+        const mat4f worldTransform = transformManager.getWorldTransform(transformInstance);
         return VTCPoint3{
             worldTransform[3][0],
             worldTransform[3][1],
@@ -601,7 +632,7 @@ private:
             if (transformInstance) {
                 VTCHeadBinding binding;
                 binding.transformInstance = transformInstance;
-                transformManager.getTransform(transformInstance, &binding.baseLocalTransform);
+                binding.baseLocalTransform = transformManager.getTransform(transformInstance);
                 headBinding = binding;
             } else {
                 NSLog(
@@ -735,9 +766,9 @@ private:
     filament::Camera *camera = nullptr;
     filament::SwapChain *swapChain = nullptr;
     Entity cameraEntity;
-    gltfio::FilamentAsset *asset = nullptr;
-    std::unique_ptr<gltfio::AssetLoader> assetLoader;
-    std::unique_ptr<gltfio::MaterialProvider> materialProvider;
+    filament::gltfio::FilamentAsset *asset = nullptr;
+    std::unique_ptr<filament::gltfio::AssetLoader, VTCAssetLoaderDeleter> assetLoader;
+    std::unique_ptr<filament::gltfio::MaterialProvider, VTCMaterialProviderDeleter> materialProvider;
     VTCRuntimeDescriptor runtimeDescriptor;
     std::optional<VTCHeadBinding> headBinding;
     std::vector<VTCExpressionBinding> expressionBindings;

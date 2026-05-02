@@ -4,3 +4,18 @@ target 'iosApp' do
   pod 'Filament',
       :podspec => 'https://raw.githubusercontent.com/google/filament/v1.71.2/ios/CocoaPods/Filament.podspec'
 end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['ARCHS'] = '$(ARCHS_STANDARD)'
+      config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+
+  installer.aggregate_targets.each do |target|
+    target.xcconfigs.each do |_name, xcconfig|
+      xcconfig.attributes['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'arm64'
+    end
+  end
+end

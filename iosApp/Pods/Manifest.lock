@@ -1,0 +1,58 @@
+PODS:
+  - Filament (1.71.2):
+    - Filament/camutils (= 1.71.2)
+    - Filament/filamat (= 1.71.2)
+    - Filament/filament (= 1.71.2)
+    - Filament/filameshio (= 1.71.2)
+    - Filament/gltfio_core (= 1.71.2)
+    - Filament/image (= 1.71.2)
+    - Filament/ktxreader (= 1.71.2)
+    - Filament/math (= 1.71.2)
+    - Filament/tsl (= 1.71.2)
+    - Filament/uberz (= 1.71.2)
+    - Filament/utils (= 1.71.2)
+    - Filament/viewer (= 1.71.2)
+  - Filament/camutils (1.71.2):
+    - Filament/math
+  - Filament/filamat (1.71.2):
+    - Filament/math
+    - Filament/utils
+  - Filament/filament (1.71.2):
+    - Filament/math
+    - Filament/utils
+  - Filament/filameshio (1.71.2):
+    - Filament/filament
+  - Filament/gltfio_core (1.71.2):
+    - Filament/filament
+    - Filament/ktxreader
+    - Filament/uberz
+  - Filament/image (1.71.2):
+    - Filament/filament
+  - Filament/ktxreader (1.71.2):
+    - Filament/filament
+    - Filament/image
+  - Filament/math (1.71.2)
+  - Filament/tsl (1.71.2)
+  - Filament/uberz (1.71.2):
+    - Filament/filamat
+    - Filament/tsl
+    - Filament/utils
+  - Filament/utils (1.71.2):
+    - Filament/tsl
+  - Filament/viewer (1.71.2):
+    - Filament/filament
+    - Filament/gltfio_core
+
+DEPENDENCIES:
+  - Filament (from `https://raw.githubusercontent.com/google/filament/v1.71.2/ios/CocoaPods/Filament.podspec`)
+
+EXTERNAL SOURCES:
+  Filament:
+    :podspec: https://raw.githubusercontent.com/google/filament/v1.71.2/ios/CocoaPods/Filament.podspec
+
+SPEC CHECKSUMS:
+  Filament: 066a39218778988fb6aec5f70908edb921ccc32e
+
+PODFILE CHECKSUM: 0233c03bb9a5819cd3276f2d4660a892eeeff65c
+
+COCOAPODS: 1.16.2
