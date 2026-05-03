@@ -87,13 +87,17 @@ Windows:
 .\gradlew.bat :composeApp:assembleDebug
 ```
 
-### iOS シミュレータ向けビルド
+### iOS 実機向けビルド
 
-Xcode 26 系のツールチェーンで Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
+Xcode では [iosApp/iosApp.xcworkspace](./iosApp/iosApp.xcworkspace) を開き、実機の iPhone を destination に選んで実行します。`iosApp.xcodeproj` を直接開くと CocoaPods の `Pods-iosApp` target が解決されないため、必ず workspace を使ってください。
+
+ターミナルから確認する場合は次を実行します。
 
 ```shell
-xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
+xcodebuild -workspace iosApp/iosApp.xcworkspace -scheme iosApp -configuration Debug -sdk iphoneos -derivedDataPath /private/tmp/vtuber-iphoneos build CODE_SIGNING_ALLOWED=NO
 ```
+
+現行の Filament CocoaPods 構成は iOS Simulator build には対応していません。Filament の podspec が `arm64` simulator を除外しており、KMP/Compose 側も `iosX64` build を前提にしていないため、Simulator ではなく実機を使ってください。
 
 ## 実装上の補足
 
