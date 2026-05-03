@@ -152,6 +152,15 @@ struct VTCMaterialProviderDeleter {
     }
 };
 
+struct VTCTextureProviderDeleter {
+    void operator()(filament::gltfio::TextureProvider *provider) const {
+        if (provider != nullptr) {
+            provider->cancelDecoding();
+            delete provider;
+        }
+    }
+};
+
 struct VTCBindingDiagnostics {
     size_t morphTargetEntityCount = 0;
     size_t resolvedExpressionBindingCount = 0;
@@ -302,7 +311,10 @@ public:
         view = engine->createView();
         cameraEntity = utils::EntityManager::get().create();
         camera = engine->createCamera(cameraEntity);
-        swapChain = engine->createSwapChain((__bridge void *)layer);
+        swapChain = engine->createSwapChain(
+            (__bridge void *)layer,
+            filament::SwapChain::CONFIG_TRANSPARENT
+        );
 
         if (view != nullptr && scene != nullptr && camera != nullptr) {
             view->setScene(scene);
@@ -420,7 +432,27 @@ public:
             return false;
         }
 
+        std::unique_ptr<filament::gltfio::TextureProvider, VTCTextureProviderDeleter> stbTextureProvider(
+            filament::gltfio::createStbProvider(engine)
+        );
+        std::unique_ptr<filament::gltfio::TextureProvider, VTCTextureProviderDeleter> ktx2TextureProvider(
+            filament::gltfio::createKtx2Provider(engine)
+        );
         filament::gltfio::ResourceLoader resourceLoader({engine});
+        if (stbTextureProvider != nullptr) {
+            resourceLoader.addTextureProvider("image/png", stbTextureProvider.get());
+            resourceLoader.addTextureProvider("image\\/png", stbTextureProvider.get());
+            resourceLoader.addTextureProvider("image/jpeg", stbTextureProvider.get());
+            resourceLoader.addTextureProvider("image\\/jpeg", stbTextureProvider.get());
+            NSLog(@"VTCFilamentRuntime registered STB texture provider for PNG/JPEG resources.");
+        } else {
+            NSLog(@"VTCFilamentRuntime failed to create STB texture provider for PNG/JPEG resources.");
+        }
+        if (ktx2TextureProvider != nullptr) {
+            resourceLoader.addTextureProvider("image/ktx2", ktx2TextureProvider.get());
+            resourceLoader.addTextureProvider("image\\/ktx2", ktx2TextureProvider.get());
+            NSLog(@"VTCFilamentRuntime registered KTX2 texture provider.");
+        }
         if (!resourceLoader.loadResources(asset)) {
             if (error != nullptr) {
                 *error = VTCFilamentError(VTCFilamentRendererErrorCodeLoadFailed, @"Failed to load avatar resources.");
