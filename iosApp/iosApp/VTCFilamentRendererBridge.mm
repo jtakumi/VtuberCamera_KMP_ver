@@ -29,9 +29,22 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
 @implementation VTCAvatarRenderState
 @end
 
+static VTCAvatarRenderState *VTCCopyAvatarRenderState(VTCAvatarRenderState *state) {
+    VTCAvatarRenderState *copy = [[VTCAvatarRenderState alloc] init];
+    copy.headYawDegrees = state.headYawDegrees;
+    copy.headPitchDegrees = state.headPitchDegrees;
+    copy.headRollDegrees = state.headRollDegrees;
+    copy.leftEyeBlink = state.leftEyeBlink;
+    copy.rightEyeBlink = state.rightEyeBlink;
+    copy.jawOpen = state.jawOpen;
+    copy.mouthSmile = state.mouthSmile;
+    return copy;
+}
+
 @interface VTCFilamentRendererBridge ()
 
 @property (nonatomic, strong) UIView *renderView;
+@property (nonatomic, strong) VTCAvatarRenderState *latestAvatarState;
 
 @end
 
@@ -45,6 +58,7 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
     self = [super init];
     if (self != nil) {
         _renderView = [[VTCMetalContainerView alloc] initWithFrame:CGRectZero];
+        _latestAvatarState = [[VTCAvatarRenderState alloc] init];
     }
     return self;
 }
@@ -78,8 +92,9 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
 }
 
 - (void)updateAvatarState:(VTCAvatarRenderState *)state {
-    // Placeholder until tracked avatar pose and expression state drives the renderer.
-    (void)state;
+    self.latestAvatarState = VTCCopyAvatarRenderState(state);
+    // The future Filament-backed implementation should consume latestAvatarState here to apply
+    // head pose and expression channels to the loaded avatar.
 }
 
 - (void)resizeToBounds:(CGRect)bounds contentScale:(CGFloat)contentScale {

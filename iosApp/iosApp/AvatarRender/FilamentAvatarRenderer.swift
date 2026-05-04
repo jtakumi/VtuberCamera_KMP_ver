@@ -154,3 +154,5 @@ final class FilamentAvatarRenderer {
         ])
     }
 }
+
+extension FilamentAvatarRenderer: IOSAvatarRenderStateApplying {}
