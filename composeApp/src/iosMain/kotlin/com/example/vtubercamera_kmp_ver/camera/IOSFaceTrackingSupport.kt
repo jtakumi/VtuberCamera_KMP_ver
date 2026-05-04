@@ -10,6 +10,7 @@ import kotlin.math.asin
 import kotlin.math.atan2
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.FloatVar
+import kotlinx.cinterop.get
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.useContents
 import platform.darwin.simd_float4x4
