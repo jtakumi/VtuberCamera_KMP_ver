@@ -2,7 +2,7 @@
 
 #import <QuartzCore/CAMetalLayer.h>
 
-#if __has_include(<filament/Engine.h>) && __has_include(<filament/Renderer.h>) && __has_include(<filament/Scene.h>) && __has_include(<filament/View.h>) && __has_include(<gltfio/AssetLoader.h>) && __has_include(<gltfio/ResourceLoader.h>)
+#if __has_include(<filament/Engine.h>) && __has_include(<filament/Renderer.h>) && __has_include(<filament/Scene.h>) && __has_include(<filament/View.h>) && __has_include(<gltfio/AssetLoader.h>) && __has_include(<gltfio/ResourceLoader.h>) && __has_include(<gltfio/MaterialProvider.h>)
 #define VTC_FILAMENT_HEADERS_AVAILABLE 1
 #else
 #define VTC_FILAMENT_HEADERS_AVAILABLE 0
@@ -37,9 +37,7 @@
 #include <math/vec3.h>
 #include <utils/EntityManager.h>
 
-#if __has_include(<gltfio/MaterialProvider.h>)
 #include <gltfio/MaterialProvider.h>
-#endif
 #endif
 
 typedef NS_ENUM(NSInteger, VTCFilamentRendererErrorCode) {
