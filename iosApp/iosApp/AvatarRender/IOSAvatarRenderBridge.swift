@@ -1,6 +1,13 @@
 import Foundation
 
 @MainActor
+protocol IOSAvatarRenderStateApplying: AnyObject {
+    func applySelectedAvatar(_ payload: IOSVrmAssetPayload)
+    func clearAvatar()
+    func updateAvatarState(_ state: VTCAvatarRenderState)
+}
+
+@MainActor
 final class IOSAvatarRenderBridge {
     static let avatarSelectionDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidChange")
@@ -21,11 +28,11 @@ final class IOSAvatarRenderBridge {
     static let jawOpenKey = "jawOpen"
     static let mouthSmileKey = "mouthSmile"
 
-    private weak var renderer: FilamentAvatarRenderer?
+    private weak var renderer: IOSAvatarRenderStateApplying?
     private var observerTokens: [NSObjectProtocol] = []
     private let reusableRenderState = VTCAvatarRenderState()
 
-    init(renderer: FilamentAvatarRenderer) {
+    init(renderer: IOSAvatarRenderStateApplying) {
         self.renderer = renderer
     }
 
@@ -80,15 +87,25 @@ final class IOSAvatarRenderBridge {
     }
 
     /// Reuses a single render-state object while applying the latest tracking notification fields.
-    private func handleAvatarRenderStateChanged(_ notification: Notification) {
-        reusableRenderState.headYawDegrees = Self.floatValue(notification.userInfo, key: Self.headYawDegreesKey)
-        reusableRenderState.headPitchDegrees = Self.floatValue(notification.userInfo, key: Self.headPitchDegreesKey)
-        reusableRenderState.headRollDegrees = Self.floatValue(notification.userInfo, key: Self.headRollDegreesKey)
-        reusableRenderState.leftEyeBlink = Self.floatValue(notification.userInfo, key: Self.leftEyeBlinkKey)
-        reusableRenderState.rightEyeBlink = Self.floatValue(notification.userInfo, key: Self.rightEyeBlinkKey)
-        reusableRenderState.jawOpen = Self.floatValue(notification.userInfo, key: Self.jawOpenKey)
-        reusableRenderState.mouthSmile = Self.floatValue(notification.userInfo, key: Self.mouthSmileKey)
+    func handleAvatarRenderStateChanged(_ notification: Notification) {
+        Self.applyRenderState(from: notification.userInfo, to: reusableRenderState)
         renderer?.updateAvatarState(reusableRenderState)
+    }
+
+    static func makeRenderState(from userInfo: [AnyHashable: Any]?) -> VTCAvatarRenderState {
+        let state = VTCAvatarRenderState()
+        applyRenderState(from: userInfo, to: state)
+        return state
+    }
+
+    static func applyRenderState(from userInfo: [AnyHashable: Any]?, to state: VTCAvatarRenderState) {
+        state.headYawDegrees = floatValue(userInfo, key: headYawDegreesKey)
+        state.headPitchDegrees = floatValue(userInfo, key: headPitchDegreesKey)
+        state.headRollDegrees = floatValue(userInfo, key: headRollDegreesKey)
+        state.leftEyeBlink = floatValue(userInfo, key: leftEyeBlinkKey)
+        state.rightEyeBlink = floatValue(userInfo, key: rightEyeBlinkKey)
+        state.jawOpen = floatValue(userInfo, key: jawOpenKey)
+        state.mouthSmile = floatValue(userInfo, key: mouthSmileKey)
     }
 
     /// Returns the bridged float value or `0` when the key is absent, which the renderer treats as

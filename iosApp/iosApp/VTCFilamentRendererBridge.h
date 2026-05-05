@@ -25,6 +25,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface VTCFilamentRendererBridge : NSObject
 
 @property (nonatomic, readonly) UIView *renderView;
+@property (nonatomic, readonly) VTCAvatarRenderState *latestAvatarState;
 
 /// Returns whether Filament headers are discoverable at compile time for this target.
 /// This does not guarantee that the Filament SDK is fully configured, linkable, or runtime-ready.
