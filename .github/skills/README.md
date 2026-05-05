@@ -46,6 +46,10 @@ UI・状態管理・ドメイン・データ・プラットフォームブリッ
 Android / iOS / KMPコードのパフォーマンスリスクを事前に検出するスキル。
 メインスレッドブロック・高頻度アロケーション・不要な再コンポーズ・カメラパイプラインのボトルネック・トラッキング遅延などを洗い出し、体感性能に効くhigh-signal問題をquick winsとともに報告する。
 
+### pr-label-assignment
+PR作成時または既存PR更新時に、changed files と diff から適切なラベルを導出して付与するスキル。
+`gh pr create` / `gh pr edit` を前提に、`dependencies` などの既存確認済みラベルと `android` / `ios` / `kmp` / `docs` / `ci` / `bot` などの候補ラベルを分けて整理し、実行コマンドまで組み立てる。
+
 ---
 
 ## ZennText / .github/skills
