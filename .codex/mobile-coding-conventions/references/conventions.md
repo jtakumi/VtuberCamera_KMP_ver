@@ -10,6 +10,10 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - Swift checks
 - Kotlin checks
 - Recommended procedure
+- Quality checks
+- Guardrails
+- Output format
+- Example prompts
 
 ## What This Guidance Covers
 
@@ -99,6 +103,22 @@ Keep this file aligned with the upstream repo skill when the conventions change.
 - `catch` した error / exception を無言で捨てず、少なくともログ、状態更新、再送出、Result への変換のいずれかで扱う
 - `runCatching`、`onFailure`、callback の failure branch、Swift の `try?` や `catch` でも同様に、失敗が観測可能か確認する
 - 一時回避で握りつぶす場合は理由と影響範囲をコメントで明示し、恒久化しない
+
+### 12. Swift の naming と API design をどう揃えるか
+
+- use site の明確さを最優先し、短さより clarity を優先する
+- type / protocol は UpperCamelCase、property / method / parameter / enum case は lowerCamelCase にする
+- parameter や associated type は型名ではなく役割で命名し、曖昧な `data`、`value`、`manager` の乱用を避ける
+- fluent に読める base name と argument label を選び、意味が分からなくなる unlabeled call を避ける
+- mutating と nonmutating の pair は `sort` / `sorted`、`formUnion` / `union` のように意味と副作用が対で分かる命名にする
+
+### 13. Swift の documentation と API surface をどう揃えるか
+
+- public な型や意味のある宣言には DocC コメントを書き、summary から始める
+- method / initializer / subscript / property は「何をするか」「何を返すか」「何にアクセスするか」を summary で表す
+- default parameter は method family の乱立より優先し、よく使う既定値を後ろ側の parameter に寄せる
+- Boolean property / method は `is`、`has`、assertion として読める名前にする
+- capability を表す protocol は `able`、`ible`、`ing` で終える候補を検討し、もの自体を表す protocol は名詞にする
 
 ## Swift Checks
 
@@ -201,12 +221,12 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - 既存コードの命名と整形が大きく崩れないように合わせる
    - Kotlin は package / directory、ファイル名、class layout、modifier 順、annotation 位置、trailing comma を確認する
    - KMP では `commonMain` と platform source set でファイル suffix の付け方を確認する
-- 単一式 function の expression body、`val` 優先、immutable collection interface、default parameter、named argument の活用余地を確認する
-- public / shared API と platform type 周りでは明示型、KDoc、visibility の明確さを確認する
-- method の直前コメントで機能と責務が読み取れるか確認する
-- package、file、type、method の命名が責務と一致し、レイヤーやドメインのズレがないか確認する
-- Swift は use site で読んだときの明確さ、base name と argument label の自然さ、mutating / nonmutating の対称性を確認する
-- Swift の Boolean / protocol / factory / initializer 命名、DocC summary、default parameter の配置を確認する
+   - 単一式 function の expression body、`val` 優先、immutable collection interface、default parameter、named argument の活用余地を確認する
+   - public / shared API と platform type 周りでは明示型、KDoc、visibility の明確さを確認する
+   - method の直前コメントで機能と責務が読み取れるか確認する
+   - package、file、type、method の命名が責務と一致し、レイヤーやドメインのズレがないか確認する
+   - Swift は use site で読んだときの明確さ、base name と argument label の自然さ、mutating / nonmutating の対称性を確認する
+   - Swift の Boolean / protocol / factory / initializer 命名、DocC summary、default parameter の配置を確認する
 
 3. 文字列を洗い出す
    - 画面表示、エラー表示、ボタン文言、プレースホルダ、空状態の文言を確認する
@@ -219,10 +239,10 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - SwiftUI View は描画と user action の橋渡しに集中させる
 
 5. null safe と異常系を実装する
-- `!!` や強制アンラップを避ける
-- null、空、失敗、例外、権限拒否などの分岐を明示する
-- 成功時だけでなく失敗時の戻り先、表示、ログを決める
-- error / exception を catch したら、握りつぶさずログ、状態更新、再送出、Result 変換などで扱いを残す
+   - `!!` や強制アンラップを避ける
+   - null、空、失敗、例外、権限拒否などの分岐を明示する
+   - 成功時だけでなく失敗時の戻り先、表示、ログを決める
+   - error / exception を catch したら、握りつぶさずログ、状態更新、再送出、Result 変換などで扱いを残す
 
 6. MVVM と declarative UI の前提を崩していないか確認する
    - View がロジック過多になっていないか確認する
@@ -230,6 +250,79 @@ Keep this file aligned with the upstream repo skill when the conventions change.
    - Compose / SwiftUI らしい state-driven な構造になっているか確認する
 
 7. 仕上げを確認する
-- ファイル末尾に空行を入れる
-- method コメントが責務と失敗時の扱いを説明できているか見直す
-- package 名と method 名、class 名が乖離していないか見直す
+   - ファイル末尾に空行を入れる
+   - 異常系を含む最低限のテストや確認観点を用意する
+   - 命名、責務、リソース参照、state 配置に矛盾がないか見直す
+   - method コメントが責務と失敗時の扱いを説明できているか見直す
+   - package 名と method 名、class 名が乖離していないか見直す
+   - Kotlin の不要な `: Unit`、semicolon、冗長な overload、mutable 型宣言が残っていないか見直す
+   - formatter で崩れないか、trailing comma と改行位置が一定か確認する
+   - Swift の DocC summary、argument label、mutating / nonmutating pair、Boolean / protocol 命名に不自然さがないか見直す
+   - error / exception の握りつぶしや、失敗時の無言 return が残っていないか確認する
+
+## Quality Checks
+
+- Kotlin / Swift の書き方が公式ガイドラインと既存コードスタイルから大きく逸脱していない
+- Kotlin の package / directory、ファイル名、class layout、overload 配置が公式ガイドに沿っている
+- Kotlin の命名、modifier 順、annotation 位置、space / 改行ルールが崩れていない
+- method の直前コメントで機能、利用条件、副作用が把握できる
+- package、directory、file、type、method の命名が同じ責務やドメインを指している
+- public / shared API の型、KDoc / DocC、visibility が必要な範囲で明示されている
+- expression body、default parameter、immutable collection など idiomatic Kotlin の選択ができている
+- Swift の base name と argument label が use site で自然に読める
+- Swift の Boolean / protocol / mutating API 命名が副作用や役割を正しく表している
+- Swift の DocC summary と markup が public API の契約説明に使えている
+- Swift の default parameter と overload 設計が過剰な API family を避けている
+- ユーザー向け文字列がリソース参照になっている
+- `!!` や強制アンラップを安易に使っていない
+- Android ではロジックが ViewModel にあり、UI は表示責務に留まっている
+- iOS では一時 UI state と意味のある画面 state が適切に分離されている
+- UI が Jetpack Compose / SwiftUI ベースで実装されている
+- 異常系や失敗パスが考慮されている
+- error / exception を握りつぶさず、観測可能な失敗処理が残っている
+- ファイル末尾に空行がある
+
+## Guardrails
+
+- package 構成と source file 名を場当たり的に決めない
+- `Util`、`Manager`、`Wrapper` のような意味の薄い名前で責務を曖昧にしない
+- package 名と型名、method 名の責務がズレたまま放置しない
+- mutable である必要がない値を `var` や mutable collection で宣言しない
+- 不要な `: Unit`、semicolon、冗長な overload、過剰な scope function 連鎖を残さない
+- platform type を public API に推論任せで流さない
+- Swift API を declaration だけで良しとせず、call site の自然さを確認する
+- Swift で役割が不明な unlabeled parameter、Boolean 名、protocol 名を放置しない
+- Swift で return type だけに依存した overload や method family の乱立を作らない
+- 文字列の直書きを残さない
+- `!!` や強制アンラップを常用しない
+- error / exception を空の `catch`、無言の `onFailure`、理由不明の `try?` で握りつぶさない
+- Android の UI 層にロジックを寄せすぎない
+- iOS View に長寿命 state や画面意味を持つロジックを抱え込ませない
+- 宣言的 UI を前提にしつつ、既存実装との整合性を壊さない
+- 正常系だけで完了扱いにしない
+
+## Output Format
+
+返答には必要に応じて以下を含める。
+
+- Target: Android / iOS / KMP のどこを実装するか
+- UI framework: Jetpack Compose / SwiftUI のどちらを使うか
+- Kotlin style check: source file 構成、命名、整形、idiomatic Kotlin の確認結果
+- Swift style check: API naming、argument label、DocC、mutating / nonmutating 設計の確認結果
+- State placement: ViewModel / ObservableObject / View の責務分担
+- Resource check: 文字列リソース化の有無
+- Null safety check: `!!` / 強制アンラップの排除方針
+- Documentation/API check: public / shared API の型、visibility、KDoc / DocC の確認結果
+- Method comment check: method の機能コメントと責務説明の確認結果
+- Naming consistency check: package、file、type、method の命名整合性
+- Error paths: 想定した異常系
+- Swallowed error check: 握りつぶしの有無と失敗時の扱い
+- Final checklist: 実装前後に確認した項目
+
+## Example Prompts
+
+- `/mobile-coding-conventions Android の Camera 画面を実装する。文字列リソース化と ViewModel 責務も見ながら進めて`
+- `/mobile-coding-conventions iOS の SwiftUI 画面で state の置き場所を確認しながら実装したい`
+- `/mobile-coding-conventions KMP で UI とロジックの分離、null safe、異常系考慮をチェックしながらコードを書いて`
+- `/mobile-coding-conventions KMP の Kotlin ファイル構成、命名、expression body、trailing comma を公式規約ベースで確認しながら実装して`
+- `/mobile-coding-conventions iOS の SwiftUI 実装で API 名、argument label、DocC、mutating / nonmutating の命名を公式規約ベースで確認して`
