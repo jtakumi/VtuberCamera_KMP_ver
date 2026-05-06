@@ -61,7 +61,7 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
       useCustomWorkingDirectory = "YES"
-      customWorkingDirectory = "/Users/j____takumi/Android_development/VtuberCamera_KMP_ver/iosApp"
+      customWorkingDirectory = "/Users/j____takumi/Android_development/VtuberCamera_KMP_ver/iosApp/iosAppTests"
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"

@@ -1,9 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import com.example.vtubercamera_kmp_ver.avatar.mapping.AvatarExpressionId
-import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmExpressionMap
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
-import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmExpressionDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.google.android.filament.Engine
 import com.google.android.filament.gltfio.FilamentAsset
@@ -183,71 +181,25 @@ internal class AndroidAvatarRuntimeController private constructor(
             entities: IntArray,
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
         ): List<ExpressionBinding> {
-            val availableNames = runtimeDescriptor.availableExpressionNames
-            return listOfNotNull(
-                createExpressionBinding(
-                    expressionId = AvatarExpressionId.BlinkLeft,
-                    runtimeDescriptor = runtimeDescriptor,
-                    availableNames = availableNames,
-                    entities = entities,
-                    weightProvider = { state -> state.expressions.leftEyeBlink },
-                ),
-                createExpressionBinding(
-                    expressionId = AvatarExpressionId.BlinkRight,
-                    runtimeDescriptor = runtimeDescriptor,
-                    availableNames = availableNames,
-                    entities = entities,
-                    weightProvider = { state -> state.expressions.rightEyeBlink },
-                ),
-                createExpressionBinding(
-                    expressionId = AvatarExpressionId.JawOpen,
-                    runtimeDescriptor = runtimeDescriptor,
-                    availableNames = availableNames,
-                    entities = entities,
-                    weightProvider = { state -> state.expressions.jawOpen },
-                ),
-                createExpressionBinding(
-                    expressionId = AvatarExpressionId.Smile,
-                    runtimeDescriptor = runtimeDescriptor,
-                    availableNames = availableNames,
-                    entities = entities,
-                    weightProvider = { state -> state.expressions.mouthSmile },
-                ),
-            )
-        }
-
-        private fun createExpressionBinding(
-            expressionId: AvatarExpressionId,
-            runtimeDescriptor: VrmRuntimeAssetDescriptor,
-            availableNames: Set<String>,
-            entities: IntArray,
-            weightProvider: (AvatarRenderState) -> Float,
-        ): ExpressionBinding? {
-            val runtimeName = VrmExpressionMap.resolve(
-                expression = expressionId,
-                specVersion = runtimeDescriptor.specVersion,
-                availableNames = availableNames,
-            ) ?: return null
-            val descriptor = runtimeDescriptor.expressions.firstOrNull { expression ->
-                expression.runtimeName == runtimeName
-            } ?: return null
-            val morphBinds = descriptor.toMorphBinds(entities)
-            if (morphBinds.isEmpty()) {
-                return null
-            }
-            return ExpressionBinding(
-                weightProvider = weightProvider,
-                morphBinds = morphBinds,
-            )
-        }
-
-        private fun VrmExpressionDescriptor.toMorphBinds(entities: IntArray): List<MorphBind> {
-            return morphTargetBinds.mapNotNull { bind ->
-                val entity = entities.getOrNull(bind.nodeIndex) ?: return@mapNotNull null
-                MorphBind(
-                    entity = entity,
-                    morphTargetIndex = bind.morphTargetIndex,
-                    weight = bind.weight,
+            return VrmMorphBindingResolver.resolve(
+                runtimeDescriptor = runtimeDescriptor,
+                entities = entities,
+            ).mapNotNull { binding ->
+                val weightProvider = when (binding.expressionId) {
+                    AvatarExpressionId.BlinkLeft -> { state: AvatarRenderState -> state.expressions.leftEyeBlink }
+                    AvatarExpressionId.BlinkRight -> { state: AvatarRenderState -> state.expressions.rightEyeBlink }
+                    AvatarExpressionId.JawOpen -> { state: AvatarRenderState -> state.expressions.jawOpen }
+                    AvatarExpressionId.Smile -> { state: AvatarRenderState -> state.expressions.mouthSmile }
+                }
+                ExpressionBinding(
+                    weightProvider = weightProvider,
+                    morphBinds = binding.morphBinds.map { bind ->
+                        MorphBind(
+                            entity = bind.entity,
+                            morphTargetIndex = bind.morphTargetIndex,
+                            weight = bind.weight,
+                        )
+                    },
                 )
             }
         }
