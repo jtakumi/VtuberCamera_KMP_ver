@@ -1,6 +1,7 @@
 ---
 name: mobile-coding-conventions
-description: Guide Android, iOS, and KMP implementation with this repo's mobile coding conventions. Use when writing, reviewing, or refactoring Kotlin or Swift code and you need checks for official naming and formatting, source file organization, method comments, naming consistency, swallowed errors, string resources, null safety, MVVM or ObservableObject responsibilities, Jetpack Compose or SwiftUI patterns, error handling, and final newline.
+description: 'Guide Kotlin and Swift implementation with repo coding conventions. Use when writing, reviewing, or refactoring Android, iOS, or KMP code and you need checks for Kotlin official naming, file organization, formatting, idiomatic language usage, method comments, naming consistency, swallowed errors, Swift API naming and documentation design, string resources, null safety, MVVM, ViewModel or ObservableObject responsibilities, Jetpack Compose, SwiftUI, error handling, and final newline.'
+argument-hint: '実装対象、Android/iOS/KMP、確認したい観点を指定してください'
 ---
 
 # Mobile Coding Conventions
