@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runProcess } from "./processRunner.js";
 
 export type CodexMode = "ask" | "fix" | "pr";
 
@@ -27,6 +27,13 @@ export async function runCodexTask(params: CodexTaskParams): Promise<CodexTaskRe
   const startedAt = new Date();
   const logFileName = buildLogFileName(startedAt, params.repoKey, params.mode);
   const logPath = join(LOG_DIR, logFileName);
+  const lastMessagePath = join(
+    LOG_DIR,
+    logFileName.replace(/\.log$/, ".last-message.md")
+  );
+  const codexBin = process.env.CODEX_BIN || defaultCodexBin();
+
+  await mkdir(LOG_DIR, { recursive: true });
 
   const args = [
     "exec",
@@ -34,12 +41,20 @@ export async function runCodexTask(params: CodexTaskParams): Promise<CodexTaskRe
     params.repoPath,
     "--sandbox",
     sandbox,
-    systemInstruction
+    "--output-last-message",
+    lastMessagePath,
+    "-"
   ];
 
-  const result = await runProcess(params.repoPath, args);
+  const result = await runProcess({
+    cwd: params.repoPath,
+    command: codexBin,
+    args,
+    env: process.env,
+    input: systemInstruction
+  });
+  const finalMessage = await readTextIfPresent(lastMessagePath);
 
-  await mkdir(LOG_DIR, { recursive: true });
   await writeFile(
     logPath,
     [
@@ -50,10 +65,15 @@ export async function runCodexTask(params: CodexTaskParams): Promise<CodexTaskRe
       `repoPath: ${params.repoPath}`,
       `mode: ${params.mode}`,
       `sandbox: ${sandbox}`,
+      `codexBin: ${codexBin}`,
+      `lastMessagePath: ${lastMessagePath}`,
       `exitCode: ${result.exitCode}`,
       "",
       "PROMPT:",
       params.prompt,
+      "",
+      "LAST_MESSAGE:",
+      finalMessage,
       "",
       "STDOUT:",
       result.stdout,
@@ -66,7 +86,8 @@ export async function runCodexTask(params: CodexTaskParams): Promise<CodexTaskRe
 
   if (result.exitCode === 0) {
     return {
-      finalMessage: result.stdout.trim() || "Codex task completed.",
+      finalMessage:
+        finalMessage.trim() || result.stdout.trim() || "Codex task completed.",
       logPath,
       exitCode: result.exitCode
     };
@@ -80,7 +101,7 @@ export async function runCodexTask(params: CodexTaskParams): Promise<CodexTaskRe
       truncate(result.stderr, 3500),
       "",
       "STDOUT:",
-      truncate(result.stdout, 1500),
+      truncate(finalMessage || result.stdout, 1500),
       "",
       `Log: ${logPath}`
     ].join("\n"),
@@ -98,40 +119,6 @@ export class CodexTaskError extends Error {
     super(message);
     this.name = "CodexTaskError";
   }
-}
-
-function runProcess(
-  cwd: string,
-  args: string[]
-): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("codex", args, {
-      cwd,
-      env: process.env,
-      shell: false
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (data: Buffer) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on("data", (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    child.on("error", reject);
-
-    child.on("close", (code) => {
-      resolve({
-        stdout,
-        stderr,
-        exitCode: code ?? 1
-      });
-    });
-  });
 }
 
 function buildPrompt(mode: CodexMode, userPrompt: string): string {
@@ -177,4 +164,18 @@ function sanitize(value: string): string {
 
 function truncate(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}\n...truncated` : value;
+}
+
+function defaultCodexBin(): string {
+  return process.platform === "win32" ? "codex.cmd" : "codex";
+}
+
+async function readTextIfPresent(path: string): Promise<string> {
+  try {
+    return await readFile(path, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return "";
+    throw error;
+  }
 }

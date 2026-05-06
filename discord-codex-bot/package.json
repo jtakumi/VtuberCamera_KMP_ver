@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:android": "tsx src/buildAndroid.ts",
     "dev": "tsx src/index.ts",
+    "doctor": "tsx src/doctor.ts",
     "register": "tsx src/registerCommands.ts",
     "typecheck": "tsc --noEmit"
   },
