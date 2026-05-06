@@ -29,7 +29,8 @@ final class FilamentLifecycleCoordinator {
 
     func teardown() {
         NotificationCenter.default.removeObserver(self)
-        stopDisplayLink()
+        displayLink?.invalidate()
+        displayLink = nil
         renderer?.setPaused(true)
     }
 
@@ -79,15 +80,13 @@ final class FilamentLifecycleCoordinator {
         displayLink = link
     }
 
-    nonisolated private func stopDisplayLink() {
-        Task{ @MainActor [weak self] in
-            self?.displayLink?.invalidate()
-            self?.displayLink = nil
-        }
+    private func stopDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
-        stopDisplayLink()
+        displayLink?.invalidate()
     }
 }

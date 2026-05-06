@@ -135,6 +135,7 @@ internal class AndroidFilamentAvatarRenderer(
         uiHelper.detach()
         displayHelper.detach()
         destroySwapChain()
+        engine.flushAndWait()
         scene.removeEntity(lightEntity)
         engine.destroyEntity(lightEntity)
         scene.indirectLight = null
