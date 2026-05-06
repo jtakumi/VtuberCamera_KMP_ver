@@ -1,7 +1,8 @@
 import Foundation
+import QuartzCore
 
 enum FilamentBridgeSmokeCheck {
     static func isBridgeAvailable() -> Bool {
-        VTCFilamentRendererBridge.isFilamentSdkConfigured()
+        VTCFilamentRendererBridge().renderView.layer is CAMetalLayer
     }
 }
