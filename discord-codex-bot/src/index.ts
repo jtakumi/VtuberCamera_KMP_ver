@@ -33,17 +33,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await handleCodexCommand(interaction);
   } catch (error) {
     console.error("Unhandled /codex error:", error);
-    await replyWithFallback(
-      interaction,
-      "Codex Bot で予期しないエラーが発生しました。"
-    );
+    await replyWithFallback(interaction, "Codex Bot hit an unexpected error.");
   }
 });
 
 async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
   if (!allowedUserIds.has(interaction.user.id)) {
     await interaction.reply({
-      content: "この Bot を実行する権限がありません。",
+      content: "You are not allowed to run this bot.",
       ephemeral: true
     });
     return;
@@ -74,7 +71,7 @@ async function handleTaskCommand(interaction: ChatInputCommandInteraction) {
 
   if (!isRepoKey(repo)) {
     await interaction.reply({
-      content: "許可されていない repo です。",
+      content: "That repo is not allowed.",
       ephemeral: true
     });
     return;
@@ -82,7 +79,7 @@ async function handleTaskCommand(interaction: ChatInputCommandInteraction) {
 
   if (!isCodexMode(mode)) {
     await interaction.reply({
-      content: "mode は ask / fix / pr のいずれかを指定してください。",
+      content: "mode must be ask, fix, or pr.",
       ephemeral: true
     });
     return;
@@ -93,16 +90,14 @@ async function handleTaskCommand(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
   await interaction.editReply(
     [
-      "Codex task を受け付けました。",
+      "Codex task accepted.",
       "",
       `repo: ${repo}`,
       `mode: ${mode}`,
       "",
-      "完了したらこのチャンネルに結果を投稿します。"
+      "I will post the result in this channel when it finishes."
     ].join("\n")
   );
-
-  const channel = interaction.channel;
 
   try {
     const result = await runCodexTask({
@@ -113,42 +108,40 @@ async function handleTaskCommand(interaction: ChatInputCommandInteraction) {
       requestedBy: `${interaction.user.tag} (${interaction.user.id})`
     });
 
-    if (channel?.isSendable()) {
-      await channel.send(
-        [
-          "Codex task completed",
-          "",
-          `repo: \`${repo}\``,
-          `mode: \`${mode}\``,
-          `log: \`${result.logPath}\``,
-          "",
-          "```md",
-          truncateForDiscord(result.finalMessage),
-          "```"
-        ].join("\n")
-      );
-    }
+    await sendChannelNotification(
+      interaction,
+      [
+        "Codex task completed",
+        "",
+        `repo: \`${repo}\``,
+        `mode: \`${mode}\``,
+        `log: \`${result.logPath}\``,
+        "",
+        "```md",
+        truncateForDiscord(result.finalMessage),
+        "```"
+      ].join("\n")
+    );
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     const logPath = error instanceof CodexTaskError ? error.logPath : undefined;
 
-    if (channel?.isSendable()) {
-      await channel.send(
-        [
-          "Codex task failed",
-          "",
-          `repo: \`${repo}\``,
-          `mode: \`${mode}\``,
-          logPath ? `log: \`${logPath}\`` : undefined,
-          "",
-          "```text",
-          truncateForDiscord(text),
-          "```"
-        ]
-          .filter((line): line is string => line !== undefined)
-          .join("\n")
-      );
-    }
+    await sendChannelNotification(
+      interaction,
+      [
+        "Codex task failed",
+        "",
+        `repo: \`${repo}\``,
+        `mode: \`${mode}\``,
+        logPath ? `log: \`${logPath}\`` : undefined,
+        "",
+        "```text",
+        truncateForDiscord(text),
+        "```"
+      ]
+        .filter((line): line is string => line !== undefined)
+        .join("\n")
+    );
   } finally {
     runningRepos.delete(repo);
   }
@@ -160,7 +153,7 @@ async function handleBuildCommand(interaction: ChatInputCommandInteraction) {
 
   if (!isRepoKey(repo)) {
     await interaction.reply({
-      content: "許可されていない repo です。",
+      content: "That repo is not allowed.",
       ephemeral: true
     });
     return;
@@ -168,7 +161,7 @@ async function handleBuildCommand(interaction: ChatInputCommandInteraction) {
 
   if (!isBuildTarget(target)) {
     await interaction.reply({
-      content: "target は androidDebug を指定してください。",
+      content: "target must be androidDebug.",
       ephemeral: true
     });
     return;
@@ -179,16 +172,14 @@ async function handleBuildCommand(interaction: ChatInputCommandInteraction) {
   await interaction.deferReply({ ephemeral: true });
   await interaction.editReply(
     [
-      "Android build を受け付けました。",
+      "Android build accepted.",
       "",
       `repo: ${repo}`,
       `target: ${target}`,
       "",
-      "完了したらこのチャンネルに結果を投稿します。初回は依存関係の取得で時間がかかります。"
+      "I will post the result in this channel when it finishes."
     ].join("\n")
   );
-
-  const channel = interaction.channel;
 
   try {
     const result = await runBuildTask({
@@ -198,39 +189,37 @@ async function handleBuildCommand(interaction: ChatInputCommandInteraction) {
       requestedBy: `${interaction.user.tag} (${interaction.user.id})`
     });
 
-    if (channel?.isSendable()) {
-      await channel.send(
-        [
-          "Android build completed",
-          "",
-          `repo: \`${repo}\``,
-          `target: \`${target}\``,
-          `log: \`${result.logPath}\``,
-          result.artifactPath ? `apk: \`${result.artifactPath}\`` : "apk: not found"
-        ].join("\n")
-      );
-    }
+    await sendChannelNotification(
+      interaction,
+      [
+        "Android build completed",
+        "",
+        `repo: \`${repo}\``,
+        `target: \`${target}\``,
+        `log: \`${result.logPath}\``,
+        result.artifactPath ? `apk: \`${result.artifactPath}\`` : "apk: not found"
+      ].join("\n")
+    );
   } catch (error) {
     const text = error instanceof Error ? error.message : String(error);
     const logPath = error instanceof BuildTaskError ? error.logPath : undefined;
 
-    if (channel?.isSendable()) {
-      await channel.send(
-        [
-          "Android build failed",
-          "",
-          `repo: \`${repo}\``,
-          `target: \`${target}\``,
-          logPath ? `log: \`${logPath}\`` : undefined,
-          "",
-          "```text",
-          truncateForDiscord(text),
-          "```"
-        ]
-          .filter((line): line is string => line !== undefined)
-          .join("\n")
-      );
-    }
+    await sendChannelNotification(
+      interaction,
+      [
+        "Android build failed",
+        "",
+        `repo: \`${repo}\``,
+        `target: \`${target}\``,
+        logPath ? `log: \`${logPath}\`` : undefined,
+        "",
+        "```text",
+        truncateForDiscord(text),
+        "```"
+      ]
+        .filter((line): line is string => line !== undefined)
+        .join("\n")
+    );
   } finally {
     runningRepos.delete(repo);
   }
@@ -242,7 +231,7 @@ async function reserveRepo(
 ): Promise<boolean> {
   if (runningRepos.has(repo)) {
     await interaction.reply({
-      content: `repo \`${repo}\` では既に Codex/build task が実行中です。完了後にもう一度実行してください。`,
+      content: `A Codex/build task is already running for repo \`${repo}\`. Try again after it finishes.`,
       ephemeral: true
     });
     return false;
@@ -273,6 +262,47 @@ function isCodexMode(value: string): value is CodexMode {
 
 function truncateForDiscord(value: string): string {
   const max = 1800;
+  return value.length > max ? `${value.slice(0, max)}\n...truncated` : value;
+}
+
+async function sendChannelNotification(
+  interaction: ChatInputCommandInteraction,
+  content: string
+) {
+  const channel = interaction.channel;
+  if (!channel?.isSendable()) {
+    await interaction.editReply(
+      truncateForDiscordMessage(
+        [
+          "Task finished, but this interaction channel is not sendable.",
+          "",
+          content
+        ].join("\n")
+      )
+    );
+    return;
+  }
+
+  try {
+    await channel.send(content);
+  } catch (error) {
+    console.error("Failed to send Discord channel notification:", error);
+    const reason = error instanceof Error ? error.message : String(error);
+    await interaction.editReply(
+      truncateForDiscordMessage(
+        [
+          "Task finished, but I could not post the result in this channel.",
+          `Discord error: ${reason}`,
+          "",
+          content
+        ].join("\n")
+      )
+    );
+  }
+}
+
+function truncateForDiscordMessage(value: string): string {
+  const max = 1950;
   return value.length > max ? `${value.slice(0, max)}\n...truncated` : value;
 }
 
