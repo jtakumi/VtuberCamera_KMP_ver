@@ -227,6 +227,18 @@ class CameraViewModel(
         }
     }
 
+    // ピンチ操作によるズーム倍率の変化を UI 状態へ反映する。
+    fun onCameraZoomChanged(scaleChange: Float) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                cameraZoomScale = (currentState.cameraZoomScale * scaleChange).coerceIn(
+                    minimumValue = MIN_CAMERA_ZOOM_SCALE,
+                    maximumValue = MAX_CAMERA_ZOOM_SCALE,
+                ),
+            )
+        }
+    }
+
     // ファイル選択エラー表示を閉じる。
     fun onDismissFilePickerError() {
         _uiState.update { currentState ->

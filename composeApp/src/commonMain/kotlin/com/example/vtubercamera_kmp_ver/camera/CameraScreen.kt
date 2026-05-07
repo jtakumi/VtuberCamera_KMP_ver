@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -22,6 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -95,6 +99,7 @@ fun CameraRoute(
         onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
+        onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
     )
 }
 
@@ -116,6 +121,7 @@ fun CameraScreen(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
+    onCameraZoomChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -144,6 +150,7 @@ fun CameraScreen(
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
+                onCameraZoomChanged = onCameraZoomChanged,
             )
             else -> LoadingState()
         }
@@ -182,6 +189,7 @@ private fun CameraPreviewState(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
+    onCameraZoomChanged: (Float) -> Unit,
 ) {
     val avatarSelection = uiState.avatarSelection
     val avatarPreview = uiState.avatarPreview
@@ -190,6 +198,7 @@ private fun CameraPreviewState(
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
+            zoomScale = uiState.cameraZoomScale,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
         )
@@ -200,9 +209,20 @@ private fun CameraPreviewState(
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
+        // ピンチジェスチャーを検出する透明オーバーレイ。ボタンより下に配置して操作を妨げない。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoomChange, _ ->
+                        onCameraZoomChanged(zoomChange)
+                    }
+                },
+        )
         CameraUiLayer(
             avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
+            zoomScale = uiState.cameraZoomScale,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
         )
@@ -216,16 +236,28 @@ private fun CameraPreviewState(
 private fun CameraBackgroundLayer(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
+    zoomScale: Float,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
 ) {
-    CameraPreviewHost(
-        modifier = Modifier.fillMaxSize(),
-        cameraRepository = cameraRepository,
-        lensFacing = lensFacing,
-        onLensFacingChanged = onLensFacingChanged,
-        onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
-    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds(),
+    ) {
+        CameraPreviewHost(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = zoomScale
+                    scaleY = zoomScale
+                },
+            cameraRepository = cameraRepository,
+            lensFacing = lensFacing,
+            onLensFacingChanged = onLensFacingChanged,
+            onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+        )
+    }
 }
 
 /**
@@ -326,6 +358,7 @@ private fun DefaultAvatarRendererHost(
 private fun BoxScope.CameraUiLayer(
     avatarPreview: AvatarPreviewData?,
     faceTracking: FaceTrackingUiState,
+    zoomScale: Float,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
@@ -340,6 +373,9 @@ private fun BoxScope.CameraUiLayer(
     ) {
         Button(onClick = onOpenFilePicker) {
             Text(stringResource(Res.string.file_picker_open_button))
+        }
+        if (zoomScale > DEFAULT_CAMERA_ZOOM_SCALE) {
+            ZoomIndicator(zoomScale = zoomScale)
         }
         Button(onClick = onLensFacingToggle) {
             Text(stringResource(Res.string.camera_switch_button))
@@ -362,6 +398,28 @@ private fun BoxScope.CameraUiLayer(
                 top = MaterialTheme.spacing.xl * 5,
             ),
     )
+}
+
+@Composable
+private fun ZoomIndicator(
+    zoomScale: Float,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Text(
+            text = "%.1fx".format(zoomScale),
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.xs,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
 }
 
 @Composable

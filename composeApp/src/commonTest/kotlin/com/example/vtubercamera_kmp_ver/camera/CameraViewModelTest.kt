@@ -796,6 +796,28 @@ class CameraViewModelTest {
         }
     }
 
+    // ---------------------------------------------------------------------------
+    // onCameraZoomChanged()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onCameraZoomChanged_appliesScaleChangeWithinBounds() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        assertEquals(DEFAULT_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+
+        viewModel.onCameraZoomChanged(2f)
+        assertEquals(2f, viewModel.uiState.value.cameraZoomScale)
+
+        viewModel.onCameraZoomChanged(10f)
+        assertEquals(MAX_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+
+        viewModel.onCameraZoomChanged(0.1f)
+        assertEquals(MIN_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+    }
+
     @Test
     fun releaseCurrentAvatarAsset_removesCurrentAvatarAssetHandle() = runTest {
         val viewModel = CameraViewModel(
