@@ -3,7 +3,8 @@ import {
   ChatInputCommandInteraction,
   Client,
   Events,
-  GatewayIntentBits
+  GatewayIntentBits,
+  PermissionFlagsBits
 } from "discord.js";
 import {
   BuildTaskError,
@@ -283,11 +284,27 @@ async function sendChannelNotification(
     return;
   }
 
+  const missingPermissions = getMissingSendPermissions(interaction);
+  if (missingPermissions.length > 0) {
+    await interaction.editReply(
+      truncateForDiscordMessage(
+        [
+          "Task finished, but I cannot post the result in this channel.",
+          `Missing bot permission(s): ${missingPermissions.join(", ")}`,
+          "Grant the bot View Channel and Send Messages in this channel, then retry.",
+          "",
+          content
+        ].join("\n")
+      )
+    );
+    return;
+  }
+
   try {
     await channel.send(content);
   } catch (error) {
-    console.error("Failed to send Discord channel notification:", error);
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = describeDiscordSendError(error);
+    console.error(`Failed to send Discord channel notification: ${reason}`);
     await interaction.editReply(
       truncateForDiscordMessage(
         [
@@ -299,6 +316,50 @@ async function sendChannelNotification(
       )
     );
   }
+}
+
+function getMissingSendPermissions(
+  interaction: ChatInputCommandInteraction
+): string[] {
+  const channel = interaction.channel;
+  const botUser = interaction.client.user;
+
+  if (!channel || !botUser || !("permissionsFor" in channel)) return [];
+
+  const permissions = channel.permissionsFor(botUser);
+  if (!permissions) return [];
+
+  const required = [
+    ["View Channel", PermissionFlagsBits.ViewChannel],
+    ["Send Messages", PermissionFlagsBits.SendMessages]
+  ] as const;
+
+  return required
+    .filter(([, permission]) => !permissions.has(permission))
+    .map(([label]) => label);
+}
+
+function describeDiscordSendError(error: unknown): string {
+  if (isDiscordApiError(error)) {
+    const advice =
+      error.code === 50001
+        ? " The bot likely lacks access to this channel; grant View Channel and Send Messages."
+        : "";
+
+    return `${error.name}[${error.code}]: ${error.message}${advice}`;
+  }
+
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isDiscordApiError(
+  error: unknown
+): error is Error & { code: number | string } {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (typeof error.code === "number" || typeof error.code === "string")
+  );
 }
 
 function truncateForDiscordMessage(value: string): string {
