@@ -22,3 +22,4 @@ discord-codex-bot/.env
 discord-codex-bot/logs/
 .gradle-bot/
 .gradle-user-home/
+discord-codex-bot/.env.example
