@@ -44,6 +44,25 @@ const commands = [
             .setRequired(true)
         )
     )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("build")
+        .setDescription("Run a repository build")
+        .addStringOption((option) =>
+          option
+            .setName("repo")
+            .setDescription("Target repository")
+            .setRequired(true)
+            .addChoices(...repoChoices)
+        )
+        .addStringOption((option) =>
+          option
+            .setName("target")
+            .setDescription("Build target")
+            .setRequired(true)
+            .addChoices({ name: "androidDebug", value: "androidDebug" })
+        )
+    )
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(token);

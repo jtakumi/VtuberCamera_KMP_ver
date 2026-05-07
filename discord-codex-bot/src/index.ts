@@ -5,6 +5,11 @@ import {
   Events,
   GatewayIntentBits
 } from "discord.js";
+import {
+  BuildTaskError,
+  isBuildTarget,
+  runBuildTask
+} from "./buildRunner.js";
 import { CodexMode, CodexTaskError, runCodexTask } from "./codexRunner.js";
 import { isRepoKey, REPOS, RepoKey } from "./repos.js";
 
@@ -28,35 +33,48 @@ client.on(Events.InteractionCreate, async (interaction) => {
     await handleCodexCommand(interaction);
   } catch (error) {
     console.error("Unhandled /codex error:", error);
-    await replyWithFallback(interaction, "Codex Bot内で予期しないエラーが発生しました。");
+    await replyWithFallback(
+      interaction,
+      "Codex Bot で予期しないエラーが発生しました。"
+    );
   }
 });
 
 async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
   if (!allowedUserIds.has(interaction.user.id)) {
     await interaction.reply({
-      content: "このBotを実行する権限がありません。",
+      content: "この Bot を実行する権限がありません。",
       ephemeral: true
     });
     return;
   }
 
   const subcommand = interaction.options.getSubcommand();
-  if (subcommand !== "task") {
-    await interaction.reply({
-      content: "Unknown subcommand.",
-      ephemeral: true
-    });
+
+  if (subcommand === "task") {
+    await handleTaskCommand(interaction);
     return;
   }
 
+  if (subcommand === "build") {
+    await handleBuildCommand(interaction);
+    return;
+  }
+
+  await interaction.reply({
+    content: "Unknown subcommand.",
+    ephemeral: true
+  });
+}
+
+async function handleTaskCommand(interaction: ChatInputCommandInteraction) {
   const repo = interaction.options.getString("repo", true);
   const mode = interaction.options.getString("mode", true);
   const prompt = interaction.options.getString("prompt", true);
 
   if (!isRepoKey(repo)) {
     await interaction.reply({
-      content: "許可されていないrepoです。",
+      content: "許可されていない repo です。",
       ephemeral: true
     });
     return;
@@ -70,20 +88,12 @@ async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  if (runningRepos.has(repo)) {
-    await interaction.reply({
-      content: `repo \`${repo}\` ではCodexタスクが実行中です。完了後にもう一度実行してください。`,
-      ephemeral: true
-    });
-    return;
-  }
-
-  runningRepos.add(repo);
+  if (!(await reserveRepo(interaction, repo))) return;
 
   await interaction.deferReply({ ephemeral: true });
   await interaction.editReply(
     [
-      "Codexタスクを受け付けました。",
+      "Codex task を受け付けました。",
       "",
       `repo: ${repo}`,
       `mode: ${mode}`,
@@ -106,7 +116,7 @@ async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
     if (channel?.isSendable()) {
       await channel.send(
         [
-          "✅ Codex task completed",
+          "Codex task completed",
           "",
           `repo: \`${repo}\``,
           `mode: \`${mode}\``,
@@ -125,7 +135,7 @@ async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
     if (channel?.isSendable()) {
       await channel.send(
         [
-          "❌ Codex task failed",
+          "Codex task failed",
           "",
           `repo: \`${repo}\``,
           `mode: \`${mode}\``,
@@ -142,6 +152,104 @@ async function handleCodexCommand(interaction: ChatInputCommandInteraction) {
   } finally {
     runningRepos.delete(repo);
   }
+}
+
+async function handleBuildCommand(interaction: ChatInputCommandInteraction) {
+  const repo = interaction.options.getString("repo", true);
+  const target = interaction.options.getString("target", true);
+
+  if (!isRepoKey(repo)) {
+    await interaction.reply({
+      content: "許可されていない repo です。",
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (!isBuildTarget(target)) {
+    await interaction.reply({
+      content: "target は androidDebug を指定してください。",
+      ephemeral: true
+    });
+    return;
+  }
+
+  if (!(await reserveRepo(interaction, repo))) return;
+
+  await interaction.deferReply({ ephemeral: true });
+  await interaction.editReply(
+    [
+      "Android build を受け付けました。",
+      "",
+      `repo: ${repo}`,
+      `target: ${target}`,
+      "",
+      "完了したらこのチャンネルに結果を投稿します。初回は依存関係の取得で時間がかかります。"
+    ].join("\n")
+  );
+
+  const channel = interaction.channel;
+
+  try {
+    const result = await runBuildTask({
+      repoKey: repo,
+      repoPath: REPOS[repo],
+      target,
+      requestedBy: `${interaction.user.tag} (${interaction.user.id})`
+    });
+
+    if (channel?.isSendable()) {
+      await channel.send(
+        [
+          "Android build completed",
+          "",
+          `repo: \`${repo}\``,
+          `target: \`${target}\``,
+          `log: \`${result.logPath}\``,
+          result.artifactPath ? `apk: \`${result.artifactPath}\`` : "apk: not found"
+        ].join("\n")
+      );
+    }
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    const logPath = error instanceof BuildTaskError ? error.logPath : undefined;
+
+    if (channel?.isSendable()) {
+      await channel.send(
+        [
+          "Android build failed",
+          "",
+          `repo: \`${repo}\``,
+          `target: \`${target}\``,
+          logPath ? `log: \`${logPath}\`` : undefined,
+          "",
+          "```text",
+          truncateForDiscord(text),
+          "```"
+        ]
+          .filter((line): line is string => line !== undefined)
+          .join("\n")
+      );
+    }
+  } finally {
+    runningRepos.delete(repo);
+  }
+}
+
+async function reserveRepo(
+  interaction: ChatInputCommandInteraction,
+  repo: RepoKey
+): Promise<boolean> {
+  if (runningRepos.has(repo)) {
+    await interaction.reply({
+      content: `repo \`${repo}\` では既に Codex/build task が実行中です。完了後にもう一度実行してください。`,
+      ephemeral: true
+    });
+    return false;
+  }
+
+  runningRepos.add(repo);
+  return true;
 }
 
 function parseAllowedUserIds(value: string | undefined): Set<string> {
