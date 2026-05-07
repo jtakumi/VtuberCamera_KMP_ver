@@ -71,15 +71,11 @@ function spawnCommand(
   options: { cwd: string; env: NodeJS.ProcessEnv }
 ) {
   if (process.platform === "win32" && /\.(cmd|bat)$/i.test(command)) {
-    return spawn(
-      "cmd.exe",
-      ["/d", "/s", "/c", [quoteForCmd(command), ...args.map(quoteForCmd)].join(" ")],
-      {
-        cwd: options.cwd,
-        env: options.env,
-        shell: false
-      }
-    );
+    return spawn(command, args, {
+      cwd: options.cwd,
+      env: options.env,
+      shell: true
+    });
   }
 
   return spawn(command, args, {
@@ -87,10 +83,4 @@ function spawnCommand(
     env: options.env,
     shell: false
   });
-}
-
-function quoteForCmd(value: string): string {
-  if (/^[a-zA-Z0-9_./:=-]+$/.test(value)) return value;
-  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-  return `"${escaped}"`;
 }
