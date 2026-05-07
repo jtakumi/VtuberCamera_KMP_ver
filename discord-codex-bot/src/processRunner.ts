@@ -91,5 +91,6 @@ function spawnCommand(
 
 function quoteForCmd(value: string): string {
   if (/^[a-zA-Z0-9_./:=-]+$/.test(value)) return value;
-  return `"${value.replace(/"/g, '\\"')}"`;
+  const escaped = value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"${escaped}"`;
 }
