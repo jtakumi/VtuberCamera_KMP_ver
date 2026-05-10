@@ -412,7 +412,7 @@ private fun ZoomIndicator(
         tonalElevation = MaterialTheme.spacing.xs,
     ) {
         Text(
-            text = "%.1fx".format(zoomScale),
+            text =zoomScale.toString(),
             modifier = Modifier.padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.xs,
