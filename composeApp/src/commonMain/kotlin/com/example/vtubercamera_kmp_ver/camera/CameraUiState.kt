@@ -15,6 +15,7 @@ data class CameraUiState(
     val avatarRenderState: AvatarRenderState = AvatarRenderState.Neutral,
     val filePickerErrorMessageRes: StringResource? = null,
     val cameraZoomScale: Float = DEFAULT_CAMERA_ZOOM_SCALE,
+    val zoomUiState: CameraZoomUiState = CameraZoomUiState()
 ) {
     val isPermissionGranted: Boolean
         get() = permissionState == PermissionState.Granted
