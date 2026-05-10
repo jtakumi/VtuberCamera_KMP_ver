@@ -13,6 +13,7 @@ internal interface CameraLensAvailability {
 internal class AndroidCameraRepository(
     private val cameraAvailabilityProvider: suspend () -> CameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
+    private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState())
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
 
@@ -69,6 +70,12 @@ internal class AndroidCameraRepository(
             pendingLensFacing = null
             previewState.value = PreviewState.Error(error)
         }
+    }
+
+    override fun observeZoomState():Flow<CameraZoomUiState> = zoomUiState
+
+    override fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState) {
+        this.zoomUiState.value = zoomUiState
     }
 }
 
