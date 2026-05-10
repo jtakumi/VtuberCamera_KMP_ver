@@ -79,6 +79,10 @@ interface CameraRepository {
     fun onPlatformPreviewStarted(lensFacing: CameraLensFacing)
 
     fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError)
+
+    fun observeZoomState(): Flow<CameraZoomUiState>
+
+    fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState)
 }
 
 interface PermissionRepository {
