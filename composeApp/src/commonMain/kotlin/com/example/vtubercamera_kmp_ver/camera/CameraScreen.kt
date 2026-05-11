@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -137,10 +138,12 @@ fun CameraScreen(
             uiState.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
             )
+
             previewError != null -> CameraErrorState(
                 error = previewError.error,
                 onRetryPreview = onRetryPreview,
             )
+
             uiState.isPermissionGranted -> CameraPreviewState(
                 cameraRepository = cameraRepository,
                 uiState = uiState,
@@ -152,6 +155,7 @@ fun CameraScreen(
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
             )
+
             else -> LoadingState()
         }
 
@@ -222,7 +226,7 @@ private fun CameraPreviewState(
         CameraUiLayer(
             avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
-            zoomScale = uiState.cameraZoomScale,
+            zoomScale = uiState.zoomUiState.currentCameraZoomRatio,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
         )
@@ -362,24 +366,32 @@ private fun BoxScope.CameraUiLayer(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.TopCenter)
-            .statusBarsPadding()
-            .padding(MaterialTheme.spacing.xl),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = Modifier.fillMaxWidth().align(Alignment.TopStart).padding(
+            MaterialTheme.spacing.xl
+        )
     ) {
-        Button(onClick = onOpenFilePicker) {
-            Text(stringResource(Res.string.file_picker_open_button))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(onClick = onOpenFilePicker) {
+                Text(stringResource(Res.string.file_picker_open_button))
+            }
+            Button(onClick = onLensFacingToggle) {
+                Text(stringResource(Res.string.camera_switch_button))
+            }
         }
-        if (zoomScale > DEFAULT_CAMERA_ZOOM_SCALE) {
-            ZoomIndicator(zoomScale = zoomScale)
-        }
-        Button(onClick = onLensFacingToggle) {
-            Text(stringResource(Res.string.camera_switch_button))
-        }
+        ZoomIndicator(
+            zoomScale = zoomScale,
+            modifier = Modifier.padding(vertical = MaterialTheme.spacing.md)
+        )
+        FaceTrackingOverlay(
+            faceTracking = faceTracking,
+        )
     }
     avatarPreview?.let { preview ->
         AvatarPreviewOverlay(
@@ -389,15 +401,7 @@ private fun BoxScope.CameraUiLayer(
                 .padding(MaterialTheme.spacing.xl),
         )
     }
-    FaceTrackingOverlay(
-        faceTracking = faceTracking,
-        modifier = Modifier
-            .align(Alignment.TopStart)
-            .padding(
-                start = MaterialTheme.spacing.xl,
-                top = MaterialTheme.spacing.xl * 5,
-            ),
-    )
+
 }
 
 @Composable
@@ -412,15 +416,26 @@ private fun ZoomIndicator(
         tonalElevation = MaterialTheme.spacing.xs,
     ) {
         Text(
-            text =zoomScale.toString(),
+            text = zoomScale.toZoomRatio(),
             modifier = Modifier.padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.xs,
             ),
+            color = MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.bodyMedium,
         )
     }
 }
+
+private fun Float.toZoomRatio(): String{
+    val roundedTenths = (this * ZOOM_RATIO_LABEL_RATIO).roundToInt()
+    val whole = roundedTenths /ZOOM_RATIO_LABEL_RATIO
+    val decimal = roundedTenths % ZOOM_RATIO_LABEL_RATIO
+
+    return "${whole}.${decimal}x"
+}
+
+private const val ZOOM_RATIO_LABEL_RATIO = 10
 
 @Composable
 private fun FaceTrackingOverlay(
