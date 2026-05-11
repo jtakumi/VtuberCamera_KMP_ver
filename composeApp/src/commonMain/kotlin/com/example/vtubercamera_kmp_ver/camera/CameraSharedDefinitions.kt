@@ -83,6 +83,8 @@ interface CameraRepository {
     fun observeZoomState(): Flow<CameraZoomUiState>
 
     fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState)
+
+    fun setZoomRatio(updatedZoomRatio: Float)
 }
 
 interface PermissionRepository {
