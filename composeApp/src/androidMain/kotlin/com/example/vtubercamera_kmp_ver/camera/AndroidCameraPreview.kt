@@ -216,6 +216,8 @@ actual fun CameraPreviewHost(
                     preview,
                     analysis,
                 )
+                // AndroidCameraRepositoryをこの時だけキャストする。nullなら実行しない
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformCameraControlReady(camera.cameraControl)
                 // 現在の倍率をLiveDataで監視する
                 val zoomLiveData = camera.cameraInfo.zoomState
                 val zoomObserver = Observer<ZoomState> { zoomState ->
