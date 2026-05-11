@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraInfoUnavailableException
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -16,6 +17,7 @@ internal class AndroidCameraRepository(
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState())
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
+    private var cameraControl: CameraControl? = null
 
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
         val cameraAvailability = cameraAvailabilityProvider()
@@ -76,6 +78,14 @@ internal class AndroidCameraRepository(
 
     override fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState) {
         this.zoomUiState.value = zoomUiState
+    }
+
+    override fun setZoomRatio(updatedZoomRatio: Float){
+        cameraControl?.setZoomRatio(updatedZoomRatio)
+    }
+
+     fun onPlatformCameraControlReady(cameraControl: CameraControl) {
+        this.cameraControl = cameraControl
     }
 }
 
