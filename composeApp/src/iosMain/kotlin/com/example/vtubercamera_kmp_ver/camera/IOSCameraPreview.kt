@@ -204,6 +204,13 @@ actual fun CameraPreviewHost(
                         onLensFacingChanged(resolvedLens)
                     }
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
+                    // AVFoundation セッション開始後にデバイスのズーム能力をリポジトリへ登録する。
+                    // ARKit 使用時は sessionManager にデバイスがないため null を渡す。
+                    if (!usesFaceTracking) {
+                        (cameraRepository as? IOSCameraRepository)?.onPlatformCameraDeviceReady(
+                            sessionManager.currentDevice()
+                        )
+                    }
                 } else {
                     cameraRepository.onPlatformPreviewError(
                         lensFacing = resolvedLens,
@@ -214,6 +221,8 @@ actual fun CameraPreviewHost(
         }
 
         if (usesFaceTracking) {
+            // ARKit に切り替える際はデバイス参照を解放してズーム状態を初期値に戻す。
+            (cameraRepository as? IOSCameraRepository)?.onPlatformCameraDeviceReady(null)
             faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview {
                 if (!isDisposed) {
@@ -442,6 +451,9 @@ private class IOSCameraSessionManager {
     fun bindPreview(to: CameraPreviewContainerView) {
         to.bindPreviewLayer(previewLayer)
     }
+
+    // 現在セッションに登録されているカメラデバイスを返す。
+    fun currentDevice(): AVCaptureDevice? = currentInput?.device
 
     // 指定レンズでカメラ入力を構成し、プレビュー開始結果をコールバックする。
     fun startPreview(
