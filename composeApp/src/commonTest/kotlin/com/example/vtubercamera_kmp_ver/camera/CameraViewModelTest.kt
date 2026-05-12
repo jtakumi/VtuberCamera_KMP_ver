@@ -822,20 +822,21 @@ class CameraViewModelTest {
 
     @Test
     fun onCameraZoomChanged_appliesScaleChangeWithinBounds() = runTest {
+        val cameraRepository = FakeCameraRepository()
         val viewModel = CameraViewModel(
-            cameraRepository = FakeCameraRepository(),
+            cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
-        assertEquals(DEFAULT_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+        assertEquals(1f, viewModel.uiState.value.zoomUiState.currentCameraZoomRatio)
 
         viewModel.onCameraZoomChanged(2f)
-        assertEquals(2f, viewModel.uiState.value.cameraZoomScale)
+        assertEquals(2f, cameraRepository.setZoomRatioRequests.last())
 
         viewModel.onCameraZoomChanged(10f)
-        assertEquals(MAX_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+        assertEquals(5f, cameraRepository.setZoomRatioRequests.last())
 
         viewModel.onCameraZoomChanged(0.1f)
-        assertEquals(MIN_CAMERA_ZOOM_SCALE, viewModel.uiState.value.cameraZoomScale)
+        assertEquals(1f, cameraRepository.setZoomRatioRequests.last())
     }
 
     @Test
@@ -932,6 +933,7 @@ class CameraViewModelTest {
         val startPreviewRequests = mutableListOf<CameraLensFacing>()
         val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
         val switchLensRequests = mutableListOf<CameraLensFacing>()
+        val setZoomRatioRequests = mutableListOf<Float>()
 
         override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
             startPreviewCallCount += 1
@@ -985,6 +987,11 @@ class CameraViewModelTest {
                 minCameraZoomRatio = zoomUiState.minCameraZoomRatio,
                 maxCameraZoomRatio = zoomUiState.maxCameraZoomRatio
             )
+        }
+
+        override fun setZoomRatio(updatedZoomRatio: Float) {
+            setZoomRatioRequests += updatedZoomRatio
+            zoomUiState.value = zoomUiState.value.copy(currentCameraZoomRatio = updatedZoomRatio)
         }
 
         fun emitPreviewState(state: PreviewState) {
