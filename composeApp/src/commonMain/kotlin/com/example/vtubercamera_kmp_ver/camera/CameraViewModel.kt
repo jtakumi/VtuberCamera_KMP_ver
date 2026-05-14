@@ -29,6 +29,9 @@ class CameraViewModel(
         viewModelScope.launch {
             observePreviewState()
         }
+        viewModelScope.launch {
+            observeZoomState()
+        }
     }
 
     // 画面初期化時に権限状態を確認し、必要ならプレビュー開始やエラー反映を行う。
@@ -227,6 +230,17 @@ class CameraViewModel(
         }
     }
 
+    // ピンチ操作によるズーム倍率の変化を UI 状態へ反映する。
+    fun onCameraZoomChanged(scaleChange: Float) {
+        val zoomState = uiState.value.zoomUiState
+       cameraRepository.setZoomRatio(
+           (zoomState.currentCameraZoomRatio * scaleChange).coerceIn(
+               zoomState.minCameraZoomRatio,
+               zoomState.maxCameraZoomRatio
+           )
+       )
+    }
+
     // ファイル選択エラー表示を閉じる。
     fun onDismissFilePickerError() {
         _uiState.update { currentState ->
@@ -248,6 +262,16 @@ class CameraViewModel(
                     previewState = previewState,
                     errorState = error,
                     message = error?.toCameraMessage(),
+                )
+            }
+        }
+    }
+
+    private suspend fun observeZoomState(){
+        cameraRepository.observeZoomState().collect { zoomUiState ->
+            _uiState.update { currentState ->
+                currentState.copy(
+                    zoomUiState = zoomUiState
                 )
             }
         }

@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -22,11 +23,15 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -95,6 +100,7 @@ fun CameraRoute(
         onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
+        onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
     )
 }
 
@@ -116,6 +122,7 @@ fun CameraScreen(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
+    onCameraZoomChanged: (Float) -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -131,10 +138,12 @@ fun CameraScreen(
             uiState.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
             )
+
             previewError != null -> CameraErrorState(
                 error = previewError.error,
                 onRetryPreview = onRetryPreview,
             )
+
             uiState.isPermissionGranted -> CameraPreviewState(
                 cameraRepository = cameraRepository,
                 uiState = uiState,
@@ -144,7 +153,9 @@ fun CameraScreen(
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
+                onCameraZoomChanged = onCameraZoomChanged,
             )
+
             else -> LoadingState()
         }
 
@@ -182,6 +193,7 @@ private fun CameraPreviewState(
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
+    onCameraZoomChanged: (Float) -> Unit,
 ) {
     val avatarSelection = uiState.avatarSelection
     val avatarPreview = uiState.avatarPreview
@@ -190,6 +202,7 @@ private fun CameraPreviewState(
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = uiState.lensFacing,
+            zoomScale = uiState.cameraZoomScale,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
         )
@@ -200,9 +213,20 @@ private fun CameraPreviewState(
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
+        // ピンチジェスチャーを検出する透明オーバーレイ。ボタンより下に配置して操作を妨げない。
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, _, zoomChange, _ ->
+                        onCameraZoomChanged(zoomChange)
+                    }
+                },
+        )
         CameraUiLayer(
             avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
+            zoomScale = uiState.zoomUiState.currentCameraZoomRatio,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
         )
@@ -216,16 +240,28 @@ private fun CameraPreviewState(
 private fun CameraBackgroundLayer(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
+    zoomScale: Float,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
 ) {
-    CameraPreviewHost(
-        modifier = Modifier.fillMaxSize(),
-        cameraRepository = cameraRepository,
-        lensFacing = lensFacing,
-        onLensFacingChanged = onLensFacingChanged,
-        onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
-    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clipToBounds(),
+    ) {
+        CameraPreviewHost(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = zoomScale
+                    scaleY = zoomScale
+                },
+            cameraRepository = cameraRepository,
+            lensFacing = lensFacing,
+            onLensFacingChanged = onLensFacingChanged,
+            onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
+        )
+    }
 }
 
 /**
@@ -326,24 +362,36 @@ private fun DefaultAvatarRendererHost(
 private fun BoxScope.CameraUiLayer(
     avatarPreview: AvatarPreviewData?,
     faceTracking: FaceTrackingUiState,
+    zoomScale: Float,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .align(Alignment.TopCenter)
-            .statusBarsPadding()
-            .padding(MaterialTheme.spacing.xl),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        modifier = Modifier.fillMaxWidth().align(Alignment.TopStart).padding(
+            MaterialTheme.spacing.xl
+        )
     ) {
-        Button(onClick = onOpenFilePicker) {
-            Text(stringResource(Res.string.file_picker_open_button))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Button(onClick = onOpenFilePicker) {
+                Text(stringResource(Res.string.file_picker_open_button))
+            }
+            Button(onClick = onLensFacingToggle) {
+                Text(stringResource(Res.string.camera_switch_button))
+            }
         }
-        Button(onClick = onLensFacingToggle) {
-            Text(stringResource(Res.string.camera_switch_button))
-        }
+        ZoomIndicator(
+            zoomScale = zoomScale,
+            modifier = Modifier.padding(vertical = MaterialTheme.spacing.md)
+        )
+        FaceTrackingOverlay(
+            faceTracking = faceTracking,
+        )
     }
     avatarPreview?.let { preview ->
         AvatarPreviewOverlay(
@@ -353,16 +401,41 @@ private fun BoxScope.CameraUiLayer(
                 .padding(MaterialTheme.spacing.xl),
         )
     }
-    FaceTrackingOverlay(
-        faceTracking = faceTracking,
-        modifier = Modifier
-            .align(Alignment.TopStart)
-            .padding(
-                start = MaterialTheme.spacing.xl,
-                top = MaterialTheme.spacing.xl * 5,
-            ),
-    )
+
 }
+
+@Composable
+private fun ZoomIndicator(
+    zoomScale: Float,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Text(
+            text = zoomScale.toZoomRatio(),
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.xs,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private fun Float.toZoomRatio(): String{
+    val roundedTenths = (this * ZOOM_RATIO_LABEL_RATIO).roundToInt()
+    val whole = roundedTenths /ZOOM_RATIO_LABEL_RATIO
+    val decimal = roundedTenths % ZOOM_RATIO_LABEL_RATIO
+
+    return "${whole}.${decimal}x"
+}
+
+private const val ZOOM_RATIO_LABEL_RATIO = 10
 
 @Composable
 private fun FaceTrackingOverlay(

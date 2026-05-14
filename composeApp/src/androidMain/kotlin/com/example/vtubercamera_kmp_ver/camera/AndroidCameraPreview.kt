@@ -4,13 +4,14 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.provider.OpenableColumns
-import androidx.camera.core.ExperimentalGetImage
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.ZoomState
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -47,13 +48,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Observer
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.vtubercamera_kmp_ver.avatar.render.AndroidFilamentAvatarHost
+import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException
+import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_preview_author_label
@@ -63,10 +68,9 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_fail
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_invalid_format
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_read_failed
-import java.util.concurrent.Executor
 import java.util.concurrent.Executors
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 @Composable
 actual fun rememberCameraPermissionController(): CameraPermissionController {
@@ -206,12 +210,26 @@ actual fun CameraPreviewHost(
                     .also { it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer) }
 
                 cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(
+                val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     selector,
                     preview,
                     analysis,
                 )
+                // AndroidCameraRepositoryをこの時だけキャストする。nullなら実行しない
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformCameraControlReady(camera.cameraControl)
+                // 現在の倍率をLiveDataで監視する
+                val zoomLiveData = camera.cameraInfo.zoomState
+                val zoomObserver = Observer<ZoomState> { zoomState ->
+                    cameraRepository.onPlatformZoomStateChanged(
+                        zoomUiState = CameraZoomUiState(
+                            currentCameraZoomRatio = zoomState.zoomRatio ,
+                            minCameraZoomRatio = zoomState.minZoomRatio ,
+                            maxCameraZoomRatio = zoomState.maxZoomRatio ,
+                        )
+                    )
+                }
+                zoomLiveData.observe(lifecycleOwner,zoomObserver)
 
                 (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
                 previewView.tag = faceTrackingAnalyzer
@@ -324,7 +342,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
-    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {
     Box(
@@ -346,7 +364,7 @@ actual fun AvatarBodyOverlay(
 private fun AvatarRendererHostView(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
-    onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
+    onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
@@ -369,7 +387,7 @@ private fun Context.hasCameraPermission(): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
 }
 
-private fun Context.resolveDisplayName(uri: android.net.Uri): String? {
+private fun Context.resolveDisplayName(uri: Uri): String? {
     return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
         ?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -384,29 +402,30 @@ private fun Context.resolveDisplayName(uri: android.net.Uri): String? {
 private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.68f
 private const val AVATAR_RENDERER_HEIGHT_FRACTION = 0.6f
 
-private fun Throwable.toFilePickerError(defaultMessageRes: org.jetbrains.compose.resources.StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
+private fun Throwable.toFilePickerError(defaultMessageRes: StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
     return when (this) {
         is FilePickerException -> FilePickerResult.Error(messageRes)
         else -> FilePickerResult.Error(defaultMessageRes)
     }
 }
 
-private fun com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException.toAvatarRenderErrorMessageRes():
-    org.jetbrains.compose.resources.StringResource {
+private fun AvatarAssetLoadException.toAvatarRenderErrorMessageRes():
+        StringResource {
     return when (kind) {
-        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
-        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
-        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
-        com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind.SceneSetupFailed -> Res.string.vrm_error_read_failed
+        AvatarAssetLoadFailureKind.AssetUnavailable -> Res.string.vrm_error_read_failed
+        AvatarAssetLoadFailureKind.InvalidAsset -> Res.string.vrm_error_invalid_format
+        AvatarAssetLoadFailureKind.ResourceLoadFailed -> Res.string.vrm_error_read_failed
+        AvatarAssetLoadFailureKind.SceneSetupFailed -> Res.string.vrm_error_read_failed
     }
 }
 
 @Composable
-private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) = remember(avatarPreview.thumbnailBytes) {
-    avatarPreview.thumbnailBytes?.let { bytes ->
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+private fun rememberAvatarBitmap(avatarPreview: AvatarPreviewData) =
+    remember(avatarPreview.thumbnailBytes) {
+        avatarPreview.thumbnailBytes?.let { bytes ->
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+        }
     }
-}
 
 @Composable
 actual fun rememberCameraRepositories(
@@ -467,6 +486,6 @@ private suspend fun ListenableFuture<ProcessCameraProvider>.await(): ProcessCame
                     .onSuccess { continuation.resume(it) }
                     .onFailure { continuation.resumeWithException(it) }
             },
-            Executor { runnable -> runnable.run() },
+            { runnable -> runnable.run() },
         )
     }

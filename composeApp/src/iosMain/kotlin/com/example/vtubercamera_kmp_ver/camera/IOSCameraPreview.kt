@@ -54,7 +54,10 @@ import platform.AVFoundation.AVCaptureVideoPreviewLayer
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
 import platform.AVFoundation.authorizationStatusForMediaType
+import platform.AVFoundation.maxAvailableVideoZoomFactor
+import platform.AVFoundation.minAvailableVideoZoomFactor
 import platform.AVFoundation.requestAccessForMediaType
+import platform.AVFoundation.videoZoomFactor
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
@@ -203,8 +206,12 @@ actual fun CameraPreviewHost(
                     if (resolvedLens != lensFacing) {
                         onLensFacingChanged(resolvedLens)
                     }
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(
+                        sessionManager.cameraControl(),
+                    )
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
                 } else {
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
                     cameraRepository.onPlatformPreviewError(
                         lensFacing = resolvedLens,
                         error = CameraError.PreviewInitializationFailed,
@@ -217,6 +224,7 @@ actual fun CameraPreviewHost(
             faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview {
                 if (!isDisposed) {
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
                     faceTrackingSessionManager.startPreview(
                         onFaceTrackingFrameChanged = { frame ->
                             currentOnFaceTrackingFrameChanged.value(frame)
@@ -433,6 +441,7 @@ private class IOSCameraSessionManager {
     // Serialize capture-session work off the main thread to avoid UI stalls.
     private val sessionQueue = dispatch_queue_create("com.example.vtubercamera.camera.session", null)
     private var currentInput: AVCaptureDeviceInput? = null
+    private var currentCameraControl: AVCaptureDeviceCameraControl? = null
 
     init {
         previewLayer.videoGravity = "AVLayerVideoGravityResizeAspectFill"
@@ -474,6 +483,7 @@ private class IOSCameraSessionManager {
             }
             session.addInput(input)
             currentInput = input
+            currentCameraControl = AVCaptureDeviceCameraControl(device)
             session.commitConfiguration()
 
             val started = runCatching {
@@ -503,6 +513,39 @@ private class IOSCameraSessionManager {
         }
     }
 
+    fun cameraControl(): CameraControl? {
+        return currentCameraControl
+    }
+
+}
+
+private class AVCaptureDeviceCameraControl(
+    private val device: AVCaptureDevice,
+) : CameraControl {
+    override fun zoomState(): CameraZoomUiState {
+        return CameraZoomUiState(
+            currentCameraZoomRatio = device.videoZoomFactor.toFloat(),
+            minCameraZoomRatio = device.minAvailableVideoZoomFactor.toFloat(),
+            maxCameraZoomRatio = device.maxAvailableVideoZoomFactor.toFloat(),
+        )
+    }
+
+    override fun setZoomRatio(updatedZoomRatio: Float): CameraZoomUiState? {
+        val currentZoomState = zoomState()
+        val resolvedZoomRatio = updatedZoomRatio.coerceInZoomRange(
+            minZoomRatio = currentZoomState.minCameraZoomRatio,
+            maxZoomRatio = currentZoomState.maxCameraZoomRatio,
+        )
+        return runCatching {
+            device.lockForConfiguration(null)
+            try {
+                device.videoZoomFactor = resolvedZoomRatio.toDouble()
+            } finally {
+                device.unlockForConfiguration()
+            }
+            zoomState()
+        }.getOrNull()
+    }
 }
 
 // ARKit の front-camera preview と face tracking をまとめて管理する。

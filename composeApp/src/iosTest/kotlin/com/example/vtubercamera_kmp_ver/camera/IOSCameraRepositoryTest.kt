@@ -75,6 +75,73 @@ class IOSCameraRepositoryTest {
     }
 
     @Test
+    fun onPlatformCameraControlReady_publishesCurrentZoomState() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        repository.onPlatformCameraControlReady(
+            FakeCameraControl(
+                initialZoomState = CameraZoomUiState(
+                    currentCameraZoomRatio = 2f,
+                    minCameraZoomRatio = 1f,
+                    maxCameraZoomRatio = 6f,
+                ),
+            ),
+        )
+
+        assertEquals(
+            CameraZoomUiState(
+                currentCameraZoomRatio = 2f,
+                minCameraZoomRatio = 1f,
+                maxCameraZoomRatio = 6f,
+            ),
+            repository.observeZoomState().first(),
+        )
+    }
+
+    @Test
+    fun setZoomRatio_updatesZoomStateFromCameraControl() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        val cameraControl = FakeCameraControl(
+            initialZoomState = CameraZoomUiState(
+                currentCameraZoomRatio = 1f,
+                minCameraZoomRatio = 1f,
+                maxCameraZoomRatio = 5f,
+            ),
+        )
+        repository.onPlatformCameraControlReady(cameraControl)
+
+        repository.setZoomRatio(3f)
+
+        assertEquals(3f, cameraControl.setZoomRatioRequests.last())
+        assertEquals(
+            CameraZoomUiState(
+                currentCameraZoomRatio = 3f,
+                minCameraZoomRatio = 1f,
+                maxCameraZoomRatio = 5f,
+            ),
+            repository.observeZoomState().first(),
+        )
+    }
+
+    @Test
+    fun onPlatformCameraControlReady_resetsZoomStateWhenControlIsCleared() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformCameraControlReady(
+            FakeCameraControl(
+                initialZoomState = CameraZoomUiState(
+                    currentCameraZoomRatio = 2f,
+                    minCameraZoomRatio = 1f,
+                    maxCameraZoomRatio = 4f,
+                ),
+            ),
+        )
+
+        repository.onPlatformCameraControlReady(null)
+
+        assertEquals(CameraZoomUiState(), repository.observeZoomState().first())
+    }
+
+    @Test
     fun startIosFaceTrackingPreview_returnsUnsupportedErrorWithoutPreparingSession() {
         var didPrepareTracking = false
         var didRunSession = false
@@ -112,5 +179,22 @@ class IOSCameraRepositoryTest {
 
     private fun createRepository(availableLens: Set<CameraLensFacing>): IOSCameraRepository {
         return IOSCameraRepository(hasLens = { lensFacing -> lensFacing in availableLens })
+    }
+
+    private class FakeCameraControl(
+        initialZoomState: CameraZoomUiState,
+    ) : CameraControl {
+        val setZoomRatioRequests = mutableListOf<Float>()
+        private var zoomState = initialZoomState
+
+        override fun zoomState(): CameraZoomUiState {
+            return zoomState
+        }
+
+        override fun setZoomRatio(updatedZoomRatio: Float): CameraZoomUiState {
+            setZoomRatioRequests += updatedZoomRatio
+            zoomState = zoomState.copy(currentCameraZoomRatio = updatedZoomRatio)
+            return zoomState
+        }
     }
 }
