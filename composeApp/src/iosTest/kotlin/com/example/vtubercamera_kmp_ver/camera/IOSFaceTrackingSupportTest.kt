@@ -43,13 +43,13 @@ class IOSFaceTrackingSupportTest {
         delegateCore.didChangeTrackingState(IOSFaceTrackingState.Unavailable)
 
         assertEquals(4, emittedFrames.size)
-        assertEquals(1f, emittedFrames[0]?.trackingConfidence, absoluteTolerance = 0.0001f)
+        assertEquals(1f, emittedFrames[0]!!.trackingConfidence, absoluteTolerance = 0.0001f)
         assertEquals(
             IOS_LIMITED_TRACKING_CONFIDENCE,
-            emittedFrames[1]?.trackingConfidence,
+            emittedFrames[1]!!.trackingConfidence,
             absoluteTolerance = 0.0001f,
         )
-        assertEquals(1f, emittedFrames[2]?.trackingConfidence, absoluteTolerance = 0.0001f)
+        assertEquals(1f, emittedFrames[2]!!.trackingConfidence, absoluteTolerance = 0.0001f)
         assertEquals(null, emittedFrames[3])
     }
 
