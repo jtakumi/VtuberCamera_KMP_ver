@@ -827,6 +827,7 @@ class CameraViewModelTest {
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
+        advanceUntilIdle()
         assertEquals(1f, viewModel.uiState.value.zoomUiState.currentCameraZoomRatio)
 
         viewModel.onCameraZoomChanged(2f)
@@ -919,7 +920,13 @@ class CameraViewModelTest {
         private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
     ) : CameraRepository {
         private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
-        private val zoomUiState = MutableStateFlow(CameraZoomUiState())
+        private val zoomUiState = MutableStateFlow(
+            CameraZoomUiState(
+                currentCameraZoomRatio = 1f,
+                minCameraZoomRatio = 1f,
+                maxCameraZoomRatio = 5f,
+            ),
+        )
 
         var startPreviewCallCount: Int = 0
             private set
