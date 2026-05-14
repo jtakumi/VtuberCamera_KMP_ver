@@ -5,11 +5,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 internal typealias IOSCameraLensAvailability = (CameraLensFacing) -> Boolean
 
+internal interface CameraControl {
+    fun zoomState(): CameraZoomUiState
+
+    fun setZoomRatio(updatedZoomRatio: Float): CameraZoomUiState?
+}
+
 internal class IOSCameraRepository(
     private val hasLens: IOSCameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
+    private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(
+        CameraZoomUiState()
+    )
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
+
+    private var cameraControl: CameraControl? = null
 
     // プレビュー開始前の状態を整え、利用可能なレンズを解決する。
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
@@ -63,6 +74,22 @@ internal class IOSCameraRepository(
             previewState.value = PreviewState.Error(error)
         }
     }
+
+    override fun observeZoomState(): Flow<CameraZoomUiState> = zoomUiState
+
+
+    override fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState) {
+        this.zoomUiState.value = zoomUiState
+    }
+
+    override fun setZoomRatio(updatedZoomRatio: Float) {
+        cameraControl?.setZoomRatio(updatedZoomRatio)?.let(::onPlatformZoomStateChanged)
+    }
+
+    fun onPlatformCameraControlReady(cameraControl: CameraControl?) {
+        this.cameraControl = cameraControl
+        onPlatformZoomStateChanged(cameraControl?.zoomState() ?: CameraZoomUiState())
+    }
 }
 
 // 指定レンズが使えない場合に代替レンズを含めて利用可否を解決する。
@@ -77,3 +104,7 @@ internal fun resolveAvailableLens(
     val fallback = requested.toggled()
     return fallback.takeIf(hasLens)
 }
+
+internal fun Float.coerceInZoomRange(minZoomRatio: Float, maxZoomRatio: Float): Float =
+    coerceIn(minZoomRatio, maxZoomRatio)
+
