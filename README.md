@@ -13,8 +13,10 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - カメラ権限確認と権限リクエスト
 - CameraX によるリアルタイムプレビュー
 - フロント / バックカメラ切り替え
+- ピンチ操作によるカメラズーム制御（ズームインジケーター表示込み）
 - ドキュメントファイルピッカー起動
 - ML Kit Face Detection による face tracking 解析と共有 state 反映
+- face tracking 結果をアバター表情・ボーン状態へマッピング
 - Filament renderer による VRM avatar 表示基盤
 - Compose Multiplatform ベースのカメラ画面
 
@@ -22,19 +24,25 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
-
 - カメラ権限確認と権限リクエスト
 - フロント / バックカメラ切り替え
+- ピンチ操作によるカメラズーム制御
 - `UIDocumentPickerViewController` によるファイル選択
 - SwiftUI + Filament による avatar view ホスト
+- avatar render state を Filament ブリッジへ伝達
 
 ### 共有コードで扱っているもの
 
 - Compose Multiplatform のアプリ入口
 - カメラ画面の基本 UI
-- `CameraViewModel` による画面状態管理
+- `CameraViewModel` による画面状態管理（権限・プレビュー・ズーム・アバター状態を一元管理）
 - レンズ向き状態 (`Back` / `Front`)
+- ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新
 - face tracking の共有表示モデルと avatar 反映 state
+- GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
+- VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
+- face tracking → アバター表情・ボーン状態へのマッピング (`FaceToAvatarMapper` / `AvatarMotionSmoother`)
+- アバターアセット管理 (`AvatarAssetStore`)
 - 権限文言のリソース管理
 
 ### まだ未実装の主な機能
@@ -42,7 +50,6 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - 写真撮影
 - 撮影画像の保存 / 削除
 - フラッシュ制御
-- ズーム制御
 - ギャラリー関連機能
 - face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合
 
@@ -65,9 +72,9 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 Gradle Version Catalog で主に以下を管理しています。
 
-- 共通: Kotlin Coroutines, Compose Multiplatform, Lifecycle Compose, Kotlin Test, Turbine
-- Android: CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`), Activity Compose, ExifInterface
-- iOS: AVFoundation, ARKit, SwiftUI, UIKit
+- 共通: Kotlin Coroutines, Compose Multiplatform, Lifecycle Compose, kotlinx-serialization-json, Kotlin Test, Turbine
+- Android: CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`), Activity Compose, ExifInterface, ML Kit Face Detection, Filament (`filament-android`, `filament-utils-android`, `gltfio-android`)
+- iOS: AVFoundation, ARKit, SwiftUI, UIKit, Filament
 
 依存関係の詳細は [gradle/libs.versions.toml](./gradle/libs.versions.toml) を参照してください。
 
