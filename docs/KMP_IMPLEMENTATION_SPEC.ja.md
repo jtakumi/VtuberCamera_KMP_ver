@@ -1,32 +1,43 @@
 # KMP 実装仕様（現状同期版）
 
-最終同期日: 2026-04-17
+最終同期日: 2026-05-15
 
 この文書は `README.md` と実装コードを基準に、KMP camera MVP の「現時点で実装済み」と「計画中」を分離して記述します。
 
-## 1. 現在の確定実装（2026-04-17 時点）
+## 1. 現在の確定実装（2026-05-15 時点）
 
 ### 1.1 共通 (`composeApp/src/commonMain`)
 
 - Compose Multiplatform ベースの camera 画面構成 (`CameraRoute` / `CameraScreen`)
-- `CameraViewModel` による権限・プレビュー状態・レンズ向きの状態管理
+- `CameraViewModel` による権限・プレビュー状態・レンズ向き・ズーム・アバター状態の一元管理
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
-- ファイルピッカー結果を反映する avatar preview UI（静的 overlay）
+- ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
+- ファイルピッカー結果を反映する avatar preview UI
+- GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
+- VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
+- face tracking → アバター表情・ボーン状態へのマッピング (`FaceToAvatarMapper` / `AvatarMotionSmoother`)
+- アバターアセット管理 (`AvatarAssetStore`)
 
 ### 1.2 Android (`composeApp/src/androidMain`)
 
 - CameraX によるリアルタイム camera preview
 - カメラ権限確認と permission request
 - フロント / バック camera の切り替え
+- ピンチ操作によるズーム制御（`setZoomRatio` / ズームインジケーター）
 - `OpenDocument` を使ったファイル選択
 - ML Kit Face Detection を使った face tracking 解析と共有 state への反映
+- face tracking 結果をアバター状態へマッピング (`AndroidFaceTrackingToAvatarMapper`)
+- Filament renderer による VRM avatar 表示基盤
 
 ### 1.3 iOS
 
-- 実 camera 実装の中心は `composeApp/src/iosMain` の `CameraPreviewHost`（AVFoundation + UIKitView）
+- 実 camera 実装の中心は `composeApp/src/iosMain` の `IOSCameraPreview`（AVFoundation + UIKitView）
 - カメラ権限確認と permission request
 - フロント / バック camera の切り替え
+- ピンチ操作によるズーム制御
 - `UIDocumentPickerViewController` によるファイル選択
+- TrueDepth 対応デバイスの前面カメラで ARKit face tracking
+- avatar render state を Filament ブリッジへ伝達 (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`)
 - `iosApp` は Compose のホストアプリ（`MainViewController` 起動）
 
 ## 2. 未実装 / 計画中（Phase 1 以降）
@@ -36,10 +47,8 @@
 - 写真撮影
 - 撮影画像の保存 / 削除
 - フラッシュ制御
-- ズーム制御
 - ギャラリー連携
-- AR / VRM / Filament の本格描画連携
-- iOS 側の face tracking 実装（現状は Android 側中心）
+- face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合
 
 ## 3. 共有とプラットフォーム責務の整理
 
