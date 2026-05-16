@@ -19,6 +19,8 @@ internal object IOSAvatarRenderInterop {
         "com.example.vtubercamera_kmp_ver.avatar.selectionDidChange"
     const val avatarSelectionDidClearNotification =
         "com.example.vtubercamera_kmp_ver.avatar.selectionDidClear"
+    const val avatarSelectionReplayRequestedNotification =
+        "com.example.vtubercamera_kmp_ver.avatar.selectionReplayRequested"
     const val avatarRenderStateDidChangeNotification =
         "com.example.vtubercamera_kmp_ver.avatar.renderStateDidChange"
 

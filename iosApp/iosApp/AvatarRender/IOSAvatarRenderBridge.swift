@@ -13,6 +13,8 @@ final class IOSAvatarRenderBridge {
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidChange")
     static let avatarSelectionDidClearNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidClear")
+    static let avatarSelectionReplayRequestedNotification =
+        Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionReplayRequested")
     static let avatarRenderStateDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.renderStateDidChange")
 
@@ -64,6 +66,7 @@ final class IOSAvatarRenderBridge {
                 self?.handleAvatarRenderStateChanged(notification)
             }
         ]
+        center.post(name: Self.avatarSelectionReplayRequestedNotification, object: nil)
     }
 
     /// Stops listening to shared Compose avatar-render notifications.

@@ -67,6 +67,28 @@ struct IOSAvatarRenderBridgeTests {
     }
 
     @Test
+    func connectRequestsCurrentAvatarSelectionReplay() {
+        let renderer = SpyRenderStateRenderer()
+        let bridge = IOSAvatarRenderBridge(renderer: renderer)
+        var didRequestReplay = false
+        let observer = NotificationCenter.default.addObserver(
+            forName: IOSAvatarRenderBridge.avatarSelectionReplayRequestedNotification,
+            object: nil,
+            queue: nil
+        ) { _ in
+            didRequestReplay = true
+        }
+        defer {
+            NotificationCenter.default.removeObserver(observer)
+            bridge.disconnect()
+        }
+
+        bridge.connect()
+
+        #expect(didRequestReplay)
+    }
+
+    @Test
     func filamentRendererBridgeStoresLatestAvatarStateCopy() {
         let bridge = VTCFilamentRendererBridge()
         let state = VTCAvatarRenderState()
