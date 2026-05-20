@@ -337,7 +337,6 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
         and any_file_contains(
             (
                 "iosApp/iosApp/ContentView.swift",
-                "iosApp/iosApp/IOSCameraViewModel.swift",
             ),
             ("VNDetectFace", "Vision", "ARFace", "MLKFace", "onFaceFrame"),
         )
