@@ -1,11 +1,70 @@
 version: 2
+
 updates:
+  # Gradle / Kotlin / Android Gradle Plugin / KMP dependencies
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+
+    open-pull-requests-limit: 5
+
+    cooldown:
+      semver-patch-days: 7
+      semver-minor-days: 14
+
+    groups:
+      gradle-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
     labels:
       - "dependencies"
+      - "maintenance"
+      - "security"
+
+    commit-message:
+      prefix: "chore"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "Asia/Tokyo"
+
+    open-pull-requests-limit: 5
+
+    cooldown:
+      default-days: 7
+
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+    labels:
+      - "dependencies"
+      - "maintenance"
+      - "security"
+
     commit-message:
       prefix: "chore"
