@@ -15,7 +15,6 @@ updates:
     cooldown:
       semver-patch-days: 7
       semver-minor-days: 14
-      semver-major-days: 30
 
     groups:
       gradle-minor-and-patch:
