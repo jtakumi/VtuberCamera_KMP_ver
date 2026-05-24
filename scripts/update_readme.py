@@ -40,11 +40,18 @@ def render_generated_block() -> str:
     manifest = read_text("composeApp/src/androidMain/AndroidManifest.xml")
     android_preview = read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidCameraPreview.kt")
     android_avatar_host = read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidFilamentAvatarHost.kt")
+    android_avatar_runtime_controller = read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidAvatarRuntimeController.kt")
     ios_preview = read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt")
+    ios_avatar_interop = read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSAvatarRenderInterop.kt")
     camera_screen = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt")
     camera_view_model = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt")
+    vrm_avatar_parser = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/VrmAvatarParser.kt")
+    vrm_runtime_descriptor = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/vrm/VrmRuntimeAssetDescriptor.kt")
+    theme_mode_store = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/theme/ThemeModeStore.kt")
     content_view = read_text("iosApp/iosApp/ContentView.swift")
     ios_filament_view = read_text("iosApp/iosApp/AvatarRender/FilamentAvatarView.swift")
+    readme_sync_workflow = read_text(".github/workflows/readme-sync.yml")
+    spec_sync_workflow = read_text(".github/workflows/spec-sync.yml")
 
     android_items: list[str] = []
     if "android.permission.CAMERA" in manifest and "ActivityResultContracts.RequestPermission" in android_preview:
@@ -61,17 +68,25 @@ def render_generated_block() -> str:
         android_items.append("CameraX によるリアルタイムプレビュー")
     if "onToggleLensFacing" in camera_view_model and "toCameraSelector()" in android_preview:
         android_items.append("フロント / バックカメラ切り替え")
+    if all_in(camera_view_model, ("observeZoomState", "setZoomRatio")) and "onPlatformZoomStateChanged" in android_preview:
+        android_items.append("ピンチ操作によるカメラズーム制御とズーム倍率表示")
     if "ActivityResultContracts.OpenDocument" in android_preview:
-        android_items.append("ドキュメントファイルピッカー起動")
+        android_items.append("OpenDocument による VRM / GLB ファイル選択")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
         android_items.append("ML Kit Face Detection による face tracking 解析と共有 state 反映")
+    if "FaceToAvatarMapper" in camera_view_model:
+        android_items.append("face tracking 結果をアバター表情・ボーン状態へマッピング")
     if all_in(build_gradle, ("libs.filament.android", "libs.gltfio.android")) and "VrmAvatarParser.parse" in android_preview and all_in(
         android_avatar_host,
         ("AndroidFilamentAvatarRenderer", "avatarSelection", "avatarRenderState"),
     ):
-        android_items.append("Filament renderer による VRM avatar 表示基盤")
+        android_items.append("Filament / gltfio による VRM avatar 表示基盤")
+    if all_in(android_avatar_runtime_controller, ("VrmMorphBindingResolver", "setMorphWeights")):
+        android_items.append("VRM morph target への表情 weight 反映")
     if "fun CameraScreen(" in camera_screen:
         android_items.append("Compose Multiplatform ベースのカメラ画面")
+    if "onThemeModeToggle" in camera_screen:
+        android_items.append("ライト / ダーク / システムテーマ切り替え")
 
     ios_items: list[str] = []
     if "MainViewControllerKt.MainViewController()" in content_view and "AVCaptureVideoPreviewLayer" in ios_preview:
@@ -89,10 +104,16 @@ def render_generated_block() -> str:
         ios_items.append("カメラ権限確認と権限リクエスト")
     if "requestedLensFacing" in ios_preview and "onLensFacingChanged" in ios_preview:
         ios_items.append("フロント / バックカメラ切り替え")
+    if all_in(ios_preview, ("videoZoomFactor", "setZoomRatio")):
+        ios_items.append("ピンチ操作によるカメラズーム制御とズーム倍率表示")
     if "UIDocumentPickerViewController" in ios_preview:
-        ios_items.append("`UIDocumentPickerViewController` によるファイル選択")
-    if "FilamentAvatarView()" in content_view and "struct FilamentAvatarView" in ios_filament_view:
+        ios_items.append("`UIDocumentPickerViewController` による VRM / GLB ファイル選択")
+    if "struct FilamentAvatarView" in ios_filament_view and "IOSAvatarRenderBridge" in ios_filament_view:
         ios_items.append("SwiftUI + Filament による avatar view ホスト")
+    if "avatarRenderState" in ios_avatar_interop:
+        ios_items.append("avatar render state を Filament ブリッジへ伝達")
+    if "onThemeModeToggle" in camera_screen:
+        ios_items.append("ライト / ダーク / システムテーマ切り替え")
 
     shared_items: list[str] = []
     if "fun CameraRoute(" in camera_screen:
@@ -100,11 +121,21 @@ def render_generated_block() -> str:
     if "fun CameraScreen(" in camera_screen:
         shared_items.append("カメラ画面の基本 UI")
     if "class CameraViewModel" in camera_view_model:
-        shared_items.append("`CameraViewModel` による画面状態管理")
+        shared_items.append("`CameraViewModel` による画面状態管理（権限・プレビュー・ズーム・アバター状態）")
     if "lensFacing" in camera_view_model:
         shared_items.append("レンズ向き状態 (`Back` / `Front`)")
+    if all_in(camera_view_model, ("zoomUiState", "onCameraZoomChanged")):
+        shared_items.append("ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新")
     if all_in(camera_view_model, ("FaceTrackingUiState", "FaceToAvatarMapper")):
         shared_items.append("face tracking の共有表示モデルと avatar 反映 state")
+    if all_in(vrm_avatar_parser, ("supportedExtensions", "vrm", "glb")):
+        shared_items.append("VRM / GLB バイナリのパースと選択済み avatar metadata 抽出")
+    if all_in(vrm_runtime_descriptor, ("VrmRuntimeAssetDescriptor", "humanoidBones", "expressions")):
+        shared_items.append("VRM runtime descriptor による humanoid bone / expression / lookAt 情報の保持")
+    if all_in(vrm_avatar_parser, ("AvatarAssetStore.store", "AvatarSelectionData")):
+        shared_items.append("アバターアセット管理 (`AvatarAssetStore`) と renderer slot への受け渡し")
+    if "ThemeModeStore" in theme_mode_store:
+        shared_items.append("ライト / ダーク / システムテーマ設定の永続化")
     if "camera_error_permission_denied" in camera_view_model:
         shared_items.append("権限文言のリソース管理")
 
@@ -112,9 +143,9 @@ def render_generated_block() -> str:
         "写真撮影",
         "撮影画像の保存 / 削除",
         "フラッシュ制御",
-        "ズーム制御",
         "ギャラリー関連機能",
-        "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合",
+        "録画 / 配信向けの出力機能",
+        "face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験",
     ]
 
     structure_items = [
@@ -124,6 +155,11 @@ def render_generated_block() -> str:
         "[composeApp/src/iosMain](./composeApp/src/iosMain)\n  iOS 向けの KMP エントリポイントを配置しています。AVFoundation preview と ARKit face tracking をここで担います。",
         "[iosApp](./iosApp)\n  Xcode のホストアプリです。`MainViewController` を起動して Compose 画面を表示します。",
         "[docs/KMP_IMPLEMENTATION_SPEC.ja.md](./docs/KMP_IMPLEMENTATION_SPEC.ja.md)\n  KMP 版の実装方針と今後の拡張計画をまとめた仕様書です。",
+        "[docs/spec-sync-rules.md](./docs/spec-sync-rules.md)\n  README / 仕様書 / 実装 / CI 設定の同期確認ルールをまとめています。",
+        "[scripts/update_readme.py](./scripts/update_readme.py)\n  README の自動生成ステータスブロックを現行実装から更新します。",
+        "[scripts/spec_sync_check.py](./scripts/spec_sync_check.py)\n  README と実装仕様のドリフトを report-only で確認します。",
+        "[.github/workflows/readme-sync.yml](./.github/workflows/readme-sync.yml)\n  README の自動生成ブロックが更新済みか CI で確認します。",
+        "[discord-codex-bot](./discord-codex-bot)\n  Discord から Codex task と Android debug build を実行する補助 Bot です。",
     ]
 
     common_libraries: list[str] = []
@@ -137,6 +173,8 @@ def render_generated_block() -> str:
         common_libraries.append("Kotlin Test")
     if "turbine" in versions:
         common_libraries.append("Turbine")
+    if "kotlinx-serialization-json" in versions:
+        common_libraries.append("kotlinx-serialization-json")
 
     android_libraries: list[str] = []
     if all_in(
@@ -153,6 +191,10 @@ def render_generated_block() -> str:
         android_libraries.append("Activity Compose")
     if "androidx-exifinterface" in versions:
         android_libraries.append("ExifInterface")
+    if "mlkit-face-detection" in versions:
+        android_libraries.append("ML Kit Face Detection")
+    if all_in(versions, ("filament-android", "filament-utils-android", "gltfio-android")):
+        android_libraries.append("Filament (`filament-android`, `filament-utils-android`, `gltfio-android`)")
 
     ios_libraries: list[str] = []
     if "AVCaptureSession" in ios_preview:
@@ -163,12 +205,22 @@ def render_generated_block() -> str:
         ios_libraries.append("SwiftUI")
     if "import UIKit" in content_view:
         ios_libraries.append("UIKit")
+    if "import Filament" in ios_filament_view:
+        ios_libraries.append("Filament")
+
+    ci_items = []
+    if readme_sync_workflow:
+        ci_items.append("README 自動生成ブロックの同期確認")
+    if spec_sync_workflow:
+        ci_items.append("spec sync の report-only 確認")
+    ci_items.append("Android debug build")
+    ci_items.append("iOS simulator build")
 
     lines = [
         "## 現在の実装状況",
         "",
         *build_section("### Android", android_items),
-        *build_section("### iOS", ios_items, blank_after_indexes=(1,)),
+        *build_section("### iOS", ios_items),
         *build_section("### 共有コードで扱っているもの", shared_items),
         *build_section("### まだ未実装の主な機能", not_implemented_items),
         "## リポジトリ構成",
@@ -201,6 +253,24 @@ def render_generated_block() -> str:
         ".\\gradlew.bat :composeApp:assembleDebug",
         "```",
         "",
+        "### README 同期チェック",
+        "",
+        "```shell",
+        "python3 scripts/update_readme.py --check",
+        "```",
+        "",
+        "### Spec 同期レポート",
+        "",
+        "```shell",
+        "python3 scripts/spec_sync_check.py --format markdown",
+        "```",
+        "",
+        "### Android unit test",
+        "",
+        "```shell",
+        "./gradlew :composeApp:testDebugUnitTest",
+        "```",
+        "",
         "### iOS シミュレータ向けビルド",
         "",
         "Xcode 26 系のツールチェーンで Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。",
@@ -209,11 +279,18 @@ def render_generated_block() -> str:
         "xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build",
         "```",
         "",
+        "## CI / Bot",
+        "",
+        f"- CI では {', '.join(ci_items)} を扱います。",
+        "- Dependabot PR は差分サイズと更新種別に応じて自動マージ可否を判定します。",
+        "- `discord-codex-bot` は Discord の slash command から Codex task と Android debug build を起動するための補助ツールです。",
+        "",
         "## 実装上の補足",
         "",
         "- Android は `composeApp` の Compose UI がそのままアプリ画面として動作します。",
-        "- iOS は `composeApp/src/iosMain` の `CameraPreviewHost` が AVFoundation preview と ARKit face tracking を担当します。",
+        "- iOS の実カメラ実装は `composeApp/src/iosMain` にあり、`CameraPreviewHost` が AVFoundation preview と ARKit face tracking を担当します。",
         "- `iosApp` は現在も Compose Multiplatform host と Xcode プロジェクトの役割を持ちます。",
+        "- Android / iOS とも、選択した VRM / GLB の raw bytes は `AvatarAssetStore` に置き、共有 state には軽量 handle と metadata を保持します。",
         "- package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。",
     ]
     return "\n".join(lines)
