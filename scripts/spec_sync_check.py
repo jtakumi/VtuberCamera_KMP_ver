@@ -122,6 +122,7 @@ def make_finding(
 
 def run_checks(active_exceptions: set[str]) -> list[Finding]:
     readme = read_text("README.md")
+    readme_not_implemented = readme.split("### まだ未実装の主な機能", 1)[1] if "### まだ未実装の主な機能" in readme else ""
     spec = read_text("docs/KMP_IMPLEMENTATION_SPEC.ja.md")
     rules = read_text("docs/spec-sync-rules.md")
     exceptions = read_text("docs/spec-sync-exceptions.yaml")
@@ -331,7 +332,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     ios_host_routes_to_compose = "MainViewControllerKt.MainViewController()" in ios_content_view
     ios_face_tracking_present = any_file_contains(
         ("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt",),
-        ("VNDetectFace", "Vision", "ARFace", "MLKFace", "onFaceFrame"),
+        ("VNDetectFace", "Vision", "ARFace", "ARFaceTrackingConfiguration", "MLKFace", "onFaceFrame"),
     ) or (
         not ios_host_routes_to_compose
         and any_file_contains(
@@ -341,20 +342,22 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
             ("VNDetectFace", "Vision", "ARFace", "MLKFace", "onFaceFrame"),
         )
     )
-    ios_face_tracking_documented_missing = "iOS の face tracking は未実装" in readme or "iOS 側の face tracking 実装" in spec
+    ios_face_tracking_documented_present = (
+        "TrueDepth 対応デバイスの前面カメラで ARKit face tracking" in readme
+        and "ARKit face tracking" in spec
+    )
     findings.append(
         make_finding(
             check_id="ios_face_tracking_asymmetry",
-            title="iOS face tracking gap is documented as intentional current asymmetry",
-            category="Intentional platform asymmetry",
-            ok=not ios_face_tracking_present and ios_face_tracking_documented_missing,
+            title="iOS face tracking is backed by ARKit and documented",
+            category="Code ahead of spec",
+            ok=ios_face_tracking_present and ios_face_tracking_documented_present,
             ok_evidence=(
-                "No iOS face analyzer evidence was found.",
-                "README/spec document iOS face tracking as not implemented.",
+                "IOSCameraPreview.kt contains ARKit face tracking evidence.",
+                "README/spec document iOS ARKit face tracking as implemented.",
             ),
             problem_evidence=("iOS face tracking implementation or docs changed; reclassify the platform asymmetry.",),
-            recommendation="If iOS face tracking is implemented, update README/spec and expire IOS_FACE_TRACKING_NOT_IMPLEMENTED.",
-            exception_id="IOS_FACE_TRACKING_NOT_IMPLEMENTED",
+            recommendation="Keep README/spec aligned with the ARKit face tracking implementation.",
             active_exceptions=active_exceptions,
         )
     )
@@ -386,9 +389,15 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
                 and "gltfio.android" in build_gradle
                 and path_exists("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidFilamentAvatarHost.kt")
                 and path_exists("iosApp/iosApp/AvatarRender/FilamentAvatarView.swift")
-                and "Filament renderer による VRM avatar 表示基盤" in readme
+                and (
+                    "Filament renderer による VRM avatar 表示基盤" in readme
+                    or "Filament / gltfio による VRM avatar 表示基盤" in readme
+                )
                 and "SwiftUI + Filament による avatar view ホスト" in readme
-                and "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合" in readme
+                and (
+                    "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合" in readme
+                    or "face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験" in readme
+                )
             ),
             ok_evidence=(
                 "Android Filament/gltfio dependencies and renderer host exist.",
@@ -411,7 +420,8 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
         )
     )
     capture_tokens = ("ImageCapture", "takePicture", "AVCapturePhotoOutput", "MediaStore", "PHPhotoLibrary")
-    flash_zoom_tokens = ("FLASH_MODE", "enableTorch", "torchMode", "zoomRatio", "linearZoom", "videoZoomFactor")
+    flash_tokens = ("FLASH_MODE", "enableTorch", "torchMode")
+    zoom_tokens = ("zoomRatio", "linearZoom", "videoZoomFactor", "setZoomRatio")
     findings.append(
         make_finding(
             check_id="capture_save_planned",
@@ -431,15 +441,22 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     findings.append(
         make_finding(
             check_id="flash_zoom_planned",
-            title="Flash and zoom controls are still planned, not shipped",
+            title="Flash remains planned while zoom is shipped",
             category="Spec ahead of code",
-            ok=not any(token in camera_sources for token in flash_zoom_tokens) and all_in(readme, ("フラッシュ制御", "ズーム制御")),
+            ok=(
+                not any(token in camera_sources for token in flash_tokens)
+                and any(token in camera_sources for token in zoom_tokens)
+                and "フラッシュ制御" in readme
+                and "ピンチ操作によるカメラズーム制御" in readme
+                and "ズーム制御" not in readme_not_implemented
+            ),
             ok_evidence=(
-                "No flash/zoom implementation tokens were found in camera sources.",
-                "README marks flash and zoom as not implemented.",
+                "No flash implementation tokens were found in camera sources.",
+                "Zoom implementation tokens were found in camera sources.",
+                "README marks flash as not implemented and zoom as implemented.",
             ),
             problem_evidence=("Flash/zoom implementation tokens or docs changed; update README/spec or exception ledger.",),
-            recommendation="When flash or zoom lands, update README/spec and expire FLASH_ZOOM_PLANNED as needed.",
+            recommendation="When flash lands, remove the not-implemented wording and expire FLASH_ZOOM_PLANNED.",
             exception_id="FLASH_ZOOM_PLANNED",
             active_exceptions=active_exceptions,
         )
@@ -454,7 +471,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
                 "assembleDebug" in android_ci
                 and "testDebugUnitTest" in android_ci
                 and "xcodebuild" in ios_ci
-                and "macos-15" in ios_ci
+                and ("macos-15" in ios_ci or "macos-26" in ios_ci)
                 and "xcodebuild" in bitrise
                 and "Assemble Android debug app" in bitrise
             ),
