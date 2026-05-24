@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -26,10 +27,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.theme.ThemeMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
@@ -53,6 +57,10 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_tracking
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_dark
+import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_light
+import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_system
+import vtubercamera_kmp_ver.composeapp.generated.resources.theme_toggle_content_description
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -64,6 +72,8 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_butt
 fun CameraRoute(
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
+    themeMode: ThemeMode = ThemeMode.System,
+    onThemeModeToggle: () -> Unit = {},
 ) {
     val permissionController = rememberCameraPermissionController()
     val repositories = rememberCameraRepositories(permissionController)
@@ -101,6 +111,8 @@ fun CameraRoute(
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
+        themeMode = themeMode,
+        onThemeModeToggle = onThemeModeToggle,
     )
 }
 
@@ -123,6 +135,8 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeToggle: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -154,6 +168,8 @@ fun CameraScreen(
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
+                themeMode = themeMode,
+                onThemeModeToggle = onThemeModeToggle,
             )
 
             else -> LoadingState()
@@ -194,6 +210,8 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeToggle: () -> Unit,
 ) {
     val avatarSelection = uiState.avatarSelection
     val avatarPreview = uiState.avatarPreview
@@ -229,6 +247,8 @@ private fun CameraPreviewState(
             zoomScale = uiState.zoomUiState.currentCameraZoomRatio,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
+            themeMode = themeMode,
+            onThemeModeToggle = onThemeModeToggle,
         )
     }
 }
@@ -365,7 +385,13 @@ private fun BoxScope.CameraUiLayer(
     zoomScale: Float,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeToggle: () -> Unit,
 ) {
+    val themeToggleContentDescription = stringResource(
+        Res.string.theme_toggle_content_description,
+    )
+
     Column(
         modifier = Modifier.fillMaxWidth().align(Alignment.TopStart).padding(
             MaterialTheme.spacing.xl
@@ -381,8 +407,24 @@ private fun BoxScope.CameraUiLayer(
             Button(onClick = onOpenFilePicker) {
                 Text(stringResource(Res.string.file_picker_open_button))
             }
-            Button(onClick = onLensFacingToggle) {
-                Text(stringResource(Res.string.camera_switch_button))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = onThemeModeToggle,
+                    modifier = Modifier.semantics {
+                        contentDescription = themeToggleContentDescription
+                    },
+                ) {
+                    Text(
+                        text = themeMode.symbol,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Button(onClick = onLensFacingToggle) {
+                    Text(stringResource(Res.string.camera_switch_button))
+                }
             }
         }
         ZoomIndicator(
@@ -403,6 +445,16 @@ private fun BoxScope.CameraUiLayer(
     }
 
 }
+
+private val ThemeMode.symbol: String
+    @Composable
+    get() = stringResource(
+        when (this) {
+            ThemeMode.System -> Res.string.theme_mode_system
+            ThemeMode.Light -> Res.string.theme_mode_light
+            ThemeMode.Dark -> Res.string.theme_mode_dark
+        },
+    )
 
 @Composable
 private fun ZoomIndicator(
