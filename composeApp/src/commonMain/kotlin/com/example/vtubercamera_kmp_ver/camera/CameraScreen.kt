@@ -140,7 +140,7 @@ fun CameraScreen(
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
-    val previewError = uiState.previewState as? PreviewState.Error
+    val previewError = uiState.session.previewState as? PreviewState.Error
 
     Box(
         modifier = modifier
@@ -149,7 +149,7 @@ fun CameraScreen(
     ) {
         when {
             uiState.isPermissionChecking -> LoadingState()
-            uiState.permissionState == PermissionState.Denied -> PermissionDeniedState(
+            uiState.permission.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
             )
 
@@ -175,7 +175,7 @@ fun CameraScreen(
             else -> LoadingState()
         }
 
-        uiState.message?.let { message ->
+        uiState.session.message?.let { message ->
             CameraMessageBanner(
                 message = message,
                 modifier = Modifier
@@ -184,7 +184,7 @@ fun CameraScreen(
             )
         }
 
-        uiState.filePickerErrorMessageRes?.let { messageRes ->
+        uiState.avatarSelection.filePickerErrorMessageRes?.let { messageRes ->
             AlertDialog(
                 onDismissRequest = onDismissFilePickerError,
                 title = { Text(stringResource(Res.string.avatar_error_dialog_title)) },
@@ -213,21 +213,21 @@ private fun CameraPreviewState(
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
-    val avatarSelection = uiState.avatarSelection
+    val avatarSelection = uiState.avatarSelection.avatarSelection
     val avatarPreview = uiState.avatarPreview
 
     Box(modifier = Modifier.fillMaxSize()) {
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
-            lensFacing = uiState.lensFacing,
-            zoomScale = uiState.cameraZoomScale,
+            lensFacing = uiState.session.lensFacing,
+            zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
         )
         CameraRendererLayer(
             avatarSelection = avatarSelection,
             avatarPreview = avatarPreview,
-            avatarRenderState = uiState.avatarRenderState,
+            avatarRenderState = uiState.avatarRender,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
@@ -244,7 +244,7 @@ private fun CameraPreviewState(
         CameraUiLayer(
             avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
-            zoomScale = uiState.zoomUiState.currentCameraZoomRatio,
+            zoomScale = uiState.zoom.currentCameraZoomRatio,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             themeMode = themeMode,

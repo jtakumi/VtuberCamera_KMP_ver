@@ -4,11 +4,10 @@ import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
+import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
+import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -91,7 +90,7 @@ import kotlin.test.assertNull
  * 10. **File selection fails (unsupported format / IO error) → error message shown**
  *    - Steps: tap the file-picker button → select a file that cannot be parsed as VRM/GLB.
  *    - Expected: CameraViewModel.onFilePicked(FilePickerResult.Error(...)) is called;
- *                uiState.filePickerErrorMessageRes is set to the appropriate StringResource;
+ *                uiState.avatarSelection.filePickerErrorMessageRes is set to the appropriate StringResource;
  *                onDismissFilePickerError() clears it.
  */
 // Collects pending unit-test scenarios for the shared camera state machine.
@@ -116,7 +115,7 @@ class CameraViewModelTest {
     /**
      * When [PermissionRepository.checkCameraPermission] returns [PermissionState.Granted],
      * [CameraViewModel.initialize] must resolve the initial lens and call
-     * [CameraRepository.startPreview], leaving [CameraUiState.previewState] as
+     * [CameraRepository.startPreview], leaving [CameraUiState.session.previewState] as
      * [PreviewState.Preparing] (and eventually [PreviewState.Showing] once the platform signals
      * success via [CameraRepository.onPlatformPreviewStarted]).
      */
@@ -138,11 +137,11 @@ class CameraViewModelTest {
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(PermissionState.Granted, uiState.permissionState)
-        assertEquals(CameraLensFacing.Front, uiState.lensFacing)
-        assertEquals(PreviewState.Showing, uiState.previewState)
-        assertNull(uiState.errorState)
-        assertNull(uiState.message)
+        assertEquals(PermissionState.Granted, uiState.permission.permissionState)
+        assertEquals(CameraLensFacing.Front, uiState.session.lensFacing)
+        assertEquals(PreviewState.Showing, uiState.session.previewState)
+        assertNull(uiState.session.errorState)
+        assertNull(uiState.session.message)
         assertEquals(1, cameraRepository.resolveInitialLensCallCount)
         assertEquals(listOf(CameraLensFacing.Back), cameraRepository.resolveInitialLensRequests)
         assertEquals(1, cameraRepository.startPreviewCallCount)
@@ -164,18 +163,18 @@ class CameraViewModelTest {
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(PermissionState.Unknown, uiState.permissionState)
-        assertEquals(PreviewState.Preparing, uiState.previewState)
-        assertNull(uiState.errorState)
-        assertNull(uiState.message)
+        assertEquals(PermissionState.Unknown, uiState.permission.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.session.previewState)
+        assertNull(uiState.session.errorState)
+        assertNull(uiState.session.message)
         assertEquals(0, cameraRepository.resolveInitialLensCallCount)
         assertEquals(0, cameraRepository.startPreviewCallCount)
     }
 
     /**
      * When [PermissionRepository.checkCameraPermission] returns [PermissionState.Denied],
-     * [CameraViewModel.initialize] must set [CameraUiState.errorState] to
-     * [CameraError.PermissionDenied] and [CameraUiState.previewState] to
+     * [CameraViewModel.initialize] must set [CameraUiState.session.errorState] to
+     * [CameraError.PermissionDenied] and [CameraUiState.session.previewState] to
      * [PreviewState.Error(CameraError.PermissionDenied)].
      * [CameraRepository.startPreview] must NOT be called.
      */
@@ -195,9 +194,9 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(PermissionState.Denied, uiState.permissionState)
-            assertEquals(CameraError.PermissionDenied, uiState.errorState)
-            val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+            assertEquals(PermissionState.Denied, uiState.permission.permissionState)
+            assertEquals(CameraError.PermissionDenied, uiState.session.errorState)
+            val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
             assertEquals(CameraError.PermissionDenied, previewState.error)
             assertEquals(0, cameraRepository.startPreviewCallCount)
         }
@@ -211,8 +210,8 @@ class CameraViewModelTest {
      *     [PermissionState.Denied] を返す。
      *
      * Then:
-     *   - [CameraViewModel.initialize] は [CameraUiState.permissionState] を Denied に更新し、
-     *     [CameraUiState.errorState] / [CameraUiState.previewState] を PermissionDenied に設定する。
+     *   - [CameraViewModel.initialize] は [CameraUiState.permission.permissionState] を Denied に更新し、
+     *     [CameraUiState.session.errorState] / [CameraUiState.session.previewState] を PermissionDenied に設定する。
      *   - [CameraRepository.startPreview] は呼び出されない。
      */
     @Test
@@ -231,7 +230,7 @@ class CameraViewModelTest {
 
             assertEquals(
                 PermissionState.Granted,
-                firstLaunchViewModel.uiState.value.permissionState
+                firstLaunchViewModel.uiState.value.permission.permissionState
             )
             assertEquals(1, firstLaunchCameraRepository.startPreviewCallCount)
 
@@ -247,9 +246,9 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = secondLaunchViewModel.uiState.value
-            assertEquals(PermissionState.Denied, uiState.permissionState)
-            assertEquals(CameraError.PermissionDenied, uiState.errorState)
-            val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+            assertEquals(PermissionState.Denied, uiState.permission.permissionState)
+            assertEquals(CameraError.PermissionDenied, uiState.session.errorState)
+            val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
             assertEquals(CameraError.PermissionDenied, previewState.error)
             assertEquals(0, secondLaunchCameraRepository.startPreviewCallCount)
         }
@@ -261,8 +260,8 @@ class CameraViewModelTest {
     /**
      * When permission transitions from [PermissionState.Denied] to [PermissionState.Granted],
      * [CameraViewModel.onPermissionStateChanged] must:
-     *   1. Reset [CameraUiState.previewState] to [PreviewState.Preparing].
-     *   2. Clear [CameraUiState.errorState] and [CameraUiState.message].
+     *   1. Reset [CameraUiState.session.previewState] to [PreviewState.Preparing].
+     *   2. Clear [CameraUiState.session.errorState] and [CameraUiState.session.message].
      *   3. Launch [CameraRepository.resolveInitialLens] + [CameraRepository.startPreview]
      *      (mirroring the initialize() flow).
      *
@@ -282,25 +281,25 @@ class CameraViewModelTest {
 
         viewModel.onPermissionStateChanged(isGranted = false, isChecking = false)
         val deniedState = viewModel.uiState.value
-        assertEquals(PermissionState.Denied, deniedState.permissionState)
-        assertEquals(CameraError.PermissionDenied, deniedState.errorState)
-        assertIs<PreviewState.Error>(deniedState.previewState)
+        assertEquals(PermissionState.Denied, deniedState.permission.permissionState)
+        assertEquals(CameraError.PermissionDenied, deniedState.session.errorState)
+        assertIs<PreviewState.Error>(deniedState.session.previewState)
 
         viewModel.onPermissionStateChanged(isGranted = true, isChecking = false)
         val recoveringState = viewModel.uiState.value
-        assertEquals(PermissionState.Granted, recoveringState.permissionState)
-        assertEquals(PreviewState.Preparing, recoveringState.previewState)
-        assertNull(recoveringState.errorState)
-        assertNull(recoveringState.message)
+        assertEquals(PermissionState.Granted, recoveringState.permission.permissionState)
+        assertEquals(PreviewState.Preparing, recoveringState.session.previewState)
+        assertNull(recoveringState.session.errorState)
+        assertNull(recoveringState.session.message)
         assertEquals(0, cameraRepository.startPreviewCallCount)
 
         advanceUntilIdle()
 
         val recoveredState = viewModel.uiState.value
-        assertEquals(PermissionState.Granted, recoveredState.permissionState)
-        assertEquals(PreviewState.Showing, recoveredState.previewState)
-        assertNull(recoveredState.errorState)
-        assertNull(recoveredState.message)
+        assertEquals(PermissionState.Granted, recoveredState.permission.permissionState)
+        assertEquals(PreviewState.Showing, recoveredState.session.previewState)
+        assertNull(recoveredState.session.errorState)
+        assertNull(recoveredState.session.message)
         assertEquals(1, cameraRepository.resolveInitialLensCallCount)
         assertEquals(1, cameraRepository.startPreviewCallCount)
     }
@@ -328,16 +327,16 @@ class CameraViewModelTest {
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(PermissionState.Granted, uiState.permissionState)
-        assertEquals(PreviewState.Preparing, uiState.previewState)
+        assertEquals(PermissionState.Granted, uiState.permission.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.session.previewState)
         assertEquals(1, cameraRepository.resolveInitialLensCallCount)
         assertEquals(1, cameraRepository.startPreviewCallCount)
     }
 
     /**
      * When permission transitions to [PermissionState.Unknown] from a [PreviewState.Error] state,
-     * [CameraUiState.previewState] must be reset to [PreviewState.Preparing] and
-     * [CameraUiState.errorState] must be cleared.
+     * [CameraUiState.session.previewState] must be reset to [PreviewState.Preparing] and
+     * [CameraUiState.session.errorState] must be cleared.
      */
     @Test
     fun onPermissionStateChanged_toUnknownFromError_resetsPreviewStateToPreparing() = runTest {
@@ -352,16 +351,16 @@ class CameraViewModelTest {
         advanceUntilIdle()
 
         viewModel.onPermissionStateChanged(isGranted = false, isChecking = false)
-        assertEquals(CameraError.PermissionDenied, viewModel.uiState.value.errorState)
-        assertIs<PreviewState.Error>(viewModel.uiState.value.previewState)
+        assertEquals(CameraError.PermissionDenied, viewModel.uiState.value.session.errorState)
+        assertIs<PreviewState.Error>(viewModel.uiState.value.session.previewState)
 
         viewModel.onPermissionStateChanged(isGranted = false, isChecking = true)
 
         val uiState = viewModel.uiState.value
-        assertEquals(PermissionState.Unknown, uiState.permissionState)
-        assertEquals(PreviewState.Preparing, uiState.previewState)
-        assertNull(uiState.errorState)
-        assertNull(uiState.message)
+        assertEquals(PermissionState.Unknown, uiState.permission.permissionState)
+        assertEquals(PreviewState.Preparing, uiState.session.previewState)
+        assertNull(uiState.session.errorState)
+        assertNull(uiState.session.message)
         assertEquals(0, cameraRepository.startPreviewCallCount)
     }
 
@@ -382,11 +381,11 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(PermissionState.Denied, uiState.permissionState)
-            assertEquals(CameraError.PermissionDenied, uiState.errorState)
-            val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+            assertEquals(PermissionState.Denied, uiState.permission.permissionState)
+            assertEquals(CameraError.PermissionDenied, uiState.session.errorState)
+            val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
             assertEquals(CameraError.PermissionDenied, previewState.error)
-            assertEquals(CameraMessageType.Error, uiState.message?.type)
+            assertEquals(CameraMessageType.Error, uiState.session.message?.type)
             assertEquals(0, cameraRepository.resolveInitialLensCallCount)
             assertEquals(0, cameraRepository.startPreviewCallCount)
         }
@@ -406,25 +405,25 @@ class CameraViewModelTest {
         cameraRepository.emitPreviewState(PreviewState.Showing)
         advanceUntilIdle()
 
-        assertEquals(PreviewState.Showing, viewModel.uiState.value.previewState)
-        assertNull(viewModel.uiState.value.errorState)
-        assertNull(viewModel.uiState.value.message)
+        assertEquals(PreviewState.Showing, viewModel.uiState.value.session.previewState)
+        assertNull(viewModel.uiState.value.session.errorState)
+        assertNull(viewModel.uiState.value.session.message)
 
         cameraRepository.emitPreviewState(PreviewState.Error(CameraError.CameraUnavailable))
         advanceUntilIdle()
 
         val errorState = viewModel.uiState.value
-        assertIs<PreviewState.Error>(errorState.previewState)
-        assertEquals(CameraError.CameraUnavailable, errorState.errorState)
-        assertEquals(CameraMessageType.Error, errorState.message?.type)
+        assertIs<PreviewState.Error>(errorState.session.previewState)
+        assertEquals(CameraError.CameraUnavailable, errorState.session.errorState)
+        assertEquals(CameraMessageType.Error, errorState.session.message?.type)
 
         cameraRepository.emitPreviewState(PreviewState.Preparing)
         advanceUntilIdle()
 
         val preparingState = viewModel.uiState.value
-        assertEquals(PreviewState.Preparing, preparingState.previewState)
-        assertNull(preparingState.errorState)
-        assertNull(preparingState.message)
+        assertEquals(PreviewState.Preparing, preparingState.session.previewState)
+        assertNull(preparingState.session.errorState)
+        assertNull(preparingState.session.message)
     }
 
     // ---------------------------------------------------------------------------
@@ -434,7 +433,7 @@ class CameraViewModelTest {
     /**
      * When [CameraRepository.startPreview] fails with
      * [CameraRepositoryException(CameraError.CameraUnavailable)],
-     * [CameraViewModel.onRetryPreview] must set [CameraUiState.errorState] to
+     * [CameraViewModel.onRetryPreview] must set [CameraUiState.session.errorState] to
      * [CameraError.CameraUnavailable] — NOT the generic [CameraError.PreviewInitializationFailed].
      *
      * Verifies that [CameraRepositoryException.error] is extracted and not overwritten.
@@ -457,8 +456,8 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(CameraError.CameraUnavailable, uiState.errorState)
-            val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+            assertEquals(CameraError.CameraUnavailable, uiState.session.errorState)
+            val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
             assertEquals(CameraError.CameraUnavailable, previewState.error)
             assertEquals(1, cameraRepository.startPreviewCallCount)
         }
@@ -484,8 +483,8 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(CameraError.PreviewInitializationFailed, uiState.errorState)
-            val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+            assertEquals(CameraError.PreviewInitializationFailed, uiState.session.errorState)
+            val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
             assertEquals(CameraError.PreviewInitializationFailed, previewState.error)
             assertEquals(1, cameraRepository.startPreviewCallCount)
         }
@@ -497,7 +496,7 @@ class CameraViewModelTest {
     /**
      * When [CameraRepository.switchLens] fails with
      * [CameraRepositoryException(CameraError.LensSwitchFailed)],
-     * [CameraViewModel.onToggleLensFacing] must set [CameraUiState.errorState] to
+     * [CameraViewModel.onToggleLensFacing] must set [CameraUiState.session.errorState] to
      * [CameraError.LensSwitchFailed].
      */
     @Test
@@ -510,14 +509,14 @@ class CameraViewModelTest {
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
         advanceUntilIdle()
-        assertEquals(CameraLensFacing.Back, viewModel.uiState.value.lensFacing)
+        assertEquals(CameraLensFacing.Back, viewModel.uiState.value.session.lensFacing)
 
         viewModel.onToggleLensFacing()
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(CameraLensFacing.Front, uiState.lensFacing)
-        assertNull(uiState.errorState)
+        assertEquals(CameraLensFacing.Front, uiState.session.lensFacing)
+        assertNull(uiState.session.errorState)
         assertEquals(1, cameraRepository.switchLensCallCount)
         assertEquals(listOf(CameraLensFacing.Back), cameraRepository.switchLensRequests)
     }
@@ -539,8 +538,8 @@ class CameraViewModelTest {
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(CameraError.LensSwitchFailed, uiState.errorState)
-        val previewState = assertIs<PreviewState.Error>(uiState.previewState)
+        assertEquals(CameraError.LensSwitchFailed, uiState.session.errorState)
+        val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
         assertEquals(CameraError.LensSwitchFailed, previewState.error)
         assertEquals(1, cameraRepository.switchLensCallCount)
     }
@@ -620,7 +619,7 @@ class CameraViewModelTest {
         viewModel.onFaceTrackingFrameChanged(lowConfidenceFrame)
         advanceUntilIdle()
 
-        val avatarState = viewModel.uiState.value.avatarRenderState
+        val avatarState = viewModel.uiState.value.avatarRender
         assertEquals(AvatarTrackingStatus.Lost, avatarState.trackingStatus)
         assertEquals(0.2f, avatarState.trackingConfidence)
         assertEquals(201L, avatarState.sourceTimestampMillis)
@@ -645,19 +644,19 @@ class CameraViewModelTest {
 
         viewModel.onFaceTrackingFrameChanged(firstFrame)
         advanceUntilIdle()
-        val trackedState = viewModel.uiState.value.avatarRenderState
+        val trackedState = viewModel.uiState.value.avatarRender
         assertEquals(AvatarTrackingStatus.Tracking, trackedState.trackingStatus)
         assertEquals(300L, trackedState.sourceTimestampMillis)
 
         viewModel.onFaceTrackingFrameChanged(secondFrame)
         advanceUntilIdle()
-        val lostState = viewModel.uiState.value.avatarRenderState
+        val lostState = viewModel.uiState.value.avatarRender
         assertEquals(AvatarTrackingStatus.Lost, lostState.trackingStatus)
         assertEquals(301L, lostState.sourceTimestampMillis)
 
         viewModel.onFaceTrackingFrameChanged(null)
         advanceUntilIdle()
-        val notTrackedState = viewModel.uiState.value.avatarRenderState
+        val notTrackedState = viewModel.uiState.value.avatarRender
         assertEquals(AvatarTrackingStatus.NotTracked, notTrackedState.trackingStatus)
         assertEquals(301L, notTrackedState.sourceTimestampMillis)
     }
@@ -669,7 +668,7 @@ class CameraViewModelTest {
     /**
      * When [CameraViewModel.onFilePicked] receives [FilePickerResult.Success],
      * [CameraUiState.avatarPreview] must be updated with the parsed avatar data and
-     * [CameraUiState.filePickerErrorMessageRes] must be null.
+     * [CameraUiState.avatarSelection.filePickerErrorMessageRes] must be null.
      */
     @Test
     fun onFilePicked_success_updatesAvatarPreviewAndClearsError() = runTest {
@@ -686,21 +685,21 @@ class CameraViewModelTest {
             viewModel.onFilePicked(FilePickerResult.Success(firstSelection))
             advanceUntilIdle()
             assertEquals(firstSelection.preview, viewModel.uiState.value.avatarPreview)
-            assertNull(viewModel.uiState.value.filePickerErrorMessageRes)
+            assertNull(viewModel.uiState.value.avatarSelection.filePickerErrorMessageRes)
             assertNotNull(AvatarAssetStore.load(firstSelection.assetHandle))
 
             viewModel.onFilePicked(FilePickerResult.Error(Res.string.vrm_error_select_file))
             advanceUntilIdle()
             assertEquals(
                 Res.string.vrm_error_select_file,
-                viewModel.uiState.value.filePickerErrorMessageRes
+                viewModel.uiState.value.avatarSelection.filePickerErrorMessageRes
             )
 
             viewModel.onFilePicked(FilePickerResult.Success(secondSelection))
             advanceUntilIdle()
             val uiState = viewModel.uiState.value
             assertEquals(secondSelection.preview, uiState.avatarPreview)
-            assertNull(uiState.filePickerErrorMessageRes)
+            assertNull(uiState.avatarSelection.filePickerErrorMessageRes)
             assertNull(AvatarAssetStore.load(firstSelection.assetHandle))
             assertNotNull(AvatarAssetStore.load(secondSelection.assetHandle))
         } finally {
@@ -730,7 +729,7 @@ class CameraViewModelTest {
 
     /**
      * When [CameraViewModel.onFilePicked] receives [FilePickerResult.Error],
-     * [CameraUiState.filePickerErrorMessageRes] must be set to the error's [StringResource].
+     * [CameraUiState.avatarSelection.filePickerErrorMessageRes] must be set to the error's [StringResource].
      * A subsequent call to [CameraViewModel.onDismissFilePickerError] must set it back to null.
      */
     @Test
@@ -744,12 +743,12 @@ class CameraViewModelTest {
         advanceUntilIdle()
         assertEquals(
             Res.string.vrm_error_select_file,
-            viewModel.uiState.value.filePickerErrorMessageRes
+            viewModel.uiState.value.avatarSelection.filePickerErrorMessageRes
         )
 
         viewModel.onDismissFilePickerError()
         advanceUntilIdle()
-        assertNull(viewModel.uiState.value.filePickerErrorMessageRes)
+        assertNull(viewModel.uiState.value.avatarSelection.filePickerErrorMessageRes)
     }
 
     @Test
@@ -774,8 +773,8 @@ class CameraViewModelTest {
                 advanceUntilIdle()
 
                 val uiState = viewModel.uiState.value
-                assertNull(uiState.avatarSelection)
-                assertEquals(Res.string.camera_error_unknown, uiState.filePickerErrorMessageRes)
+                assertNull(uiState.avatarSelection.avatarSelection)
+                assertEquals(Res.string.camera_error_unknown, uiState.avatarSelection.filePickerErrorMessageRes)
                 assertNull(AvatarAssetStore.load(selection.assetHandle))
             } finally {
                 AvatarAssetStore.remove(selection.assetHandle)
@@ -807,8 +806,8 @@ class CameraViewModelTest {
             advanceUntilIdle()
 
             val uiState = viewModel.uiState.value
-            assertEquals(currentSelection, uiState.avatarSelection)
-            assertNull(uiState.filePickerErrorMessageRes)
+            assertEquals(currentSelection, uiState.avatarSelection.avatarSelection)
+            assertNull(uiState.avatarSelection.filePickerErrorMessageRes)
             assertNotNull(AvatarAssetStore.load(currentSelection.assetHandle))
         } finally {
             AvatarAssetStore.remove(staleSelection.assetHandle)
@@ -828,7 +827,7 @@ class CameraViewModelTest {
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
         advanceUntilIdle()
-        assertEquals(1f, viewModel.uiState.value.zoomUiState.currentCameraZoomRatio)
+        assertEquals(1f, viewModel.uiState.value.zoom.currentCameraZoomRatio)
 
         viewModel.onCameraZoomChanged(2f)
         assertEquals(2f, cameraRepository.setZoomRatioRequests.last())
@@ -912,109 +911,4 @@ class CameraViewModelTest {
         mouthSmile = mouthSmile,
     )
 
-    private class FakeCameraRepository(
-        private val resolveInitialLensResult: Result<CameraLensFacing> = Result.success(
-            CameraLensFacing.Back
-        ),
-        private val startPreviewResult: Result<CameraLensFacing>? = null,
-        private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
-    ) : CameraRepository {
-        private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
-        private val zoomUiState = MutableStateFlow(
-            CameraZoomUiState(
-                currentCameraZoomRatio = 1f,
-                minCameraZoomRatio = 1f,
-                maxCameraZoomRatio = 5f,
-            ),
-        )
-
-        var startPreviewCallCount: Int = 0
-            private set
-
-        var resolveInitialLensCallCount: Int = 0
-            private set
-
-        var switchLensCallCount: Int = 0
-            private set
-
-        val startPreviewRequests = mutableListOf<CameraLensFacing>()
-        val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
-        val switchLensRequests = mutableListOf<CameraLensFacing>()
-        val setZoomRatioRequests = mutableListOf<Float>()
-
-        override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
-            startPreviewCallCount += 1
-            startPreviewRequests += lensFacing
-            val result = startPreviewResult ?: Result.success(lensFacing)
-            if (result.isSuccess) {
-                previewState.value = PreviewState.Showing
-            }
-            return result
-        }
-
-        override suspend fun stopPreview() {
-            previewState.value = PreviewState.Preparing
-        }
-
-        override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-            switchLensCallCount += 1
-            switchLensRequests += current
-            val result = switchLensResult
-            if (result.isSuccess) {
-                previewState.value = PreviewState.Showing
-            }
-            return result
-        }
-
-        override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
-            resolveInitialLensCallCount += 1
-            resolveInitialLensRequests += preferred
-            return resolveInitialLensResult
-        }
-
-        override fun observePreviewState(): Flow<PreviewState> {
-            return previewState.asStateFlow()
-        }
-
-        override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
-            previewState.value = PreviewState.Showing
-        }
-
-        override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {
-            previewState.value = PreviewState.Error(error)
-        }
-
-        override fun observeZoomState(): Flow<CameraZoomUiState> {
-            return zoomUiState.asStateFlow()
-        }
-
-        override fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState) {
-            this.zoomUiState.value = CameraZoomUiState(
-                currentCameraZoomRatio = zoomUiState.currentCameraZoomRatio,
-                minCameraZoomRatio = zoomUiState.minCameraZoomRatio,
-                maxCameraZoomRatio = zoomUiState.maxCameraZoomRatio
-            )
-        }
-
-        override fun setZoomRatio(updatedZoomRatio: Float) {
-            setZoomRatioRequests += updatedZoomRatio
-            zoomUiState.value = zoomUiState.value.copy(currentCameraZoomRatio = updatedZoomRatio)
-        }
-
-        fun emitPreviewState(state: PreviewState) {
-            previewState.value = state
-        }
-    }
-
-    private class FakePermissionRepository(
-        private val checkCameraPermissionResult: PermissionState,
-    ) : PermissionRepository {
-        override suspend fun checkCameraPermission(): PermissionState {
-            return checkCameraPermissionResult
-        }
-
-        override suspend fun requestCameraPermission(): PermissionState {
-            return checkCameraPermissionResult
-        }
-    }
 }

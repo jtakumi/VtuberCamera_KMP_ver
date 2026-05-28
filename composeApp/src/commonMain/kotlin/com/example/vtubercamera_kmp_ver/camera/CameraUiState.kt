@@ -1,33 +1,30 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
-import org.jetbrains.compose.resources.StringResource
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionUiState
+import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
+import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 
-// カメラ画面で描画する共有 UI 状態をまとめて保持する。
+// カメラ画面で描画する共有 UI 状態を、ドメインごとの sub-state を束ねて保持する。
 data class CameraUiState(
-    val lensFacing: CameraLensFacing = CameraLensFacing.Back,
-    val permissionState: PermissionState = PermissionState.Unknown,
-    val previewState: PreviewState = PreviewState.Preparing,
-    val errorState: CameraError? = null,
-    val message: CameraMessage? = null,
+    val session: CameraSessionUiState = CameraSessionUiState(),
+    val permission: CameraPermissionUiState = CameraPermissionUiState(),
+    val zoom: CameraZoomUiState = CameraZoomUiState(),
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
-    val avatarSelection: AvatarSelectionData? = null,
-    val avatarRenderState: AvatarRenderState = AvatarRenderState.Neutral,
-    val filePickerErrorMessageRes: StringResource? = null,
-    val cameraZoomScale: Float = DEFAULT_CAMERA_ZOOM_SCALE,
-    val zoomUiState: CameraZoomUiState = CameraZoomUiState()
+    val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
+    val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
 ) {
     val isPermissionGranted: Boolean
-        get() = permissionState == PermissionState.Granted
+        get() = permission.permissionState == PermissionState.Granted
 
     val isPermissionChecking: Boolean
-        get() = permissionState == PermissionState.Unknown
+        get() = permission.permissionState == PermissionState.Unknown
 
     val hasError: Boolean
-        get() = errorState != null || previewState is PreviewState.Error
+        get() = session.errorState != null || session.previewState is PreviewState.Error
 
     val avatarPreview: AvatarPreviewData?
-        get() = avatarSelection?.preview
+        get() = avatarSelection.avatarSelection?.preview
 }
 
 internal const val DEFAULT_CAMERA_ZOOM_SCALE = 1f
