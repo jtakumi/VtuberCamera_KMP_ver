@@ -135,6 +135,14 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     ios_content_view = read_text("iosApp/iosApp/ContentView.swift")
     camera_screen = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt")
     camera_view_model = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt")
+    # Aggregate of the per-domain camera modules so feature-detection patterns survive the
+    # responsibility split introduced by issue #149.
+    camera_module = (
+        camera_view_model
+        + read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/session/CameraSessionController.kt")
+        + read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/zoom/CameraZoomController.kt")
+        + read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/facetracking/FaceTrackingPresenter.kt")
+    )
     agents = read_text(".codex/AGENTS.md")
     copilot = read_text(".github/copilot-instructions.md")
     bitrise = read_text("bitrise.yml")
@@ -296,7 +304,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
             check_id="lens_toggle",
             title="Lens toggle is backed by shared state and platform preview hosts",
             category="Code ahead of spec",
-            ok=all_in(camera_view_model, ("onToggleLensFacing", "switchLens")) and "lensFacing" in android_preview and "lensFacing" in ios_preview,
+            ok=all_in(camera_module, ("onToggleLensFacing", "switchLens")) and "lensFacing" in android_preview and "lensFacing" in ios_preview,
             ok_evidence=(
                 "CameraViewModel.kt has onToggleLensFacing and switchLens flow.",
                 "Android and iOS preview hosts accept lensFacing.",
@@ -315,8 +323,8 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
             ok=(
                 "mlkit.face.detection" in build_gradle
                 and path_exists("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidFaceTrackingAnalyzer.kt")
-                and "onFaceTrackingFrameChanged" in camera_view_model
-                and "FaceTrackingUiState" in camera_view_model
+                and "onFaceTrackingFrameChanged" in camera_module
+                and "FaceTrackingUiState" in camera_module
             ),
             ok_evidence=(
                 "composeApp/build.gradle.kts has ML Kit Face Detection.",
