@@ -56,6 +56,18 @@
 - camera デバイス制御やネイティブ API の接続は platform 実装が担当する。
 - 現状は Android / iOS で実装の深さに差があるため、同一実装とは扱わない。
 
+## 3.1 CameraViewModel の責務分割
+
+`CameraViewModel` は肥大化を避けるため、ドメインごとの controller / presenter へ責務を委譲する薄い coordinator として実装する。`CameraScreen` から見た公開 API（11 個のコールバックと単一の `uiState: StateFlow<CameraUiState>`）は変更せず、内部のみを分割している。
+
+- **CameraSessionController** (`camera/session`): プレビュー開始 / 再試行 / レンズ切り替えと `observePreviewState()` による repository state 同期を担う。依存は `CameraRepository`。
+- **CameraPermissionCoordinator** (`camera/permission`): 権限の確認・要求・状態反映を担う。`PermissionChange`（`GrantedEntered` / `GrantedRefreshed` / `DeniedReceived` / `UnknownReceived`）を発行し、`CameraViewModel` が session 側のエフェクトへ wiring する。依存は `PermissionRepository`。
+- **CameraZoomController** (`camera/zoom`): ズーム倍率の計算・反映と `observeZoomState()` を担う。依存は `CameraRepository`。
+- **FaceTrackingPresenter** (`camera/facetracking`): `NormalizedFaceFrame` から `FaceTrackingUiState` と `AvatarRenderState` への変換を担う。`FaceToAvatarMapper` への委譲もここに寄せている。
+- **AvatarSelectionController** (`camera/avatar`): ファイル選択結果の反映、`AvatarAssetStore` 上のアセット寿命管理、読み込み失敗時の選択解除を担う。
+
+`CameraUiState` はこれらに対応する sub-state（`session` / `permission` / `zoom` / `faceTracking` / `avatarRender` / `avatarSelection`）を束ねる composite として再構成している。各 controller は自前の `StateFlow` を持ち、`CameraViewModel` がそれらを `uiState` へ同期合成する。ドメイン横断の唯一の結線点は「権限が Granted へ遷移した際に session のプレビュー開始を起動する」箇所で、`CameraViewModel.applyPermissionChange()` に集約している。
+
 ## 4. ドキュメント更新ルール
 
 - present tense（実装済み）を記述する場合は、必ず README と現行コードで確認する。
