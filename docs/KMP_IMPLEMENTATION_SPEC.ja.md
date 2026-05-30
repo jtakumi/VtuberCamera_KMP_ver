@@ -39,6 +39,8 @@
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
 - avatar render state を Filament ブリッジへ伝達 (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`)
 - `iosApp` は Compose のホストアプリ（`MainViewController` 起動）
+- Android は ML Kit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、Filament renderer の head bone / expression morph へ適用する。
+- iOS は ARKit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、native bridge へ通知する。
 
 ## 2. 未実装 / 計画中（Phase 1 以降）
 
@@ -48,13 +50,17 @@
 - 撮影画像の保存 / 削除
 - フラッシュ制御
 - ギャラリー連携
-- face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合
+- iOS native Filament renderer で選択済み avatar mesh を読み込み、head pose / expression morph を適用する実装
 
 ## 3. 共有とプラットフォーム責務の整理
 
 - shared は UI と状態遷移の土台を担当する。
 - camera デバイス制御やネイティブ API の接続は platform 実装が担当する。
 - 現状は Android / iOS で実装の深さに差があるため、同一実装とは扱わない。
+- `FaceTrackingPresenter` は platform から受け取った `NormalizedFaceFrame` を `FaceToAvatarMapper` へ渡し、UI 表示用 `FaceTrackingUiState` と renderer 用 `AvatarRenderState` を同時に更新する。
+- 顔未検出または tracking confidence 低下時は `AvatarRenderState` を `NotTracked` / `Lost` へ遷移させ、前回姿勢から neutral へ平滑に戻す。
+- Android renderer は共有 state に Android 向けの軽い gain / emphasis を適用してから、head bone transform と VRM expression morph weights へ反映する。
+- iOS renderer bridge は共有 state を `VTCAvatarRenderState` へ変換して native 側へ渡す。`iosApp/Configuration/Filament.xcconfig` の SDK / linker 設定が空のため、native mesh loading / morph application は未実装として扱う。
 
 ## 3.1 CameraViewModel の責務分割
 

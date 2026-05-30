@@ -45,6 +45,8 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - VRM / GLB バイナリのパースと選択済み avatar metadata 抽出
 - VRM runtime descriptor による humanoid bone / expression / lookAt 情報の保持
 - アバターアセット管理 (`AvatarAssetStore`) と renderer slot への受け渡し
+- Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合
+- iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合
 - ライト / ダーク / システムテーマ設定の永続化
 - 権限文言のリソース管理
 
@@ -55,7 +57,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - フラッシュ制御
 - ギャラリー関連機能
 - 録画 / 配信向けの出力機能
-- face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験
+- iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装
 
 ## リポジトリ構成
 
@@ -158,5 +160,5 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 ## 今後の整理候補
 
 - 写真撮影、保存 / 削除、フラッシュ、ギャラリー関連機能を段階的に追加する
-- face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験へ接続する
+- iOS native Filament renderer に avatar mesh loading と head pose / expression morph 適用を追加する
 - 録画 / 配信向けの出力機能を設計する

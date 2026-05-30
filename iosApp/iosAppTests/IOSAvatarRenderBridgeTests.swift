@@ -67,6 +67,42 @@ struct IOSAvatarRenderBridgeTests {
     }
 
     @Test
+    func notificationObserversForwardRenderStateAndClearAvatar() {
+        let renderer = SpyRenderStateRenderer()
+        let bridge = IOSAvatarRenderBridge(renderer: renderer)
+        bridge.connect()
+        defer { bridge.disconnect() }
+
+        NotificationCenter.default.post(
+            name: IOSAvatarRenderBridge.avatarRenderStateDidChangeNotification,
+            object: nil,
+            userInfo: [
+                IOSAvatarRenderBridge.headYawDegreesKey: NSNumber(value: 14),
+                IOSAvatarRenderBridge.headPitchDegreesKey: NSNumber(value: -2),
+                IOSAvatarRenderBridge.headRollDegreesKey: NSNumber(value: 5),
+                IOSAvatarRenderBridge.leftEyeBlinkKey: NSNumber(value: 0.4),
+                IOSAvatarRenderBridge.rightEyeBlinkKey: NSNumber(value: 0.6),
+                IOSAvatarRenderBridge.jawOpenKey: NSNumber(value: 0.8),
+                IOSAvatarRenderBridge.mouthSmileKey: NSNumber(value: 0.2)
+            ]
+        )
+        NotificationCenter.default.post(
+            name: IOSAvatarRenderBridge.avatarSelectionDidClearNotification,
+            object: nil
+        )
+
+        let state = renderer.latestState
+        #expect(state?.headYawDegrees == 14)
+        #expect(state?.headPitchDegrees == -2)
+        #expect(state?.headRollDegrees == 5)
+        #expect(state?.leftEyeBlink == 0.4)
+        #expect(state?.rightEyeBlink == 0.6)
+        #expect(state?.jawOpen == 0.8)
+        #expect(state?.mouthSmile == 0.2)
+        #expect(renderer.clearAvatarCallCount == 1)
+    }
+
+    @Test
     func filamentRendererBridgeStoresLatestAvatarStateCopy() {
         let bridge = VTCFilamentRendererBridge()
         let state = VTCAvatarRenderState()
@@ -95,10 +131,13 @@ struct IOSAvatarRenderBridgeTests {
 @MainActor
 private final class SpyRenderStateRenderer: IOSAvatarRenderStateApplying {
     private(set) var latestState: VTCAvatarRenderState?
+    private(set) var clearAvatarCallCount = 0
 
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {}
 
-    func clearAvatar() {}
+    func clearAvatar() {
+        clearAvatarCallCount += 1
+    }
 
     func updateAvatarState(_ state: VTCAvatarRenderState) {
         latestState = state

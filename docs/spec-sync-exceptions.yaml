@@ -49,13 +49,13 @@ exceptions:
     scope:
       - avatar_renderer
       - readme_summary
-    reason: README now distinguishes shipped avatar renderer groundwork from unfinished end-to-end AR / VRM integration, so this exception is no longer active.
+    reason: README now distinguishes Android dynamic avatar integration, iOS render-state bridge integration, and unfinished iOS native mesh rendering, so this exception is no longer active.
     evidence:
       - composeApp/build.gradle.kts: Android Filament and gltfio dependencies.
       - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render
       - iosApp/iosApp/AvatarRender/FilamentAvatarView.swift
-      - README.md: renderer groundwork is listed separately from unfinished end-to-end AR / VRM integration.
-    reevaluate_when: Remove or rewrite this historical note when end-to-end AR / VRM integration is fully documented as shipped or reclassified.
+      - README.md: Android dynamic integration, iOS bridge integration, and remaining iOS native mesh renderer work are listed separately.
+    reevaluate_when: Remove this historical note when iOS native mesh rendering ships.
 
   - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
     category: Spec ahead of code
