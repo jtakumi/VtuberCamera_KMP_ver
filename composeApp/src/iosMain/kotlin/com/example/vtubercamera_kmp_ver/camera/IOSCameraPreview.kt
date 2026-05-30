@@ -50,6 +50,10 @@ import platform.AVFoundation.AVCaptureDeviceInput
 import platform.AVFoundation.AVCaptureDevicePositionBack
 import platform.AVFoundation.AVCaptureDevicePositionFront
 import platform.AVFoundation.AVCaptureSession
+import platform.AVFoundation.AVCapturePhoto
+import platform.AVFoundation.AVCapturePhotoCaptureDelegateProtocol
+import platform.AVFoundation.AVCapturePhotoOutput
+import platform.AVFoundation.AVCapturePhotoSettings
 import platform.AVFoundation.AVCaptureVideoPreviewLayer
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
@@ -60,7 +64,6 @@ import platform.AVFoundation.requestAccessForMediaType
 import platform.AVFoundation.videoZoomFactor
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
-import platform.Foundation.NSDate
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
@@ -209,9 +212,13 @@ actual fun CameraPreviewHost(
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(
                         sessionManager.cameraControl(),
                     )
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
+                        sessionManager.photoCapturer(),
+                    )
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
                 } else {
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(null)
                     cameraRepository.onPlatformPreviewError(
                         lensFacing = resolvedLens,
                         error = CameraError.PreviewInitializationFailed,
@@ -225,6 +232,9 @@ actual fun CameraPreviewHost(
             sessionManager.stopPreview {
                 if (!isDisposed) {
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
+                    (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
+                        faceTrackingSessionManager.photoCapturer(),
+                    )
                     faceTrackingSessionManager.startPreview(
                         onFaceTrackingFrameChanged = { frame ->
                             currentOnFaceTrackingFrameChanged.value(frame)
@@ -246,6 +256,7 @@ actual fun CameraPreviewHost(
             isDisposed = true
             faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview()
+            (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(null)
             currentOnFaceTrackingFrameChanged.value(null)
         }
     }
@@ -438,6 +449,7 @@ private fun Throwable.toFilePickerError(): FilePickerResult.Error {
 private class IOSCameraSessionManager {
     private val session = AVCaptureSession()
     private val previewLayer = AVCaptureVideoPreviewLayer(session = session)
+    private val photoOutput = AVCapturePhotoOutput()
     // Serialize capture-session work off the main thread to avoid UI stalls.
     private val sessionQueue = dispatch_queue_create("com.example.vtubercamera.camera.session", null)
     private var currentInput: AVCaptureDeviceInput? = null
@@ -470,6 +482,9 @@ private class IOSCameraSessionManager {
             session.beginConfiguration()
             val previousInput = currentInput
             previousInput?.let { session.removeInput(it) }
+            if (!session.outputs.contains(photoOutput) && session.canAddOutput(photoOutput)) {
+                session.addOutput(photoOutput)
+            }
             if (!session.canAddInput(input)) {
                 previousInput?.takeIf { session.canAddInput(it) }?.let { restoredInput ->
                     session.addInput(restoredInput)
@@ -517,6 +532,49 @@ private class IOSCameraSessionManager {
         return currentCameraControl
     }
 
+    fun photoCapturer(): IOSPhotoCapturer {
+        return AVCapturePhotoOutputCapturer(photoOutput)
+    }
+}
+
+private class AVCapturePhotoOutputCapturer(
+    private val photoOutput: AVCapturePhotoOutput,
+) : IOSPhotoCapturer {
+    override fun capturePhoto(onComplete: (uri: String?, error: Throwable?) -> Unit) {
+        val delegate = IOSPhotoCaptureDelegate { uri, error ->
+            retainedPhotoDelegates.removeAll { it.didComplete }
+            onComplete(uri, error)
+        }
+        retainedPhotoDelegates += delegate
+        photoOutput.capturePhotoWithSettings(
+            settings = AVCapturePhotoSettings.photoSettings(),
+            delegate = delegate,
+        )
+    }
+
+    companion object {
+        private val retainedPhotoDelegates = mutableListOf<IOSPhotoCaptureDelegate>()
+    }
+}
+
+private class IOSPhotoCaptureDelegate(
+    private val onComplete: (uri: String?, error: Throwable?) -> Unit,
+) : NSObject(), AVCapturePhotoCaptureDelegateProtocol {
+    var didComplete: Boolean = false
+        private set
+
+    override fun captureOutput(
+        output: AVCapturePhotoOutput,
+        didFinishProcessingPhoto: AVCapturePhoto,
+        error: NSError?,
+    ) {
+        didComplete = true
+        if (error != null) {
+            onComplete(null, IllegalStateException(error.localizedDescription))
+            return
+        }
+        onComplete(null, null)
+    }
 }
 
 private class AVCaptureDeviceCameraControl(
@@ -593,6 +651,12 @@ private class IOSFaceTrackingSessionManager {
         sessionDelegate.onFaceTrackingFrameChanged = {}
         sessionDelegate.clearTrackedFace()
         previewView.session.pause()
+    }
+
+    fun photoCapturer(): IOSPhotoCapturer {
+        return IOSPhotoCapturer { onComplete ->
+            onComplete(null, IllegalStateException("Photo capture is unavailable during face tracking"))
+        }
     }
 }
 

@@ -6,6 +6,7 @@ import com.example.vtubercamera_kmp_ver.camera.CameraRepository
 import com.example.vtubercamera_kmp_ver.camera.CameraZoomUiState
 import com.example.vtubercamera_kmp_ver.camera.PermissionRepository
 import com.example.vtubercamera_kmp_ver.camera.PermissionState
+import com.example.vtubercamera_kmp_ver.camera.PhotoCaptureState
 import com.example.vtubercamera_kmp_ver.camera.PreviewState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ internal class FakeCameraRepository(
     private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
 ) : CameraRepository {
     private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
+    private val photoCaptureState = MutableStateFlow<PhotoCaptureState>(PhotoCaptureState.Idle)
     private val zoomUiState = MutableStateFlow(
         CameraZoomUiState(
             currentCameraZoomRatio = 1f,
@@ -74,6 +76,16 @@ internal class FakeCameraRepository(
 
     override fun observePreviewState(): Flow<PreviewState> {
         return previewState.asStateFlow()
+    }
+
+    override fun observePhotoCaptureState(): Flow<PhotoCaptureState> {
+        return photoCaptureState.asStateFlow()
+    }
+
+    override suspend fun capturePhoto(): Result<String?> {
+        photoCaptureState.value = PhotoCaptureState.Capturing
+        photoCaptureState.value = PhotoCaptureState.Succeeded("fake://photo.jpg")
+        return Result.success("fake://photo.jpg")
     }
 
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {

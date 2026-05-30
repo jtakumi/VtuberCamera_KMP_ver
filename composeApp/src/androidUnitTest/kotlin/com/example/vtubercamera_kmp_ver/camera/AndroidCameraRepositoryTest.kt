@@ -51,6 +51,20 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
+    fun capturePhoto_returnsPhotoCaptureFailedWhenImageCaptureIsNotReady() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        val result = repository.capturePhoto()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.PhotoCaptureFailed, exception.error)
+        assertEquals(
+            PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed),
+            repository.observePhotoCaptureState().first(),
+        )
+    }
+
+    @Test
     fun onPlatformPreviewStarted_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
         val repository = createRepository(
             availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front),
