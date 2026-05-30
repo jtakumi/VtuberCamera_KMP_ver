@@ -45,6 +45,27 @@ def render_generated_block() -> str:
     ios_avatar_interop = read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSAvatarRenderInterop.kt")
     camera_screen = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraScreen.kt")
     camera_view_model = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraViewModel.kt")
+    camera_session_controller = read_text(
+        "composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/session/CameraSessionController.kt",
+    )
+    camera_zoom_controller = read_text(
+        "composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/zoom/CameraZoomController.kt",
+    )
+    face_tracking_presenter = read_text(
+        "composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/facetracking/FaceTrackingPresenter.kt",
+    )
+    camera_shared_definitions = read_text(
+        "composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/CameraSharedDefinitions.kt",
+    )
+    # Aggregate of the per-domain camera modules so feature-detection patterns survive the
+    # responsibility split introduced by issue #149.
+    camera_module = (
+        camera_view_model
+        + camera_session_controller
+        + camera_zoom_controller
+        + face_tracking_presenter
+        + camera_shared_definitions
+    )
     vrm_avatar_parser = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/camera/VrmAvatarParser.kt")
     vrm_runtime_descriptor = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/vrm/VrmRuntimeAssetDescriptor.kt")
     theme_mode_store = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/theme/ThemeModeStore.kt")
@@ -66,15 +87,15 @@ def render_generated_block() -> str:
         ),
     ) and all_in(android_preview, ("ProcessCameraProvider", "PreviewView")):
         android_items.append("CameraX によるリアルタイムプレビュー")
-    if "onToggleLensFacing" in camera_view_model and "toCameraSelector()" in android_preview:
+    if "onToggleLensFacing" in camera_module and "toCameraSelector()" in android_preview:
         android_items.append("フロント / バックカメラ切り替え")
-    if all_in(camera_view_model, ("observeZoomState", "setZoomRatio")) and "onPlatformZoomStateChanged" in android_preview:
+    if all_in(camera_module, ("observeZoomState", "setZoomRatio")) and "onPlatformZoomStateChanged" in android_preview:
         android_items.append("ピンチ操作によるカメラズーム制御とズーム倍率表示")
     if "ActivityResultContracts.OpenDocument" in android_preview:
         android_items.append("OpenDocument による VRM / GLB ファイル選択")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
         android_items.append("ML Kit Face Detection による face tracking 解析と共有 state 反映")
-    if "FaceToAvatarMapper" in camera_view_model:
+    if "FaceToAvatarMapper" in camera_module:
         android_items.append("face tracking 結果をアバター表情・ボーン状態へマッピング")
     if all_in(build_gradle, ("libs.filament.android", "libs.gltfio.android")) and "VrmAvatarParser.parse" in android_preview and all_in(
         android_avatar_host,
@@ -122,11 +143,11 @@ def render_generated_block() -> str:
         shared_items.append("カメラ画面の基本 UI")
     if "class CameraViewModel" in camera_view_model:
         shared_items.append("`CameraViewModel` による画面状態管理（権限・プレビュー・ズーム・アバター状態）")
-    if "lensFacing" in camera_view_model:
+    if "lensFacing" in camera_module:
         shared_items.append("レンズ向き状態 (`Back` / `Front`)")
-    if all_in(camera_view_model, ("zoomUiState", "onCameraZoomChanged")):
+    if all_in(camera_module, ("zoomUiState", "onCameraZoomChanged")):
         shared_items.append("ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新")
-    if all_in(camera_view_model, ("FaceTrackingUiState", "FaceToAvatarMapper")):
+    if all_in(camera_module, ("FaceTrackingUiState", "FaceToAvatarMapper")):
         shared_items.append("face tracking の共有表示モデルと avatar 反映 state")
     if all_in(vrm_avatar_parser, ("supportedExtensions", "vrm", "glb")):
         shared_items.append("VRM / GLB バイナリのパースと選択済み avatar metadata 抽出")
@@ -136,7 +157,7 @@ def render_generated_block() -> str:
         shared_items.append("アバターアセット管理 (`AvatarAssetStore`) と renderer slot への受け渡し")
     if "ThemeModeStore" in theme_mode_store:
         shared_items.append("ライト / ダーク / システムテーマ設定の永続化")
-    if "camera_error_permission_denied" in camera_view_model:
+    if "camera_error_permission_denied" in camera_module:
         shared_items.append("権限文言のリソース管理")
 
     not_implemented_items = [
