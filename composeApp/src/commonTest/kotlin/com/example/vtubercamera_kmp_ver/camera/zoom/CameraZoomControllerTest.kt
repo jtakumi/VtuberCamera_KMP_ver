@@ -7,7 +7,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -30,7 +33,7 @@ class CameraZoomControllerTest {
     @Test
     fun observeZoomState_syncsRepositoryZoomToState() = runTest {
         val cameraRepository = FakeCameraRepository()
-        val controller = CameraZoomController(cameraRepository, backgroundScope)
+        val controller = CameraZoomController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         assertEquals(1f, controller.state.value.currentCameraZoomRatio)
@@ -41,7 +44,7 @@ class CameraZoomControllerTest {
     @Test
     fun onCameraZoomChanged_clampsBelowMin() = runTest {
         val cameraRepository = FakeCameraRepository()
-        val controller = CameraZoomController(cameraRepository, backgroundScope)
+        val controller = CameraZoomController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.onCameraZoomChanged(0.1f)
@@ -52,7 +55,7 @@ class CameraZoomControllerTest {
     @Test
     fun onCameraZoomChanged_clampsAboveMax() = runTest {
         val cameraRepository = FakeCameraRepository()
-        val controller = CameraZoomController(cameraRepository, backgroundScope)
+        val controller = CameraZoomController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.onCameraZoomChanged(10f)
@@ -63,11 +66,14 @@ class CameraZoomControllerTest {
     @Test
     fun onCameraZoomChanged_appliesScaleWithinBounds() = runTest {
         val cameraRepository = FakeCameraRepository()
-        val controller = CameraZoomController(cameraRepository, backgroundScope)
+        val controller = CameraZoomController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.onCameraZoomChanged(2f)
 
         assertEquals(2f, cameraRepository.setZoomRatioRequests.last())
     }
+
+    private fun TestScope.controllerScope(): CoroutineScope =
+        CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
 }

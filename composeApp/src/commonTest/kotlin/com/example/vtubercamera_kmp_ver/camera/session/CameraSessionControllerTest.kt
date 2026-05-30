@@ -15,7 +15,10 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -41,7 +44,7 @@ class CameraSessionControllerTest {
             resolveInitialLensResult = Result.success(CameraLensFacing.Front),
             startPreviewResult = Result.success(CameraLensFacing.Front),
         )
-        val controller = CameraSessionController(cameraRepository, backgroundScope)
+        val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.start()
@@ -59,7 +62,7 @@ class CameraSessionControllerTest {
         val cameraRepository = FakeCameraRepository(
             resolveInitialLensResult = Result.failure(IllegalStateException("no camera")),
         )
-        val controller = CameraSessionController(cameraRepository, backgroundScope)
+        val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.start()
@@ -79,7 +82,7 @@ class CameraSessionControllerTest {
                     CameraRepositoryException(CameraError.CameraUnavailable),
                 ),
             )
-            val controller = CameraSessionController(cameraRepository, backgroundScope)
+            val controller = CameraSessionController(cameraRepository, controllerScope())
             advanceUntilIdle()
 
             controller.onRetryPreview()
@@ -96,7 +99,7 @@ class CameraSessionControllerTest {
             val cameraRepository = FakeCameraRepository(
                 startPreviewResult = Result.failure(IllegalStateException("boom")),
             )
-            val controller = CameraSessionController(cameraRepository, backgroundScope)
+            val controller = CameraSessionController(cameraRepository, controllerScope())
             advanceUntilIdle()
 
             controller.onRetryPreview()
@@ -113,7 +116,7 @@ class CameraSessionControllerTest {
         val cameraRepository = FakeCameraRepository(
             switchLensResult = Result.success(CameraLensFacing.Front),
         )
-        val controller = CameraSessionController(cameraRepository, backgroundScope)
+        val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
         assertEquals(CameraLensFacing.Back, controller.state.value.lensFacing)
 
@@ -133,7 +136,7 @@ class CameraSessionControllerTest {
                 CameraRepositoryException(CameraError.LensSwitchFailed),
             ),
         )
-        val controller = CameraSessionController(cameraRepository, backgroundScope)
+        val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         controller.onToggleLensFacing()
@@ -147,7 +150,7 @@ class CameraSessionControllerTest {
     @Test
     fun observePreviewState_syncsErrorAndMessageFromRepository() = runTest {
         val cameraRepository = FakeCameraRepository()
-        val controller = CameraSessionController(cameraRepository, backgroundScope)
+        val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
 
         cameraRepository.emitPreviewState(PreviewState.Error(CameraError.CameraUnavailable))
@@ -170,7 +173,7 @@ class CameraSessionControllerTest {
 
     @Test
     fun clearErrorAndPrepare_clearsErrorAndSetsPreviewPreparing() = runTest {
-        val controller = CameraSessionController(FakeCameraRepository(), backgroundScope)
+        val controller = CameraSessionController(FakeCameraRepository(), controllerScope())
         advanceUntilIdle()
         controller.setError(CameraError.PermissionDenied)
 
@@ -183,7 +186,7 @@ class CameraSessionControllerTest {
 
     @Test
     fun resetPreviewIfErrored_clearsErrorOnlyWhenInErrorState() = runTest {
-        val controller = CameraSessionController(FakeCameraRepository(), backgroundScope)
+        val controller = CameraSessionController(FakeCameraRepository(), controllerScope())
         advanceUntilIdle()
 
         controller.resetPreviewIfErrored()
@@ -195,4 +198,7 @@ class CameraSessionControllerTest {
         assertEquals(PreviewState.Preparing, controller.state.value.previewState)
         assertNull(controller.state.value.errorState)
     }
+
+    private fun TestScope.controllerScope(): CoroutineScope =
+        CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler))
 }

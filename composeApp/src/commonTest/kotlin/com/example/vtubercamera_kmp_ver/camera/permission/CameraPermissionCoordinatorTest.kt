@@ -41,7 +41,7 @@ class CameraPermissionCoordinatorTest {
         advanceUntilIdle()
 
         assertEquals(PermissionState.Granted, coordinator.state.value.permissionState)
-        assertEquals(listOf(PermissionChange.GrantedEntered), events)
+        assertEquals(listOf<PermissionChange>(PermissionChange.GrantedEntered), events)
     }
 
     @Test
@@ -57,7 +57,7 @@ class CameraPermissionCoordinatorTest {
         advanceUntilIdle()
 
         assertEquals(PermissionState.Denied, coordinator.state.value.permissionState)
-        assertEquals(listOf(PermissionChange.DeniedReceived), events)
+        assertEquals(listOf<PermissionChange>(PermissionChange.DeniedReceived), events)
     }
 
     @Test
@@ -110,7 +110,7 @@ class CameraPermissionCoordinatorTest {
         coordinator.onPermissionStateChanged(isGranted = false, isChecking = true)
 
         assertEquals(PermissionState.Unknown, coordinator.state.value.permissionState)
-        assertEquals(listOf(PermissionChange.UnknownReceived), events)
+        assertEquals(listOf<PermissionChange>(PermissionChange.UnknownReceived), events)
     }
 
     @Test
