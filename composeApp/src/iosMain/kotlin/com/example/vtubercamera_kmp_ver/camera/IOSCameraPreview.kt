@@ -62,6 +62,7 @@ import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.Foundation.NSError
+import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
 import platform.Foundation.create
@@ -287,8 +288,17 @@ actual fun AvatarBodyOverlay(
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(avatarSelection.assetHandle) {
+        val replayObserver = NSNotificationCenter.defaultCenter.addObserverForName(
+            name = IOSAvatarRenderInterop.avatarSelectionReplayRequestedNotification,
+            `object` = null,
+            queue = null,
+        ) {
+            IOSAvatarRenderInterop.publishSelectedAvatar(avatarSelection)
+        }
+
         onDispose {
+            NSNotificationCenter.defaultCenter.removeObserver(replayObserver)
             IOSAvatarRenderInterop.publishClearedAvatar()
         }
     }
