@@ -2,10 +2,17 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.camera.core.CameraControl
 import androidx.camera.core.CameraInfoUnavailableException
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.coroutines.resume
 
 internal interface CameraLensAvailability {
     fun hasCamera(lensFacing: CameraLensFacing): Boolean
@@ -14,10 +21,12 @@ internal interface CameraLensAvailability {
 internal class AndroidCameraRepository(
     private val cameraAvailabilityProvider: suspend () -> CameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
+    private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState())
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
+    private var imageCapture: ImageCapture? = null
 
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
         val cameraAvailability = cameraAvailabilityProvider()
@@ -60,6 +69,42 @@ internal class AndroidCameraRepository(
 
     override fun observePreviewState(): Flow<PreviewState> = previewState
 
+    override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = photoCaptureState
+
+    override suspend fun capturePhoto(): Result<String?> {
+        val capture = imageCapture
+            ?: return Result.failure<String?>(
+                CameraRepositoryException(CameraError.PhotoCaptureFailed),
+            ).also {
+                photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+            }
+        photoCaptureState.value = PhotoCaptureState.Capturing
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { continuation ->
+                val outputFile = File.createTempFile("vtuber-camera-", ".jpg")
+                val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
+                capture.takePicture(
+                    outputOptions,
+                    Runnable::run,
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                            val uri = outputFileResults.savedUri?.toString() ?: outputFile.toURI().toString()
+                            photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
+                            continuation.resume(Result.success(uri))
+                        }
+
+                        override fun onError(exception: ImageCaptureException) {
+                            photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                            continuation.resume(
+                                Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
         if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
             pendingLensFacing = lensFacing
@@ -84,8 +129,12 @@ internal class AndroidCameraRepository(
         cameraControl?.setZoomRatio(updatedZoomRatio)
     }
 
-     fun onPlatformCameraControlReady(cameraControl: CameraControl) {
+    fun onPlatformCameraControlReady(cameraControl: CameraControl) {
         this.cameraControl = cameraControl
+    }
+
+    fun onPlatformImageCaptureReady(imageCapture: ImageCapture?) {
+        this.imageCapture = imageCapture
     }
 }
 
