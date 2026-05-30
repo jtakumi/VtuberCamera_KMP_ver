@@ -155,6 +155,14 @@ def render_generated_block() -> str:
         shared_items.append("VRM runtime descriptor による humanoid bone / expression / lookAt 情報の保持")
     if all_in(vrm_avatar_parser, ("AvatarAssetStore.store", "AvatarSelectionData")):
         shared_items.append("アバターアセット管理 (`AvatarAssetStore`) と renderer slot への受け渡し")
+    android_runtime_controller = read_text(
+        "composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/avatar/render/AndroidAvatarRuntimeController.kt"
+    )
+    has_shared_avatar_mapping = all_in(camera_module, ("FaceToAvatarMapper", "AvatarRenderState"))
+    if has_shared_avatar_mapping and "AndroidAvatarRuntimeController" in android_runtime_controller:
+        shared_items.append("Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合")
+    if has_shared_avatar_mapping and "IOSAvatarRenderInterop" in ios_avatar_interop:
+        shared_items.append("iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合")
     if "ThemeModeStore" in theme_mode_store:
         shared_items.append("ライト / ダーク / システムテーマ設定の永続化")
     if "camera_error_permission_denied" in camera_module:
@@ -166,7 +174,7 @@ def render_generated_block() -> str:
         "フラッシュ制御",
         "ギャラリー関連機能",
         "録画 / 配信向けの出力機能",
-        "face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験",
+        "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装",
     ]
 
     structure_items = [

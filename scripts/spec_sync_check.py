@@ -390,7 +390,7 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
     findings.append(
         make_finding(
             check_id="avatar_renderer_summary",
-            title="README distinguishes shipped avatar renderer groundwork from unfinished AR / VRM integration",
+            title="README distinguishes shipped avatar integration from unfinished iOS native mesh rendering",
             category="README/spec mismatch",
             ok=(
                 "filament.android" in build_gradle
@@ -402,18 +402,17 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
                     or "Filament / gltfio による VRM avatar 表示基盤" in readme
                 )
                 and "SwiftUI + Filament による avatar view ホスト" in readme
-                and (
-                    "face tracking と avatar renderer をつないだ AR / VRM の end-to-end 統合" in readme
-                    or "face tracking と avatar renderer を完全に統合した AR / VRM end-to-end 体験" in readme
-                )
+                and "Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合" in readme
+                and "iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合" in readme
+                and "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装" in readme_not_implemented
             ),
             ok_evidence=(
                 "Android Filament/gltfio dependencies and renderer host exist.",
                 "iOS Filament avatar view host exists.",
-                "README separates shipped renderer groundwork from unfinished end-to-end AR / VRM integration.",
+                "README documents Android dynamic integration, iOS render-state bridge integration, and the remaining iOS native mesh renderer work separately.",
             ),
-            problem_evidence=("Avatar renderer code exists, but README still needs finer-grained classification.",),
-            recommendation="Document the shipped renderer layer separately from unfinished end-to-end AR / VRM integration.",
+            problem_evidence=("Avatar renderer code exists, but README still needs finer-grained platform classification.",),
+            recommendation="Document Android dynamic avatar integration, iOS bridge integration, and unfinished iOS native mesh rendering separately.",
             active_exceptions=active_exceptions,
         )
     )
