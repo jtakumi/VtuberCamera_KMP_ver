@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.core.ZoomState
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -209,15 +210,21 @@ actual fun CameraPreviewHost(
                     .build()
                     .also { it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer) }
 
+                val imageCapture = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .build()
+
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     selector,
                     preview,
                     analysis,
+                    imageCapture,
                 )
                 // AndroidCameraRepositoryをこの時だけキャストする。nullなら実行しない
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformCameraControlReady(camera.cameraControl)
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(imageCapture)
                 // 現在の倍率をLiveDataで監視する
                 val zoomLiveData = camera.cameraInfo.zoomState
                 val zoomObserver = Observer<ZoomState> { zoomState ->
@@ -237,6 +244,7 @@ actual fun CameraPreviewHost(
             }.onFailure {
                 (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
                 previewView.tag = null
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
                 onFaceTrackingFrameChangedState.value(null)
                 cameraRepository.onPlatformPreviewError(
                     lensFacing = attemptedLensFacing,
@@ -254,6 +262,7 @@ actual fun CameraPreviewHost(
             if (cameraProviderFuture.isDone) {
                 cameraProviderFuture.get().unbindAll()
             }
+            (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
         }
     }
 

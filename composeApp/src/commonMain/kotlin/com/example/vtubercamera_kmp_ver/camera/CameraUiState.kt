@@ -10,6 +10,7 @@ data class CameraUiState(
     val session: CameraSessionUiState = CameraSessionUiState(),
     val permission: CameraPermissionUiState = CameraPermissionUiState(),
     val zoom: CameraZoomUiState = CameraZoomUiState(),
+    val photoCapture: PhotoCaptureState = PhotoCaptureState.Idle,
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),

@@ -41,6 +41,7 @@ import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_title
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
@@ -111,6 +112,7 @@ fun CameraRoute(
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
+        onCapturePhoto = cameraViewModel::onCapturePhoto,
         themeMode = themeMode,
         onThemeModeToggle = onThemeModeToggle,
     )
@@ -135,6 +137,7 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    onCapturePhoto: () -> Unit,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -168,6 +171,7 @@ fun CameraScreen(
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
+                onCapturePhoto = onCapturePhoto,
                 themeMode = themeMode,
                 onThemeModeToggle = onThemeModeToggle,
             )
@@ -175,7 +179,7 @@ fun CameraScreen(
             else -> LoadingState()
         }
 
-        uiState.session.message?.let { message ->
+        (uiState.photoCapture.toCameraMessage() ?: uiState.session.message)?.let { message ->
             CameraMessageBanner(
                 message = message,
                 modifier = Modifier
@@ -210,6 +214,7 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    onCapturePhoto: () -> Unit,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
@@ -247,6 +252,8 @@ private fun CameraPreviewState(
             zoomScale = uiState.zoom.currentCameraZoomRatio,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
+            onCapturePhoto = onCapturePhoto,
+            isCapturingPhoto = uiState.photoCapture == PhotoCaptureState.Capturing,
             themeMode = themeMode,
             onThemeModeToggle = onThemeModeToggle,
         )
@@ -385,6 +392,8 @@ private fun BoxScope.CameraUiLayer(
     zoomScale: Float,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
+    onCapturePhoto: () -> Unit,
+    isCapturingPhoto: Boolean,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
@@ -424,6 +433,21 @@ private fun BoxScope.CameraUiLayer(
                 }
                 Button(onClick = onLensFacingToggle) {
                     Text(stringResource(Res.string.camera_switch_button))
+                }
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Button(
+                onClick = onCapturePhoto,
+                enabled = !isCapturingPhoto,
+            ) {
+                if (isCapturingPhoto) {
+                    CircularProgressIndicator()
+                } else {
+                    Text(stringResource(Res.string.camera_capture_button))
                 }
             }
         }

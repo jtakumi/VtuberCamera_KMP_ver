@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.coroutines.resume
 
 internal typealias IOSCameraLensAvailability = (CameraLensFacing) -> Boolean
 
@@ -11,9 +12,14 @@ internal interface CameraControl {
     fun setZoomRatio(updatedZoomRatio: Float): CameraZoomUiState?
 }
 
+internal fun interface IOSPhotoCapturer {
+    fun capturePhoto(onComplete: (uri: String?, error: Throwable?) -> Unit)
+}
+
 internal class IOSCameraRepository(
     private val hasLens: IOSCameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
+    private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(
         CameraZoomUiState()
     )
@@ -21,6 +27,7 @@ internal class IOSCameraRepository(
     private var pendingLensFacing: CameraLensFacing? = null
 
     private var cameraControl: CameraControl? = null
+    private var photoCapturer: IOSPhotoCapturer? = null
 
     // プレビュー開始前の状態を整え、利用可能なレンズを解決する。
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
@@ -59,6 +66,29 @@ internal class IOSCameraRepository(
     // プレビュー状態の変更を監視する Flow を返す。
     override fun observePreviewState(): Flow<PreviewState> = previewState
 
+    override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = photoCaptureState
+
+    override suspend fun capturePhoto(): Result<String?> {
+        val capturer = photoCapturer
+            ?: return Result.failure<String?>(
+                CameraRepositoryException(CameraError.PhotoCaptureFailed),
+            ).also {
+                photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+            }
+        photoCaptureState.value = PhotoCaptureState.Capturing
+        return kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+            capturer.capturePhoto { uri, error ->
+                if (error == null) {
+                    photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
+                    continuation.resume(Result.success(uri))
+                } else {
+                    photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                    continuation.resume(Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)))
+                }
+            }
+        }
+    }
+
     // ネイティブ側でプレビュー開始が完了したことを状態へ反映する。
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
         if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
@@ -90,6 +120,10 @@ internal class IOSCameraRepository(
         this.cameraControl = cameraControl
         onPlatformZoomStateChanged(cameraControl?.zoomState() ?: CameraZoomUiState())
     }
+
+    fun onPlatformPhotoCapturerReady(photoCapturer: IOSPhotoCapturer?) {
+        this.photoCapturer = photoCapturer
+    }
 }
 
 // 指定レンズが使えない場合に代替レンズを含めて利用可否を解決する。
@@ -107,4 +141,3 @@ internal fun resolveAvailableLens(
 
 internal fun Float.coerceInZoomRange(minZoomRatio: Float, maxZoomRatio: Float): Float =
     coerceIn(minZoomRatio, maxZoomRatio)
-

@@ -6,6 +6,7 @@ import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionController
 import com.example.vtubercamera_kmp_ver.camera.facetracking.FaceTrackingPresenter
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionCoordinator
 import com.example.vtubercamera_kmp_ver.camera.permission.PermissionChange
+import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionController
 import com.example.vtubercamera_kmp_ver.camera.zoom.CameraZoomController
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +38,10 @@ class CameraViewModel(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
     )
+    private val photoCaptureController = PhotoCaptureController(
+        cameraRepository = cameraRepository,
+        scope = viewModelScope,
+    )
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
 
@@ -63,6 +68,11 @@ class CameraViewModel(
         mirrorScope.launch {
             zoomController.state.collect { zoom ->
                 _uiState.update { it.copy(zoom = zoom) }
+            }
+        }
+        mirrorScope.launch {
+            photoCaptureController.state.collect { photoCapture ->
+                _uiState.update { it.copy(photoCapture = photoCapture) }
             }
         }
         mirrorScope.launch {
@@ -123,6 +133,10 @@ class CameraViewModel(
 
     fun onCameraZoomChanged(scaleChange: Float) {
         zoomController.onCameraZoomChanged(scaleChange)
+    }
+
+    fun onCapturePhoto() {
+        photoCaptureController.capturePhoto()
     }
 
     fun onDismissFilePickerError() {
