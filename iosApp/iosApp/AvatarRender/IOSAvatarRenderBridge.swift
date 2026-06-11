@@ -20,6 +20,16 @@ final class IOSAvatarRenderBridge {
     static let contentHashKey = "contentHash"
     static let fileNameKey = "fileName"
     static let assetBytesKey = "assetBytes"
+    static let specVersionKey = "specVersion"
+    static let headNodeIndexKey = "headNodeIndex"
+    static let expressionsKey = "expressions"
+    static let expressionRuntimeNameKey = "runtimeName"
+    static let expressionMorphTargetBindsKey = "morphTargetBinds"
+    static let morphBindNodeIndexKey = "nodeIndex"
+    static let morphBindMorphTargetIndexKey = "morphTargetIndex"
+    static let morphBindWeightKey = "weight"
+    static let specVersionVrm0Value = "vrm0"
+    static let specVersionVrm1Value = "vrm1"
     static let headYawDegreesKey = "headYawDegrees"
     static let headPitchDegreesKey = "headPitchDegrees"
     static let headRollDegreesKey = "headRollDegrees"
@@ -27,6 +37,8 @@ final class IOSAvatarRenderBridge {
     static let rightEyeBlinkKey = "rightEyeBlink"
     static let jawOpenKey = "jawOpen"
     static let mouthSmileKey = "mouthSmile"
+    static let isTrackingKey = "isTracking"
+    static let trackingConfidenceKey = "trackingConfidence"
 
     private weak var renderer: IOSAvatarRenderStateApplying?
     private var observerTokens: [NSObjectProtocol] = []
@@ -106,6 +118,8 @@ final class IOSAvatarRenderBridge {
         state.rightEyeBlink = floatValue(userInfo, key: rightEyeBlinkKey)
         state.jawOpen = floatValue(userInfo, key: jawOpenKey)
         state.mouthSmile = floatValue(userInfo, key: mouthSmileKey)
+        state.isTracking = boolValue(userInfo, key: isTrackingKey)
+        state.trackingConfidence = floatValue(userInfo, key: trackingConfidenceKey)
     }
 
     /// Returns the bridged float value or `0` when the key is absent, which the renderer treats as
@@ -115,5 +129,14 @@ final class IOSAvatarRenderBridge {
             return number.floatValue
         }
         return 0
+    }
+
+    /// Returns the bridged boolean value or `false` when the key is absent, which the renderer
+    /// treats as "not tracking" so the camera parallax stays neutral.
+    private static func boolValue(_ userInfo: [AnyHashable: Any]?, key: String) -> Bool {
+        if let number = userInfo?[key] as? NSNumber {
+            return number.boolValue
+        }
+        return false
     }
 }
