@@ -387,10 +387,14 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
         )
     )
 
+    ios_filament_bridge = read_text("iosApp/iosApp/VTCFilamentRendererBridge.mm")
+    has_ios_native_filament_renderer = (
+        "filament::Engine" in ios_filament_bridge and "setMorphWeights" in ios_filament_bridge
+    )
     findings.append(
         make_finding(
             check_id="avatar_renderer_summary",
-            title="README distinguishes shipped avatar integration from unfinished iOS native mesh rendering",
+            title="README reflects the implemented avatar rendering pipeline on both platforms",
             category="README/spec mismatch",
             ok=(
                 "filament.android" in build_gradle
@@ -404,15 +408,17 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
                 and "SwiftUI + Filament による avatar view ホスト" in readme
                 and "Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合" in readme
                 and "iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合" in readme
-                and "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装" in readme_not_implemented
+                and has_ios_native_filament_renderer
+                and "iOS native Filament renderer による VRM avatar mesh 描画と head pose / expression morph 適用" in readme
+                and "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装" not in readme_not_implemented
             ),
             ok_evidence=(
                 "Android Filament/gltfio dependencies and renderer host exist.",
-                "iOS Filament avatar view host exists.",
-                "README documents Android dynamic integration, iOS render-state bridge integration, and the remaining iOS native mesh renderer work separately.",
+                "iOS Filament avatar view host and the native Filament bridge implementation exist.",
+                "README documents the dynamic avatar integration on both platforms, including the Filament SDK setup fallback.",
             ),
             problem_evidence=("Avatar renderer code exists, but README still needs finer-grained platform classification.",),
-            recommendation="Document Android dynamic avatar integration, iOS bridge integration, and unfinished iOS native mesh rendering separately.",
+            recommendation="Document Android and iOS dynamic avatar integration, and keep the iOS Filament SDK setup fallback note in sync with VTCFilamentRendererBridge.mm.",
             active_exceptions=active_exceptions,
         )
     )
