@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -22,6 +25,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -30,6 +36,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -54,6 +61,8 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_p
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_roll
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_smile
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_yaw
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_details_hide
+import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_details_show
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_searching
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_tracking
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
@@ -184,7 +193,11 @@ fun CameraScreen(
                 message = message,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(MaterialTheme.spacing.lg),
+                    .padding(
+                        start = MaterialTheme.spacing.lg,
+                        end = MaterialTheme.spacing.lg,
+                        bottom = MaterialTheme.spacing.xl * 4,
+                    ),
             )
         }
 
@@ -400,74 +413,34 @@ private fun BoxScope.CameraUiLayer(
     val themeToggleContentDescription = stringResource(
         Res.string.theme_toggle_content_description,
     )
+    var isFaceTrackingExpanded by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier.fillMaxWidth().align(Alignment.TopStart).padding(
-            MaterialTheme.spacing.xl
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Button(onClick = onOpenFilePicker) {
-                Text(stringResource(Res.string.file_picker_open_button))
-            }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(
-                    onClick = onThemeModeToggle,
-                    modifier = Modifier.semantics {
-                        contentDescription = themeToggleContentDescription
-                    },
-                ) {
-                    Text(
-                        text = themeMode.symbol,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Button(onClick = onLensFacingToggle) {
-                    Text(stringResource(Res.string.camera_switch_button))
-                }
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Button(
-                onClick = onCapturePhoto,
-                enabled = !isCapturingPhoto,
-            ) {
-                if (isCapturingPhoto) {
-                    CircularProgressIndicator()
-                } else {
-                    Text(stringResource(Res.string.camera_capture_button))
-                }
-            }
-        }
-        ZoomIndicator(
-            zoomScale = zoomScale,
-            modifier = Modifier.padding(vertical = MaterialTheme.spacing.md)
-        )
-        FaceTrackingOverlay(
-            faceTracking = faceTracking,
-        )
-    }
-    avatarPreview?.let { preview ->
-        AvatarPreviewOverlay(
-            avatarPreview = preview,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(MaterialTheme.spacing.xl),
-        )
-    }
-
+    TopStatusOverlay(
+        faceTracking = faceTracking,
+        zoomScale = zoomScale,
+        themeMode = themeMode,
+        themeToggleContentDescription = themeToggleContentDescription,
+        isFaceTrackingExpanded = isFaceTrackingExpanded,
+        onFaceTrackingClick = { isFaceTrackingExpanded = !isFaceTrackingExpanded },
+        onThemeModeToggle = onThemeModeToggle,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(MaterialTheme.spacing.lg),
+    )
+    BottomCaptureControls(
+        avatarPreview = avatarPreview,
+        onOpenFilePicker = onOpenFilePicker,
+        onLensFacingToggle = onLensFacingToggle,
+        onCapturePhoto = onCapturePhoto,
+        isCapturingPhoto = isCapturingPhoto,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(MaterialTheme.spacing.lg),
+    )
 }
 
 private val ThemeMode.symbol: String
@@ -514,24 +487,84 @@ private fun Float.toZoomRatio(): String{
 private const val ZOOM_RATIO_LABEL_RATIO = 10
 
 @Composable
-private fun FaceTrackingOverlay(
+private fun TopStatusOverlay(
     faceTracking: FaceTrackingUiState,
+    zoomScale: Float,
+    themeMode: ThemeMode,
+    themeToggleContentDescription: String,
+    isFaceTrackingExpanded: Boolean,
+    onFaceTrackingClick: () -> Unit,
+    onThemeModeToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top,
+        ) {
+            FaceTrackingStatusChip(
+                faceTracking = faceTracking,
+                isExpanded = isFaceTrackingExpanded,
+                onClick = onFaceTrackingClick,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ZoomIndicator(zoomScale = zoomScale)
+                Surface(
+                    shape = RoundedCornerShape(MaterialTheme.spacing.md),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                    tonalElevation = MaterialTheme.spacing.xs,
+                )
+                {
+                    IconButton(
+                        onClick = onThemeModeToggle,
+                        modifier = Modifier
+                            .size(CONTROL_CHIP_SIZE)
+                            .semantics {
+                                contentDescription = themeToggleContentDescription
+                            },
+                    ) {
+                        Text(
+                            text = themeMode.symbol,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+        }
+        if (isFaceTrackingExpanded) {
+            FaceTrackingDetailsPanel(faceTracking = faceTracking)
+        }
+    }
+}
+
+@Composable
+private fun FaceTrackingStatusChip(
+    faceTracking: FaceTrackingUiState,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(MaterialTheme.spacing.lg),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
         tonalElevation = MaterialTheme.spacing.xs,
     ) {
-        Column(
-            modifier = Modifier.padding(MaterialTheme.spacing.lg),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+        Row(
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.sm,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = stringResource(Res.string.face_tracking_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
             Text(
                 text = stringResource(
                     if (faceTracking.isTracking) {
@@ -541,7 +574,41 @@ private fun FaceTrackingOverlay(
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = stringResource(
+                    if (isExpanded) {
+                        Res.string.face_tracking_details_hide
+                    } else {
+                        Res.string.face_tracking_details_show
+                    },
+                ),
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FaceTrackingDetailsPanel(
+    faceTracking: FaceTrackingUiState,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Column(
+            modifier = Modifier.padding(MaterialTheme.spacing.md),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
+        ) {
+            Text(
+                text = stringResource(Res.string.face_tracking_title),
+                style = MaterialTheme.typography.titleSmall,
             )
             faceTracking.display?.let { display ->
                 FaceTrackingMetricRow(
@@ -572,10 +639,98 @@ private fun FaceTrackingOverlay(
                     label = stringResource(Res.string.face_tracking_label_smile),
                     value = display.mouthSmileLabel,
                 )
+            } ?: Text(
+                text = stringResource(Res.string.face_tracking_status_searching),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomCaptureControls(
+    avatarPreview: AvatarPreviewData?,
+    onOpenFilePicker: () -> Unit,
+    onLensFacingToggle: () -> Unit,
+    onCapturePhoto: () -> Unit,
+    isCapturingPhoto: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        avatarPreview?.let {
+            CompactAvatarChip(avatarPreview = it)
+        }
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(MaterialTheme.spacing.lg),
+            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+            tonalElevation = MaterialTheme.spacing.xs,
+        ) {
+            Row(
+                modifier = Modifier.padding(MaterialTheme.spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = onOpenFilePicker,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(Res.string.file_picker_open_button))
+                }
+                Button(
+                    onClick = onCapturePhoto,
+                    enabled = !isCapturingPhoto,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (isCapturingPhoto) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
+                        )
+                    } else {
+                        Text(stringResource(Res.string.camera_capture_button))
+                    }
+                }
+                Button(
+                    onClick = onLensFacingToggle,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(Res.string.camera_switch_button))
+                }
             }
         }
     }
 }
+
+@Composable
+private fun CompactAvatarChip(
+    avatarPreview: AvatarPreviewData,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Text(
+            text = avatarPreview.avatarName,
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.xs,
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private val CONTROL_CHIP_SIZE = 44.dp
+private val CAPTURE_PROGRESS_SIZE = 20.dp
 
 @Composable
 private fun FaceTrackingMetricRow(

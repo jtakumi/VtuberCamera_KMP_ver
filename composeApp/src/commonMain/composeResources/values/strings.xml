@@ -37,6 +37,8 @@
     <string name="face_tracking_title">Face Tracking</string>
     <string name="face_tracking_status_tracking">Tracking face</string>
     <string name="face_tracking_status_searching">Searching for face</string>
+    <string name="face_tracking_details_show">Details</string>
+    <string name="face_tracking_details_hide">Hide</string>
     <string name="face_tracking_label_yaw">Yaw</string>
     <string name="face_tracking_label_pitch">Pitch</string>
     <string name="face_tracking_label_roll">Roll</string>
