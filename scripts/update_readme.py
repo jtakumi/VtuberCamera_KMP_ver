@@ -71,6 +71,7 @@ def render_generated_block() -> str:
     theme_mode_store = read_text("composeApp/src/commonMain/kotlin/com/example/vtubercamera_kmp_ver/theme/ThemeModeStore.kt")
     content_view = read_text("iosApp/iosApp/ContentView.swift")
     ios_filament_view = read_text("iosApp/iosApp/AvatarRender/FilamentAvatarView.swift")
+    ios_filament_bridge = read_text("iosApp/iosApp/VTCFilamentRendererBridge.mm")
     readme_sync_workflow = read_text(".github/workflows/readme-sync.yml")
     spec_sync_workflow = read_text(".github/workflows/spec-sync.yml")
 
@@ -133,6 +134,17 @@ def render_generated_block() -> str:
         ios_items.append("SwiftUI + Filament による avatar view ホスト")
     if "avatarRenderState" in ios_avatar_interop:
         ios_items.append("avatar render state を Filament ブリッジへ伝達")
+    # The native renderer compiles against Filament only when the SDK is present, so detect the
+    # implementation by its Filament engine usage rather than by build configuration.
+    has_ios_native_filament_renderer = all_in(
+        ios_filament_bridge,
+        ("filament::Engine", "setMorphWeights"),
+    )
+    if has_ios_native_filament_renderer:
+        ios_items.append(
+            "iOS native Filament renderer による VRM avatar mesh 描画と head pose / expression morph 適用"
+            "（Filament SDK は `scripts/setup_filament_ios.sh` でローカル導入、未導入時は static preview にフォールバック）"
+        )
     if "onThemeModeToggle" in camera_screen:
         ios_items.append("ライト / ダーク / システムテーマ切り替え")
 
@@ -174,8 +186,11 @@ def render_generated_block() -> str:
         "フラッシュ制御",
         "ギャラリー関連機能",
         "録画 / 配信向けの出力機能",
-        "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装",
     ]
+    if not has_ios_native_filament_renderer:
+        not_implemented_items.append(
+            "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装"
+        )
 
     structure_items = [
         "[composeApp](./composeApp)\n  Kotlin Multiplatform のアプリ本体です。共通 UI と Android 実装を含みます。",

@@ -14,6 +14,8 @@ struct IOSAvatarRenderBridgeTests {
             IOSAvatarRenderBridge.rightEyeBlinkKey: NSNumber(value: 0.35),
             IOSAvatarRenderBridge.jawOpenKey: NSNumber(value: 0.62),
             IOSAvatarRenderBridge.mouthSmileKey: NSNumber(value: 0.48),
+            IOSAvatarRenderBridge.isTrackingKey: NSNumber(value: true),
+            IOSAvatarRenderBridge.trackingConfidenceKey: NSNumber(value: 0.8),
         ])
 
         #expect(state.headYawDegrees == 12.5)
@@ -23,6 +25,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state.rightEyeBlink == 0.35)
         #expect(state.jawOpen == 0.62)
         #expect(state.mouthSmile == 0.48)
+        #expect(state.isTracking)
+        #expect(state.trackingConfidence == 0.8)
     }
 
     @Test
@@ -38,6 +42,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state.rightEyeBlink == 0)
         #expect(state.jawOpen == 0.5)
         #expect(state.mouthSmile == 0)
+        #expect(!state.isTracking)
+        #expect(state.trackingConfidence == 0)
     }
 
     @Test
@@ -113,10 +119,13 @@ struct IOSAvatarRenderBridgeTests {
         state.rightEyeBlink = 0.5
         state.jawOpen = 0.75
         state.mouthSmile = 1
+        state.isTracking = true
+        state.trackingConfidence = 0.65
 
         bridge.updateAvatarState(state)
         state.headYawDegrees = 99
         state.jawOpen = 0
+        state.isTracking = false
 
         #expect(bridge.latestAvatarState.headYawDegrees == 22)
         #expect(bridge.latestAvatarState.headPitchDegrees == -6)
@@ -125,6 +134,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(bridge.latestAvatarState.rightEyeBlink == 0.5)
         #expect(bridge.latestAvatarState.jawOpen == 0.75)
         #expect(bridge.latestAvatarState.mouthSmile == 1)
+        #expect(bridge.latestAvatarState.isTracking)
+        #expect(bridge.latestAvatarState.trackingConfidence == 0.65)
     }
 }
 

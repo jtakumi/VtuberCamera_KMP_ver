@@ -16,6 +16,8 @@ captures
 !*.xcodeproj/project.xcworkspace/
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
+iosApp/Vendor/
+iosApp/Configuration/Filament.local.xcconfig
 node_modules/
 __pycache__/
 discord-codex-bot/.env

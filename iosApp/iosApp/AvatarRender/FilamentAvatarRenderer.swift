@@ -1,19 +1,44 @@
 import CoreGraphics
+import Foundation
 import UIKit
+
+/// Seam over `VTCFilamentRendererBridge` so unit tests can spy on renderer-to-bridge calls without
+/// spinning up a Metal-backed Filament engine.
+@MainActor
+protocol FilamentRenderingBridge: AnyObject {
+    var renderView: UIView { get }
+    var latestAvatarState: VTCAvatarRenderState { get }
+
+    func loadAvatarData(
+        _ data: Data,
+        headNodeIndex: Int,
+        morphBinds: [VTCAvatarMorphBind]
+    ) throws
+    func clearAvatar()
+    func updateAvatarState(_ state: VTCAvatarRenderState)
+    func resize(toBounds bounds: CGRect, contentScale: CGFloat)
+    func drawIfNeeded()
+}
+
+extension VTCFilamentRendererBridge: FilamentRenderingBridge {}
 
 @MainActor
 final class FilamentAvatarRenderer {
     private static let previewBackgroundAlpha: CGFloat = 0.82
     private static let previewCornerRadius: CGFloat = 28
     private static let previewSubtitleSeparator = " • "
+    /// Sentinel forwarded to the bridge when the asset has no resolvable humanoid head bone.
+    private static let missingHeadNodeIndex = -1
 
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
-    private let bridge: VTCFilamentRendererBridge
+    private let bridge: FilamentRenderingBridge
+    private let isFilamentRuntimeAvailable: Bool
     private var currentAssetIdentity: IOSAvatarAssetIdentity?
     private var isStaticPreviewVisible = false
+    private var isRenderingFilamentAvatar = false
     private(set) var isPaused = true
 
     /// Set to `true` only when the underlying renderer needs a continuous draw loop.
@@ -29,8 +54,12 @@ final class FilamentAvatarRenderer {
     /// `FilamentLifecycleCoordinator` sets this during `attach(renderer:)`.
     var onRenderingRequirementsChanged: (() -> Void)?
 
-    init(bridge: VTCFilamentRendererBridge = VTCFilamentRendererBridge()) {
+    init(
+        bridge: FilamentRenderingBridge = VTCFilamentRendererBridge(),
+        isFilamentRuntimeAvailable: Bool = VTCFilamentRendererBridge.isFilamentRuntimeAvailable
+    ) {
         self.bridge = bridge
+        self.isFilamentRuntimeAvailable = isFilamentRuntimeAvailable
         configureRenderView()
         configureStaticPreview()
     }
@@ -52,12 +81,109 @@ final class FilamentAvatarRenderer {
         bridge.drawIfNeeded()
     }
 
-    /// Applies the selected avatar as a static preview in the current render surface.
+    /// Shows the selected avatar: the static preview appears immediately, and when the Filament
+    /// runtime plus the VRM runtime descriptor are available, the 3D avatar replaces it. Load
+    /// failures keep the static preview visible so selection feedback never disappears.
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {
-        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity && isStaticPreviewVisible
+        let isAlreadyShowingSelectedAvatar = currentAssetIdentity == payload.identity &&
+            (isStaticPreviewVisible || isRenderingFilamentAvatar)
         guard !isAlreadyShowingSelectedAvatar else { return }
 
         currentAssetIdentity = payload.identity
+        showStaticPreview(payload)
+        loadFilamentAvatarIfPossible(payload)
+    }
+
+    /// Clears the currently displayed avatar from both the static preview and the 3D scene.
+    func clearAvatar() {
+        currentAssetIdentity = nil
+        hideStaticPreview()
+        bridge.clearAvatar()
+        isRenderingFilamentAvatar = false
+        needsDisplayLink = false
+    }
+
+    /// Applies the latest tracking state, emphasized with the shared correction curves, so the
+    /// rendered avatar matches the Android renderer's response.
+    func updateAvatarState(_ state: VTCAvatarRenderState) {
+        bridge.updateAvatarState(IOSFaceTrackingToAvatarCorrection.corrected(state))
+    }
+
+    deinit {
+        isPaused = true
+    }
+
+    // Attempts to promote the static preview into a Filament-rendered avatar. Failures are logged
+    // and leave the static preview path untouched.
+    private func loadFilamentAvatarIfPossible(_ payload: IOSVrmAssetPayload) {
+        isRenderingFilamentAvatar = false
+        needsDisplayLink = false
+        guard isFilamentRuntimeAvailable else {
+            return
+        }
+        guard let runtime = payload.runtime else {
+            NSLog("Avatar runtime descriptor is unavailable; keeping the static preview.")
+            return
+        }
+
+        do {
+            try bridge.loadAvatarData(
+                payload.assetData,
+                headNodeIndex: runtime.headNodeIndex ?? Self.missingHeadNodeIndex,
+                morphBinds: Self.makeMorphBinds(runtime: runtime)
+            )
+            hideStaticPreview()
+            isRenderingFilamentAvatar = true
+            needsDisplayLink = true
+        } catch {
+            // Mirrors the Android bridge: a failed load clears any previously rendered avatar so a
+            // stale 3D model never lingers behind the static preview.
+            bridge.clearAvatar()
+            NSLog("Failed to load avatar into Filament renderer: %@", String(describing: error))
+        }
+    }
+
+    // Resolves VRM expressions to morph binds keyed by glTF node index. The identity index table
+    // keeps the resolver's entityIndex equal to nodeIndex because the native bridge maps node
+    // indices to Filament entities itself.
+    private static func makeMorphBinds(runtime: IOSVrmRuntimeDescriptor) -> [VTCAvatarMorphBind] {
+        let maxNodeIndex = runtime.expressions
+            .flatMap(\.morphTargetBinds)
+            .map(\.nodeIndex)
+            .max() ?? -1
+        guard maxNodeIndex >= 0 else { return [] }
+
+        let resolvedBindings = VrmMorphBindingResolver.resolve(
+            specVersion: runtime.specVersion,
+            expressions: runtime.expressions,
+            entityIndices: Array(0...maxNodeIndex)
+        )
+        return resolvedBindings.flatMap { binding in
+            binding.morphBinds.map { resolvedBind in
+                let morphBind = VTCAvatarMorphBind()
+                morphBind.channel = morphChannel(for: binding.expressionId)
+                morphBind.nodeIndex = resolvedBind.entityIndex
+                morphBind.morphTargetIndex = resolvedBind.morphTargetIndex
+                morphBind.weight = resolvedBind.weight
+                return morphBind
+            }
+        }
+    }
+
+    private static func morphChannel(for expressionId: VrmRendererExpressionId) -> VTCAvatarMorphChannel {
+        switch expressionId {
+        case .blinkLeft:
+            return .blinkLeft
+        case .blinkRight:
+            return .blinkRight
+        case .jawOpen:
+            return .jawOpen
+        case .smile:
+            return .smile
+        }
+    }
+
+    private func showStaticPreview(_ payload: IOSVrmAssetPayload) {
         isStaticPreviewVisible = true
         previewBackgroundView.isHidden = false
         previewImageView.image = payload.preview.thumbnail
@@ -73,24 +199,13 @@ final class FilamentAvatarRenderer {
             : subtitleParts.joined(separator: Self.previewSubtitleSeparator)
     }
 
-    /// Clears the currently displayed static avatar preview.
-    func clearAvatar() {
-        currentAssetIdentity = nil
+    private func hideStaticPreview() {
         isStaticPreviewVisible = false
         previewBackgroundView.isHidden = true
         previewImageView.image = nil
         previewImageView.isHidden = true
         titleLabel.text = nil
         subtitleLabel.text = nil
-    }
-
-    /// Stores the latest tracking state so future dynamic rendering can consume it.
-    func updateAvatarState(_ state: VTCAvatarRenderState) {
-        bridge.updateAvatarState(state)
-    }
-
-    deinit {
-        isPaused = true
     }
 
     private func configureRenderView() {

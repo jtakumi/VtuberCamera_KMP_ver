@@ -1,10 +1,9 @@
+// Empty defaults keep CI and fresh checkouts building without the Filament SDK; the app then
+// falls back to the static avatar preview. Run scripts/setup_filament_ios.sh to download the
+// SDK and generate Filament.local.xcconfig (git-ignored), which overrides these values.
 FILAMENT_HEADER_SEARCH_PATHS =
 FILAMENT_FRAMEWORK_SEARCH_PATHS =
 FILAMENT_LIBRARY_SEARCH_PATHS =
 FILAMENT_OTHER_LDFLAGS =
 
-// Example local overrides:
-// FILAMENT_HEADER_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/include"
-// FILAMENT_FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
-// FILAMENT_LIBRARY_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
-// FILAMENT_OTHER_LDFLAGS = -framework filament -framework gltfio -framework utils
+#include? "Filament.local.xcconfig"

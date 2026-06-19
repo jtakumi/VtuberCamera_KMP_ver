@@ -1,6 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmExpressionDescriptor
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import platform.Foundation.NSLog
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -26,6 +29,16 @@ internal object IOSAvatarRenderInterop {
     const val contentHashKey = "contentHash"
     const val fileNameKey = "fileName"
     const val assetBytesKey = "assetBytes"
+    const val specVersionKey = "specVersion"
+    const val headNodeIndexKey = "headNodeIndex"
+    const val expressionsKey = "expressions"
+    const val expressionRuntimeNameKey = "runtimeName"
+    const val expressionMorphTargetBindsKey = "morphTargetBinds"
+    const val morphBindNodeIndexKey = "nodeIndex"
+    const val morphBindMorphTargetIndexKey = "morphTargetIndex"
+    const val morphBindWeightKey = "weight"
+    const val specVersionVrm0Value = "vrm0"
+    const val specVersionVrm1Value = "vrm1"
     const val headYawDegreesKey = "headYawDegrees"
     const val headPitchDegreesKey = "headPitchDegrees"
     const val headRollDegreesKey = "headRollDegrees"
@@ -33,6 +46,8 @@ internal object IOSAvatarRenderInterop {
     const val rightEyeBlinkKey = "rightEyeBlink"
     const val jawOpenKey = "jawOpen"
     const val mouthSmileKey = "mouthSmile"
+    const val isTrackingKey = "isTracking"
+    const val trackingConfidenceKey = "trackingConfidence"
 
     // Publishes the currently selected avatar asset once so the native renderer can load it.
     fun publishSelectedAvatar(avatarSelection: AvatarSelectionData): Boolean {
@@ -43,15 +58,22 @@ internal object IOSAvatarRenderInterop {
             )
             return false
         }
+        val runtimeDescriptor = avatarSelection.runtimeDescriptor
+        val userInfo = buildMap {
+            put(assetIdKey, avatarSelection.assetHandle.assetId)
+            put(contentHashKey, avatarSelection.assetHandle.contentHash)
+            put(fileNameKey, avatarSelection.preview.fileName)
+            put(assetBytesKey, assetBytes.toNSData())
+            put(specVersionKey, runtimeDescriptor.specVersion.toNotificationValue())
+            put(expressionsKey, runtimeDescriptor.expressions.toNotificationValue())
+            runtimeDescriptor.headNodeIndexOrNull()?.let { headNodeIndex ->
+                put(headNodeIndexKey, headNodeIndex)
+            }
+        }
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarSelectionDidChangeNotification,
             null,
-            mapOf(
-                assetIdKey to avatarSelection.assetHandle.assetId,
-                contentHashKey to avatarSelection.assetHandle.contentHash,
-                fileNameKey to avatarSelection.preview.fileName,
-                assetBytesKey to assetBytes.toNSData(),
-            ),
+            userInfo,
         )
         return true
     }
@@ -69,6 +91,8 @@ internal object IOSAvatarRenderInterop {
                 rightEyeBlinkKey to avatarRenderState.expressions.rightEyeBlink,
                 jawOpenKey to avatarRenderState.expressions.jawOpen,
                 mouthSmileKey to avatarRenderState.expressions.mouthSmile,
+                isTrackingKey to avatarRenderState.isTracking,
+                trackingConfidenceKey to avatarRenderState.trackingConfidence,
             ),
         )
     }
@@ -77,6 +101,36 @@ internal object IOSAvatarRenderInterop {
     fun publishClearedAvatar() {
         NSNotificationCenter.defaultCenter.postNotificationName(avatarSelectionDidClearNotification, null, null)
     }
+
+    // Converts the parsed spec version into the string form shared with the Swift-side decoder.
+    private fun VrmSpecVersion.toNotificationValue(): String = when (this) {
+        VrmSpecVersion.Vrm0 -> specVersionVrm0Value
+        VrmSpecVersion.Vrm1 -> specVersionVrm1Value
+    }
+
+    // Flattens expression descriptors into Foundation-bridgeable maps so the host renderer can
+    // resolve morph bindings without re-parsing the GLB on the Swift side.
+    private fun List<VrmExpressionDescriptor>.toNotificationValue(): List<Map<String, Any>> {
+        return map { expression ->
+            mapOf(
+                expressionRuntimeNameKey to expression.runtimeName,
+                expressionMorphTargetBindsKey to expression.morphTargetBinds.map { bind ->
+                    mapOf(
+                        morphBindNodeIndexKey to bind.nodeIndex,
+                        morphBindMorphTargetIndexKey to bind.morphTargetIndex,
+                        morphBindWeightKey to bind.weight,
+                    )
+                },
+            )
+        }
+    }
+
+    // Returns the glTF node index of the humanoid head bone, or null when the asset lacks one.
+    private fun VrmRuntimeAssetDescriptor.headNodeIndexOrNull(): Int? {
+        return humanoidBones.firstOrNull { bone -> bone.boneName == HEAD_BONE_NAME }?.nodeIndex
+    }
+
+    private const val HEAD_BONE_NAME = "head"
 
     // Copies avatar bytes into NSData so the host app can consume them via NotificationCenter.
     @OptIn(BetaInteropApi::class, ExperimentalForeignApi::class)

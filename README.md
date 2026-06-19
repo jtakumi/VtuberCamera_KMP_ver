@@ -32,6 +32,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - `UIDocumentPickerViewController` による VRM / GLB ファイル選択
 - SwiftUI + Filament による avatar view ホスト
 - avatar render state を Filament ブリッジへ伝達
+- iOS native Filament renderer による VRM avatar mesh 描画と head pose / expression morph 適用（Filament SDK は `scripts/setup_filament_ios.sh` でローカル導入、未導入時は static preview にフォールバック）
 - ライト / ダーク / システムテーマ切り替え
 
 ### 共有コードで扱っているもの
@@ -57,7 +58,6 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - フラッシュ制御
 - ギャラリー関連機能
 - 録画 / 配信向けの出力機能
-- iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装
 
 ## リポジトリ構成
 
