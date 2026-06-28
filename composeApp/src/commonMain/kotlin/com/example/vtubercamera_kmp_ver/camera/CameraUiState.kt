@@ -11,6 +11,8 @@ data class CameraUiState(
     val permission: CameraPermissionUiState = CameraPermissionUiState(),
     val zoom: CameraZoomUiState = CameraZoomUiState(),
     val photoCapture: PhotoCaptureState = PhotoCaptureState.Idle,
+    val photoDeletion: PhotoDeletionState = PhotoDeletionState.Idle,
+    val capturedPhotoUri: String? = null,
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
@@ -26,6 +28,13 @@ data class CameraUiState(
 
     val avatarPreview: AvatarPreviewData?
         get() = avatarSelection.avatarSelection?.preview
+
+    val isDeletingPhoto: Boolean
+        get() = photoDeletion == PhotoDeletionState.Deleting
+
+    // 削除可能な撮影画像があり、かつ削除処理中でないときだけ削除導線を出す。
+    val canDeletePhoto: Boolean
+        get() = capturedPhotoUri != null && !isDeletingPhoto
 }
 
 internal const val DEFAULT_CAMERA_ZOOM_SCALE = 1f

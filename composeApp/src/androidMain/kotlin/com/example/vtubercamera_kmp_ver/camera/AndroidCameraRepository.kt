@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.URI
 import kotlin.coroutines.resume
 
 internal interface CameraLensAvailability {
@@ -22,7 +23,10 @@ internal class AndroidCameraRepository(
     private val cameraAvailabilityProvider: suspend () -> CameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
     private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
-    private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState())
+    private val photoDeletionState: MutableStateFlow<PhotoDeletionState> = MutableStateFlow(PhotoDeletionState.Idle),
+    private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState()),
+    // 既定では撮影で書き出したローカルファイルを削除する。テストや content:// 対応で差し替え可能にする。
+    private val photoFileDeleter: (String) -> Boolean = ::deletePhotoFile,
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
@@ -105,6 +109,22 @@ internal class AndroidCameraRepository(
         }
     }
 
+    override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = photoDeletionState
+
+    override suspend fun deletePhoto(uri: String): Result<Unit> {
+        photoDeletionState.value = PhotoDeletionState.Deleting
+        return withContext(Dispatchers.IO) {
+            val deleted = runCatching { photoFileDeleter(uri) }.getOrDefault(false)
+            if (deleted) {
+                photoDeletionState.value = PhotoDeletionState.Succeeded
+                Result.success(Unit)
+            } else {
+                photoDeletionState.value = PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed)
+                Result.failure(CameraRepositoryException(CameraError.PhotoDeleteFailed))
+            }
+        }
+    }
+
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
         if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
             pendingLensFacing = lensFacing
@@ -135,6 +155,24 @@ internal class AndroidCameraRepository(
 
     fun onPlatformImageCaptureReady(imageCapture: ImageCapture?) {
         this.imageCapture = imageCapture
+    }
+}
+
+// 撮影で書き出したローカルファイルを削除する。既に存在しない場合も削除成功として扱う。
+internal fun deletePhotoFile(uri: String): Boolean {
+    val file = uri.toPhotoFileOrNull() ?: return false
+    return !file.exists() || file.delete()
+}
+
+private fun String.toPhotoFileOrNull(): File? {
+    return try {
+        when {
+            startsWith("file:") -> File(URI(this))
+            startsWith("/") -> File(this)
+            else -> null
+        }
+    } catch (_: IllegalArgumentException) {
+        null
     }
 }
 

@@ -7,6 +7,7 @@ import com.example.vtubercamera_kmp_ver.camera.CameraZoomUiState
 import com.example.vtubercamera_kmp_ver.camera.PermissionRepository
 import com.example.vtubercamera_kmp_ver.camera.PermissionState
 import com.example.vtubercamera_kmp_ver.camera.PhotoCaptureState
+import com.example.vtubercamera_kmp_ver.camera.PhotoDeletionState
 import com.example.vtubercamera_kmp_ver.camera.PreviewState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,9 +20,11 @@ internal class FakeCameraRepository(
     ),
     private val startPreviewResult: Result<CameraLensFacing>? = null,
     private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
+    private val deletePhotoResult: Result<Unit> = Result.success(Unit),
 ) : CameraRepository {
     private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
     private val photoCaptureState = MutableStateFlow<PhotoCaptureState>(PhotoCaptureState.Idle)
+    private val photoDeletionState = MutableStateFlow<PhotoDeletionState>(PhotoDeletionState.Idle)
     private val zoomUiState = MutableStateFlow(
         CameraZoomUiState(
             currentCameraZoomRatio = 1f,
@@ -43,6 +46,7 @@ internal class FakeCameraRepository(
     val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
     val switchLensRequests = mutableListOf<CameraLensFacing>()
     val setZoomRatioRequests = mutableListOf<Float>()
+    val deletePhotoRequests = mutableListOf<String>()
 
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
         startPreviewCallCount += 1
@@ -86,6 +90,25 @@ internal class FakeCameraRepository(
         photoCaptureState.value = PhotoCaptureState.Capturing
         photoCaptureState.value = PhotoCaptureState.Succeeded("fake://photo.jpg")
         return Result.success("fake://photo.jpg")
+    }
+
+    override fun observePhotoDeletionState(): Flow<PhotoDeletionState> {
+        return photoDeletionState.asStateFlow()
+    }
+
+    override suspend fun deletePhoto(uri: String): Result<Unit> {
+        deletePhotoRequests += uri
+        photoDeletionState.value = PhotoDeletionState.Deleting
+        return deletePhotoResult.fold(
+            onSuccess = {
+                photoDeletionState.value = PhotoDeletionState.Succeeded
+                Result.success(Unit)
+            },
+            onFailure = { throwable ->
+                photoDeletionState.value = PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed)
+                Result.failure(throwable)
+            },
+        )
     }
 
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
