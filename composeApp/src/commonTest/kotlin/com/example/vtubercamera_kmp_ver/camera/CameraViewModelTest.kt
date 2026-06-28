@@ -839,6 +839,90 @@ class CameraViewModelTest {
         assertEquals(1f, cameraRepository.setZoomRatioRequests.last())
     }
 
+    // ---------------------------------------------------------------------------
+    // onCapturePhoto() / onDeletePhoto()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onCapturePhoto_publishesSucceededStateAndExposesCapturedPhotoUri() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PhotoCaptureState.Succeeded("fake://photo.jpg"), uiState.photoCapture)
+        assertEquals("fake://photo.jpg", uiState.capturedPhotoUri)
+        assertEquals(true, uiState.canDeletePhoto)
+    }
+
+    @Test
+    fun onDeletePhoto_afterCapture_deletesCapturedPhotoAndClearsUri() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+
+        viewModel.onDeletePhoto()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(listOf("fake://photo.jpg"), cameraRepository.deletePhotoRequests)
+        assertEquals(PhotoDeletionState.Succeeded, uiState.photoDeletion)
+        assertNull(uiState.capturedPhotoUri)
+        assertEquals(false, uiState.canDeletePhoto)
+    }
+
+    @Test
+    fun onDeletePhoto_withoutCapturedPhoto_doesNotCallRepository() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onDeletePhoto()
+        advanceUntilIdle()
+
+        assertEquals(emptyList(), cameraRepository.deletePhotoRequests)
+        assertEquals(PhotoDeletionState.Idle, viewModel.uiState.value.photoDeletion)
+    }
+
+    @Test
+    fun onDeletePhoto_whenDeletionFails_setsFailedStateAndKeepsCapturedPhotoUri() = runTest {
+        val cameraRepository = FakeCameraRepository(
+            deletePhotoResult = Result.failure(
+                CameraRepositoryException(CameraError.PhotoDeleteFailed),
+            ),
+        )
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+        viewModel.onDeletePhoto()
+        advanceUntilIdle()
+
+        val uiState = viewModel.uiState.value
+        assertEquals(PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed), uiState.photoDeletion)
+        assertEquals("fake://photo.jpg", uiState.capturedPhotoUri)
+        assertEquals(CameraMessageType.Error, uiState.photoDeletion.toCameraMessage()?.type)
+    }
+
     @Test
     fun releaseCurrentAvatarAsset_removesCurrentAvatarAssetHandle() = runTest {
         val viewModel = CameraViewModel(

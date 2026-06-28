@@ -20,8 +20,10 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -122,6 +124,7 @@ fun CameraRoute(
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
+        onDeletePhoto = cameraViewModel::onDeletePhoto,
         themeMode = themeMode,
         onThemeModeToggle = onThemeModeToggle,
     )
@@ -147,6 +150,7 @@ fun CameraScreen(
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onCapturePhoto: () -> Unit,
+    onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
     modifier: Modifier = Modifier,
@@ -181,6 +185,7 @@ fun CameraScreen(
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
                 onCapturePhoto = onCapturePhoto,
+                onDeletePhoto = onDeletePhoto,
                 themeMode = themeMode,
                 onThemeModeToggle = onThemeModeToggle,
             )
@@ -188,7 +193,11 @@ fun CameraScreen(
             else -> LoadingState()
         }
 
-        (uiState.photoCapture.toCameraMessage() ?: uiState.session.message)?.let { message ->
+        (
+            uiState.photoDeletion.toCameraMessage()
+                ?: uiState.photoCapture.toCameraMessage()
+                ?: uiState.session.message
+        )?.let { message ->
             CameraMessageBanner(
                 message = message,
                 modifier = Modifier
@@ -228,6 +237,7 @@ private fun CameraPreviewState(
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onCapturePhoto: () -> Unit,
+    onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
@@ -266,7 +276,10 @@ private fun CameraPreviewState(
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
+            onDeletePhoto = onDeletePhoto,
             isCapturingPhoto = uiState.photoCapture == PhotoCaptureState.Capturing,
+            canDeletePhoto = uiState.canDeletePhoto,
+            isDeletingPhoto = uiState.isDeletingPhoto,
             themeMode = themeMode,
             onThemeModeToggle = onThemeModeToggle,
         )
@@ -406,7 +419,10 @@ private fun BoxScope.CameraUiLayer(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+    canDeletePhoto: Boolean,
+    isDeletingPhoto: Boolean,
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
@@ -434,7 +450,10 @@ private fun BoxScope.CameraUiLayer(
         onOpenFilePicker = onOpenFilePicker,
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
+        onDeletePhoto = onDeletePhoto,
         isCapturingPhoto = isCapturingPhoto,
+        canDeletePhoto = canDeletePhoto,
+        isDeletingPhoto = isDeletingPhoto,
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
@@ -654,9 +673,14 @@ private fun BottomCaptureControls(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+    canDeletePhoto: Boolean,
+    isDeletingPhoto: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
@@ -671,38 +695,82 @@ private fun BottomCaptureControls(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
             tonalElevation = MaterialTheme.spacing.xs,
         ) {
-            Row(
+            Column(
                 modifier = Modifier.padding(MaterialTheme.spacing.md),
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
             ) {
-                Button(
-                    onClick = onOpenFilePicker,
-                    modifier = Modifier.weight(1f),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(stringResource(Res.string.file_picker_open_button))
-                }
-                Button(
-                    onClick = onCapturePhoto,
-                    enabled = !isCapturingPhoto,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (isCapturingPhoto) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
-                        )
-                    } else {
-                        Text(stringResource(Res.string.camera_capture_button))
+                    Button(
+                        onClick = onOpenFilePicker,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(Res.string.file_picker_open_button))
+                    }
+                    Button(
+                        onClick = onCapturePhoto,
+                        enabled = !isCapturingPhoto,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        if (isCapturingPhoto) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
+                            )
+                        } else {
+                            Text(stringResource(Res.string.camera_capture_button))
+                        }
+                    }
+                    Button(
+                        onClick = onLensFacingToggle,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(Res.string.camera_switch_button))
                     }
                 }
-                Button(
-                    onClick = onLensFacingToggle,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(stringResource(Res.string.camera_switch_button))
+                // 撮影済み画像があるときだけ削除導線を表示する。
+                if (canDeletePhoto || isDeletingPhoto) {
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        enabled = canDeletePhoto,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        if (isDeletingPhoto) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
+                            )
+                        } else {
+                            Text(stringResource(Res.string.camera_delete_button))
+                        }
+                    }
                 }
             }
         }
+    }
+
+    // 削除対象が無くなった場合はダイアログ表示条件からも外し、開いたままにならないようにする。
+    if (showDeleteConfirm && canDeletePhoto) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(stringResource(Res.string.camera_delete_confirm_title)) },
+            text = { Text(stringResource(Res.string.camera_delete_confirm_message)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDeletePhoto()
+                    },
+                ) {
+                    Text(stringResource(Res.string.camera_delete_confirm_positive))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(Res.string.camera_delete_confirm_negative))
+                }
+            },
+        )
     }
 }
 

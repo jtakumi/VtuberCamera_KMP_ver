@@ -6,10 +6,12 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_lens_switch_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_photo_capture_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_photo_delete_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_preview_initialization_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unavailable
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_capture_succeeded
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_delete_succeeded
 
 // 画面から参照する共有のカメラ権限状態。
 enum class PermissionState {
@@ -33,6 +35,7 @@ enum class CameraError {
     PreviewInitializationFailed,
     LensSwitchFailed,
     PhotoCaptureFailed,
+    PhotoDeleteFailed,
     Unknown,
 }
 
@@ -44,6 +47,17 @@ sealed interface PhotoCaptureState {
     data class Succeeded(val uri: String?) : PhotoCaptureState
 
     data class Failed(val error: CameraError) : PhotoCaptureState
+}
+
+// 撮影画像の削除に関する共有 UI 状態。
+sealed interface PhotoDeletionState {
+    data object Idle : PhotoDeletionState
+
+    data object Deleting : PhotoDeletionState
+
+    data object Succeeded : PhotoDeletionState
+
+    data class Failed(val error: CameraError) : PhotoDeletionState
 }
 
 // 共有のカメラ UI で、案内バナーとエラーバナーを区別する。
@@ -68,6 +82,7 @@ fun CameraError.toCameraMessage(): CameraMessage {
         }
         CameraError.LensSwitchFailed -> Res.string.camera_error_lens_switch_failed
         CameraError.PhotoCaptureFailed -> Res.string.camera_error_photo_capture_failed
+        CameraError.PhotoDeleteFailed -> Res.string.camera_error_photo_delete_failed
         CameraError.Unknown -> Res.string.camera_error_unknown
     }
     return CameraMessage(
@@ -87,6 +102,17 @@ fun PhotoCaptureState.toCameraMessage(): CameraMessage? = when (this) {
     is PhotoCaptureState.Failed -> error.toCameraMessage()
 }
 
+fun PhotoDeletionState.toCameraMessage(): CameraMessage? = when (this) {
+    PhotoDeletionState.Idle,
+    PhotoDeletionState.Deleting,
+    -> null
+    PhotoDeletionState.Succeeded -> CameraMessage(
+        type = CameraMessageType.Guide,
+        messageRes = Res.string.camera_photo_delete_succeeded,
+    )
+    is PhotoDeletionState.Failed -> error.toCameraMessage()
+}
+
 // リポジトリ呼び出し失敗時も、ドメイン上のカメラエラー種別を保持する。
 class CameraRepositoryException(val error: CameraError) : Exception(error.name)
 
@@ -104,6 +130,10 @@ interface CameraRepository {
     fun observePhotoCaptureState(): Flow<PhotoCaptureState>
 
     suspend fun capturePhoto(): Result<String?>
+
+    fun observePhotoDeletionState(): Flow<PhotoDeletionState>
+
+    suspend fun deletePhoto(uri: String): Result<Unit>
 
     fun onPlatformPreviewStarted(lensFacing: CameraLensFacing)
 

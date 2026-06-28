@@ -7,6 +7,7 @@ import com.example.vtubercamera_kmp_ver.camera.facetracking.FaceTrackingPresente
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionCoordinator
 import com.example.vtubercamera_kmp_ver.camera.permission.PermissionChange
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
+import com.example.vtubercamera_kmp_ver.camera.photo.PhotoDeletionController
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionController
 import com.example.vtubercamera_kmp_ver.camera.zoom.CameraZoomController
 import kotlinx.coroutines.CoroutineScope
@@ -42,6 +43,10 @@ class CameraViewModel(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
     )
+    private val photoDeletionController = PhotoDeletionController(
+        cameraRepository = cameraRepository,
+        scope = viewModelScope,
+    )
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
 
@@ -53,6 +58,9 @@ class CameraViewModel(
     private val mirrorScope = CoroutineScope(
         viewModelScope.coroutineContext + Dispatchers.Unconfined,
     )
+
+    // 撮影に成功した画像 URI を保持し、削除対象として参照する。削除成功でクリアする。
+    private var lastCapturedPhotoUri: String? = null
 
     init {
         mirrorScope.launch {
@@ -72,7 +80,35 @@ class CameraViewModel(
         }
         mirrorScope.launch {
             photoCaptureController.state.collect { photoCapture ->
-                _uiState.update { it.copy(photoCapture = photoCapture) }
+                if (photoCapture is PhotoCaptureState.Succeeded) {
+                    lastCapturedPhotoUri = photoCapture.uri
+                }
+                _uiState.update {
+                    // 新しい撮影サイクルが始まったら、前回の削除結果バナーを消す。
+                    val photoDeletion = if (photoCapture == PhotoCaptureState.Capturing) {
+                        PhotoDeletionState.Idle
+                    } else {
+                        it.photoDeletion
+                    }
+                    it.copy(
+                        photoCapture = photoCapture,
+                        photoDeletion = photoDeletion,
+                        capturedPhotoUri = lastCapturedPhotoUri,
+                    )
+                }
+            }
+        }
+        mirrorScope.launch {
+            photoDeletionController.state.collect { photoDeletion ->
+                if (photoDeletion == PhotoDeletionState.Succeeded) {
+                    lastCapturedPhotoUri = null
+                }
+                _uiState.update {
+                    it.copy(
+                        photoDeletion = photoDeletion,
+                        capturedPhotoUri = lastCapturedPhotoUri,
+                    )
+                }
             }
         }
         mirrorScope.launch {
@@ -137,6 +173,11 @@ class CameraViewModel(
 
     fun onCapturePhoto() {
         photoCaptureController.capturePhoto()
+    }
+
+    fun onDeletePhoto() {
+        val uri = lastCapturedPhotoUri ?: return
+        photoDeletionController.deletePhoto(uri)
     }
 
     fun onDismissFilePickerError() {
