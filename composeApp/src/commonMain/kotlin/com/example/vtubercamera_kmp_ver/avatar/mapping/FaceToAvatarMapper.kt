@@ -20,6 +20,8 @@ data class FaceToAvatarMapperConfig(
     val trackingConfidenceThreshold: Float = 0.5f,
     val clamp: AvatarMappingClampConfig = AvatarMappingClampConfig(),
     val smoothing: AvatarMotionSmoothingConfig = AvatarMotionSmoothingConfig(),
+    val bodySwayGain: Float = 8f,
+    val bodyLeanGain: Float = 5f,
 )
 
 /**
@@ -28,6 +30,8 @@ data class FaceToAvatarMapperConfig(
 class FaceToAvatarMapper(
     private val config: FaceToAvatarMapperConfig = FaceToAvatarMapperConfig(),
 ) {
+    private val motionSmoother = AvatarMotionSmoother(config.smoothing)
+
     fun map(
         frame: NormalizedFaceFrame?,
         previousState: AvatarRenderState = AvatarRenderState.Neutral,
@@ -42,10 +46,9 @@ class FaceToAvatarMapper(
             )
         }
 
-        return AvatarMotionSmoother.smooth(
+        return motionSmoother.smooth(
             previous = previousState,
             target = target,
-            config = config.smoothing,
         )
     }
 
@@ -63,6 +66,8 @@ class FaceToAvatarMapper(
                 minValue = config.clamp.rollRangeDegrees.start,
                 maxValue = config.clamp.rollRangeDegrees.endInclusive,
             ),
+            bodySwayDegrees = (frame.headTranslationX * config.bodySwayGain).clamp(-12f, 12f),
+            bodyLeanDegrees = (-frame.headTranslationZ * config.bodyLeanGain).clamp(-8f, 8f),
         ),
         expressions = AvatarExpressionWeights(
             leftEyeBlink = frame.leftEyeBlink.clamp(

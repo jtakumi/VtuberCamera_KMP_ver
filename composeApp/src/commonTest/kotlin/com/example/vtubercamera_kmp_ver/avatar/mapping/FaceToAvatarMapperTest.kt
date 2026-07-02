@@ -28,6 +28,8 @@ class FaceToAvatarMapperTest {
                 headYawDegrees = 120f,
                 headPitchDegrees = -40f,
                 headRollDegrees = 35f,
+                headTranslationX = 0.5f,
+                headTranslationZ = -0.4f,
                 leftEyeBlink = 1.5f,
                 rightEyeBlink = -0.2f,
                 jawOpen = 0.4f,
@@ -40,6 +42,8 @@ class FaceToAvatarMapperTest {
         assertEquals(40f, mapped.rig.headYawDegrees)
         assertEquals(-25f, mapped.rig.headPitchDegrees)
         assertEquals(30f, mapped.rig.headRollDegrees)
+        assertEquals(4f, mapped.rig.bodySwayDegrees)
+        assertEquals(2f, mapped.rig.bodyLeanDegrees)
         assertEquals(1f, mapped.expressions.leftEyeBlink)
         assertEquals(0f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)

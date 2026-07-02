@@ -10,7 +10,7 @@ import kotlin.math.sin
 
 internal class AndroidAvatarRuntimeController private constructor(
     private val engine: Engine,
-    private val headBinding: HeadBinding?,
+    private val poseBindings: List<PoseBinding>,
     private val morphTargets: Map<Int, FloatArray>,
     private val expressionBindings: List<ExpressionBinding>,
 ) {
@@ -20,17 +20,22 @@ internal class AndroidAvatarRuntimeController private constructor(
     }
 
     private fun applyHeadPose(renderState: AvatarRenderState) {
-        val binding = headBinding ?: return
+        if (poseBindings.isEmpty()) return
         val transformManager = engine.transformManager
-        val rotation = rotationMatrix(
-            yawDegrees = renderState.rig.headYawDegrees,
-            pitchDegrees = renderState.rig.headPitchDegrees,
-            rollDegrees = renderState.rig.headRollDegrees,
-        )
-        transformManager.setTransform(
-            binding.transformInstance,
-            multiplyColumnMajor(binding.baseLocalTransform, rotation),
-        )
+        poseBindings.forEach { binding ->
+            val rotation = rotationMatrix(
+                yawDegrees = renderState.rig.headYawDegrees * binding.rotationWeight +
+                    renderState.rig.bodySwayDegrees * binding.swayWeight,
+                pitchDegrees = renderState.rig.headPitchDegrees * binding.rotationWeight +
+                    renderState.rig.bodyLeanDegrees * binding.swayWeight,
+                rollDegrees = renderState.rig.headRollDegrees * binding.rotationWeight -
+                    renderState.rig.bodySwayDegrees * binding.swayWeight * 0.35f,
+            )
+            transformManager.setTransform(
+                binding.transformInstance,
+                multiplyColumnMajor(binding.baseLocalTransform, rotation),
+            )
+        }
     }
 
     private fun applyExpressions(renderState: AvatarRenderState) {
@@ -103,9 +108,11 @@ internal class AndroidAvatarRuntimeController private constructor(
         return multiplyColumnMajor(yawMatrix, multiplyColumnMajor(pitchMatrix, rollMatrix))
     }
 
-    private data class HeadBinding(
+    private data class PoseBinding(
         val transformInstance: Int,
         val baseLocalTransform: FloatArray,
+        val rotationWeight: Float,
+        val swayWeight: Float,
     )
 
     private data class ExpressionBinding(
@@ -126,37 +133,55 @@ internal class AndroidAvatarRuntimeController private constructor(
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
         ): AndroidAvatarRuntimeController {
             val entities = asset.entities
-            val headBinding = createHeadBinding(engine, entities, runtimeDescriptor)
+            val poseBindings = createPoseBindings(engine, entities, runtimeDescriptor)
             val morphTargets = createMorphTargets(engine, asset)
             val expressionBindings = createExpressionBindings(entities, runtimeDescriptor)
             return AndroidAvatarRuntimeController(
                 engine = engine,
-                headBinding = headBinding,
+                poseBindings = poseBindings,
                 morphTargets = morphTargets,
                 expressionBindings = expressionBindings,
             )
         }
 
-        private fun createHeadBinding(
+        private fun createPoseBindings(
             engine: Engine,
             entities: IntArray,
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
-        ): HeadBinding? {
-            val headNodeIndex = runtimeDescriptor.humanoidBones
-                .firstOrNull { bone -> bone.boneName == HEAD_BONE_NAME }
-                ?.nodeIndex
-                ?: return null
-            val headEntity = entities.getOrNull(headNodeIndex) ?: return null
+        ): List<PoseBinding> {
             val transformManager = engine.transformManager
-            val transformInstance = transformManager.getInstance(headEntity)
-            if (transformInstance == 0) {
-                return null
-            }
-            return HeadBinding(
-                transformInstance = transformInstance,
-                baseLocalTransform = transformManager.getTransform(transformInstance, FloatArray(MATRIX_SIZE)).copyOf(),
+            val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
+            val specs = listOf(
+                BoneWeight(HEAD_BONE_NAME, 0.65f, 0f),
+                BoneWeight(NECK_BONE_NAME, 0.23f, 0.2f),
+                BoneWeight(CHEST_BONE_NAME, 0.07f, 0.45f),
+                BoneWeight(SPINE_BONE_NAME, 0.05f, 0.35f),
             )
+            val available = specs.filter { nodes[it.name]?.let(entities::getOrNull) != null }
+            if (available.none { it.name == HEAD_BONE_NAME }) return emptyList()
+            val missingRotationWeight = specs.filterNot { it in available }.sumOf { it.rotationWeight.toDouble() }.toFloat()
+            return available.mapNotNull { spec ->
+                val entity = nodes[spec.name]?.let(entities::getOrNull) ?: return@mapNotNull null
+                val transformInstance = transformManager.getInstance(entity)
+                if (transformInstance == 0) return@mapNotNull null
+                PoseBinding(
+                    transformInstance = transformInstance,
+                    baseLocalTransform = transformManager.getTransform(
+                        transformInstance,
+                        FloatArray(MATRIX_SIZE),
+                    ).copyOf(),
+                    rotationWeight = spec.rotationWeight +
+                        if (spec.name == HEAD_BONE_NAME) missingRotationWeight else 0f,
+                    swayWeight = spec.swayWeight,
+                )
+            }
         }
+
+        private data class BoneWeight(
+            val name: String,
+            val rotationWeight: Float,
+            val swayWeight: Float,
+        )
 
         private fun createMorphTargets(
             engine: Engine,
@@ -222,6 +247,9 @@ internal class AndroidAvatarRuntimeController private constructor(
         }
 
         private const val HEAD_BONE_NAME = "head"
+        private const val NECK_BONE_NAME = "neck"
+        private const val CHEST_BONE_NAME = "chest"
+        private const val SPINE_BONE_NAME = "spine"
         private const val MATRIX_EDGE = 4
         private const val MATRIX_SIZE = MATRIX_EDGE * MATRIX_EDGE
     }
