@@ -2,6 +2,8 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSURL
 import kotlin.coroutines.resume
 
 internal typealias IOSCameraLensAvailability = (CameraLensFacing) -> Boolean
@@ -20,9 +22,12 @@ internal class IOSCameraRepository(
     private val hasLens: IOSCameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
     private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
+    private val photoDeletionState: MutableStateFlow<PhotoDeletionState> = MutableStateFlow(PhotoDeletionState.Idle),
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(
         CameraZoomUiState()
-    )
+    ),
+    // 既定では撮影で書き出したローカルファイルを削除する。テストで差し替え可能にする。
+    private val photoFileDeleter: (String) -> Boolean = ::deletePhotoFile,
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
 
@@ -89,6 +94,20 @@ internal class IOSCameraRepository(
         }
     }
 
+    override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = photoDeletionState
+
+    override suspend fun deletePhoto(uri: String): Result<Unit> {
+        photoDeletionState.value = PhotoDeletionState.Deleting
+        val deleted = runCatching { photoFileDeleter(uri) }.getOrDefault(false)
+        return if (deleted) {
+            photoDeletionState.value = PhotoDeletionState.Succeeded
+            Result.success(Unit)
+        } else {
+            photoDeletionState.value = PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed)
+            Result.failure(CameraRepositoryException(CameraError.PhotoDeleteFailed))
+        }
+    }
+
     // ネイティブ側でプレビュー開始が完了したことを状態へ反映する。
     override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {
         if (pendingLensFacing == null || pendingLensFacing == lensFacing) {
@@ -141,3 +160,21 @@ internal fun resolveAvailableLens(
 
 internal fun Float.coerceInZoomRange(minZoomRatio: Float, maxZoomRatio: Float): Float =
     coerceIn(minZoomRatio, maxZoomRatio)
+
+// 撮影で書き出したローカルファイルを削除する。既に存在しない場合も削除成功として扱う。
+internal fun deletePhotoFile(uri: String): Boolean {
+    val fileManager = NSFileManager.defaultManager
+    val path = uri.toLocalFilePath() ?: return false
+    if (!fileManager.fileExistsAtPath(path)) {
+        return true
+    }
+    return fileManager.removeItemAtPath(path, error = null)
+}
+
+private fun String.toLocalFilePath(): String? {
+    return when {
+        startsWith("file:") -> NSURL.URLWithString(this)?.path
+        startsWith("/") -> this
+        else -> null
+    }
+}

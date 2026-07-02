@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
@@ -85,6 +86,44 @@ class IOSCameraRepositoryTest {
         assertEquals(
             PreviewState.Error(CameraError.CameraUnavailable),
             repository.observePreviewState().first(),
+        )
+    }
+
+    @Test
+    fun deletePhoto_whenFileDeleterSucceeds_publishesSucceeded() = runTest {
+        val deletedUris = mutableListOf<String>()
+        val repository = IOSCameraRepository(
+            hasLens = { true },
+            photoFileDeleter = { uri ->
+                deletedUris += uri
+                true
+            },
+        )
+
+        val result = repository.deletePhoto("file:///tmp/vtuber-camera.jpg")
+
+        assertTrue(result.isSuccess)
+        assertEquals(listOf("file:///tmp/vtuber-camera.jpg"), deletedUris)
+        assertEquals(
+            PhotoDeletionState.Succeeded,
+            repository.observePhotoDeletionState().first(),
+        )
+    }
+
+    @Test
+    fun deletePhoto_whenFileDeleterFails_returnsPhotoDeleteFailed() = runTest {
+        val repository = IOSCameraRepository(
+            hasLens = { true },
+            photoFileDeleter = { false },
+        )
+
+        val result = repository.deletePhoto("file:///tmp/missing.jpg")
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.PhotoDeleteFailed, exception.error)
+        assertEquals(
+            PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed),
+            repository.observePhotoDeletionState().first(),
         )
     }
 

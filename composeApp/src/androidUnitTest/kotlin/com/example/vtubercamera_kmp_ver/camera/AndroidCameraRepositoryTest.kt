@@ -1,8 +1,11 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
@@ -61,6 +64,35 @@ class AndroidCameraRepositoryTest {
         assertEquals(
             PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed),
             repository.observePhotoCaptureState().first(),
+        )
+    }
+
+    @Test
+    fun deletePhoto_removesCapturedFileAndPublishesSucceeded() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        val file = File.createTempFile("vtuber-camera-test-", ".jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+
+        val result = repository.deletePhoto(file.toURI().toString())
+
+        assertTrue(result.isSuccess)
+        assertFalse(file.exists())
+        assertEquals(
+            PhotoDeletionState.Succeeded,
+            repository.observePhotoDeletionState().first(),
+        )
+    }
+
+    @Test
+    fun deletePhoto_returnsPhotoDeleteFailedWhenUriIsNotADeletableFile() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        val result = repository.deletePhoto("content://media/external/images/media/42")
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.PhotoDeleteFailed, exception.error)
+        assertEquals(
+            PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed),
+            repository.observePhotoDeletionState().first(),
         )
     }
 
