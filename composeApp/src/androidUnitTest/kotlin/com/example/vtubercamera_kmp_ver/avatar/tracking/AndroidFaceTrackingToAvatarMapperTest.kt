@@ -36,7 +36,7 @@ class AndroidFaceTrackingToAvatarMapperTest {
         assertEquals(expected = 1f, actual = mapped.expressions.leftEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.5f, actual = mapped.expressions.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.72f, actual = mapped.expressions.jawOpen, absoluteTolerance = 0.0001f)
-        assertEquals(expected = 0.5f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.74545455f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
         assertEquals(AvatarTrackingStatus.Tracking, mapped.trackingStatus)
         assertEquals(0.95f, mapped.trackingConfidence)
         assertEquals(100L, mapped.sourceTimestampMillis)
@@ -64,5 +64,17 @@ class AndroidFaceTrackingToAvatarMapperTest {
         val mapped = AndroidFaceTrackingToAvatarMapper().map(state)
 
         assertEquals(state, mapped)
+    }
+
+    @Test
+    fun map_smallSmileRemainsVisibleAfterAndroidCorrection() {
+        val mapped = AndroidFaceTrackingToAvatarMapper().map(
+            AvatarRenderState(
+                expressions = AvatarExpressionWeights(mouthSmile = 0.06f),
+                trackingStatus = AvatarTrackingStatus.Tracking,
+            ),
+        )
+
+        assertEquals(expected = 0.07272727f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
     }
 }

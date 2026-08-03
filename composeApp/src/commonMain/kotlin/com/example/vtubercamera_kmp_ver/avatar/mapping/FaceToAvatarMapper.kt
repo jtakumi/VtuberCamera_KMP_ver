@@ -22,6 +22,10 @@ data class FaceToAvatarMapperConfig(
     val smoothing: AvatarMotionSmoothingConfig = AvatarMotionSmoothingConfig(),
     val bodySwayGain: Float = 8f,
     val bodyLeanGain: Float = 5f,
+    // ML Kit Face Detection does not provide 3D head translation. Use the head pose as a
+    // natural body-motion fallback until a platform tracker supplies translation values.
+    val bodySwayFromYawGain: Float = 0.2f,
+    val bodyLeanFromPitchGain: Float = 0.18f,
 )
 
 /**
@@ -66,8 +70,8 @@ class FaceToAvatarMapper(
                 minValue = config.clamp.rollRangeDegrees.start,
                 maxValue = config.clamp.rollRangeDegrees.endInclusive,
             ),
-            bodySwayDegrees = (frame.headTranslationX * config.bodySwayGain).clamp(-12f, 12f),
-            bodyLeanDegrees = (-frame.headTranslationZ * config.bodyLeanGain).clamp(-8f, 8f),
+            bodySwayDegrees = bodySwayDegrees(frame),
+            bodyLeanDegrees = bodyLeanDegrees(frame),
         ),
         expressions = AvatarExpressionWeights(
             leftEyeBlink = frame.leftEyeBlink.clamp(
@@ -91,6 +95,26 @@ class FaceToAvatarMapper(
         trackingConfidence = frame.trackingConfidence.clamp(0f, 1f),
         sourceTimestampMillis = frame.timestampMillis,
     )
+
+    private fun bodySwayDegrees(frame: NormalizedFaceFrame): Float {
+        val translationSway = frame.headTranslationX * config.bodySwayGain
+        val poseFallback = if (frame.headTranslationX == 0f) {
+            frame.headYawDegrees * config.bodySwayFromYawGain
+        } else {
+            0f
+        }
+        return (translationSway + poseFallback).clamp(-12f, 12f)
+    }
+
+    private fun bodyLeanDegrees(frame: NormalizedFaceFrame): Float {
+        val translationLean = -frame.headTranslationZ * config.bodyLeanGain
+        val poseFallback = if (frame.headTranslationZ == 0f) {
+            frame.headPitchDegrees * config.bodyLeanFromPitchGain
+        } else {
+            0f
+        }
+        return (translationLean + poseFallback).clamp(-8f, 8f)
+    }
 
     private fun buildDecayState(
         previousState: AvatarRenderState,

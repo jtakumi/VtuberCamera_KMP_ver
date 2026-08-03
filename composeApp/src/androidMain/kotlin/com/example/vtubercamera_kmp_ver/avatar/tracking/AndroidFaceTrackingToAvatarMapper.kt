@@ -41,7 +41,7 @@ internal class AndroidFaceTrackingToAvatarMapper {
     }
 
     private fun emphasizeSmile(value: Float): Float {
-        return ((value - 0.08f) / 0.7f).coerceIn(0f, 1f)
+        return ((value - 0.02f) / 0.55f).coerceIn(0f, 1f)
     }
 
     private companion object {

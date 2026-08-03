@@ -152,10 +152,10 @@ internal class AndroidAvatarRuntimeController private constructor(
             val transformManager = engine.transformManager
             val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
             val specs = listOf(
-                BoneWeight(HEAD_BONE_NAME, 0.65f, 0f),
-                BoneWeight(NECK_BONE_NAME, 0.23f, 0.2f),
-                BoneWeight(CHEST_BONE_NAME, 0.07f, 0.45f),
-                BoneWeight(SPINE_BONE_NAME, 0.05f, 0.35f),
+                BoneWeight(HEAD_BONE_NAME, 0.82f, 0f),
+                BoneWeight(NECK_BONE_NAME, 0.18f, 0.18f),
+                BoneWeight(CHEST_BONE_NAME, 0f, 0.42f),
+                BoneWeight(SPINE_BONE_NAME, 0f, 0.32f),
             )
             val available = specs.filter { nodes[it.name]?.let(entities::getOrNull) != null }
             if (available.none { it.name == HEAD_BONE_NAME }) return emptyList()

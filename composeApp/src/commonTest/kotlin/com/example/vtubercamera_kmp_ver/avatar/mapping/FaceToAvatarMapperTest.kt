@@ -105,6 +105,35 @@ class FaceToAvatarMapperTest {
     }
 
     @Test
+    fun mapTrackingFrameUsesHeadPoseForBodyMotionWhenTranslationIsUnavailable() {
+        val mapper = FaceToAvatarMapper(
+            FaceToAvatarMapperConfig(
+                smoothing = AvatarMotionSmoothingConfig(
+                    trackingAlpha = 1f,
+                    lostAlpha = 1f,
+                ),
+            ),
+        )
+
+        val mapped = mapper.map(
+            frame = NormalizedFaceFrame(
+                timestampMillis = 100L,
+                trackingConfidence = 1f,
+                headYawDegrees = 30f,
+                headPitchDegrees = -20f,
+                headRollDegrees = 0f,
+                leftEyeBlink = 0f,
+                rightEyeBlink = 0f,
+                jawOpen = 0f,
+                mouthSmile = 0f,
+            ),
+        )
+
+        assertEquals(expected = 6f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -3.6f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
     fun nullFrameTransitionsToNotTrackedAndContinuesDecay() {
         val mapper = FaceToAvatarMapper(
             FaceToAvatarMapperConfig(
