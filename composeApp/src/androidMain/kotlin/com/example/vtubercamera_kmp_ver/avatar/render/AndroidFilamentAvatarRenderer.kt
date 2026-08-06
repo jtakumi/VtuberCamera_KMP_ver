@@ -152,7 +152,7 @@ internal class AndroidFilamentAvatarRenderer(
     private fun configureRenderer() {
         renderer.clearOptions = renderer.clearOptions.apply {
             clear = true
-            clearColor = floatArrayOf(0f, 0f, 0f, 0f)
+            clearColor = doubleArrayOf(0.0, 0.0, 0.0, 0.0)
         }
     }
 
