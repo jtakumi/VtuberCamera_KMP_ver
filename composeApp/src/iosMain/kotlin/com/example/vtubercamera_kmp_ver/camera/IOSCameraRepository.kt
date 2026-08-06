@@ -162,6 +162,7 @@ internal fun Float.coerceInZoomRange(minZoomRatio: Float, maxZoomRatio: Float): 
     coerceIn(minZoomRatio, maxZoomRatio)
 
 // 撮影で書き出したローカルファイルを削除する。既に存在しない場合も削除成功として扱う。
+@OptIn(kotlinx.cinterop.ExperimentalForeignApi::class)
 internal fun deletePhotoFile(uri: String): Boolean {
     val fileManager = NSFileManager.defaultManager
     val path = uri.toLocalFilePath() ?: return false
