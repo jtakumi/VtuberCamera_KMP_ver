@@ -8,7 +8,7 @@ import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 internal object VrmMorphBindingResolver {
     fun resolve(
         runtimeDescriptor: VrmRuntimeAssetDescriptor,
-        entities: IntArray,
+        nodeEntityResolver: (Int) -> Int?,
     ): List<ResolvedExpressionMorphBinding> {
         val availableNames = runtimeDescriptor.availableExpressionNames
         return AvatarExpressionId.entries.mapNotNull { expressionId ->
@@ -20,16 +20,16 @@ internal object VrmMorphBindingResolver {
             val expressionDescriptor = runtimeDescriptor.expressions.firstOrNull { expression ->
                 expression.runtimeName == runtimeName
             } ?: return@mapNotNull null
-            expressionDescriptor.toResolvedBinding(expressionId, entities)
+            expressionDescriptor.toResolvedBinding(expressionId, nodeEntityResolver)
         }
     }
 
     private fun VrmExpressionDescriptor.toResolvedBinding(
         expressionId: AvatarExpressionId,
-        entities: IntArray,
+        nodeEntityResolver: (Int) -> Int?,
     ): ResolvedExpressionMorphBinding? {
         val morphBinds = morphTargetBinds.mapNotNull { bind ->
-            val entity = entities.getOrNull(bind.nodeIndex) ?: return@mapNotNull null
+            val entity = nodeEntityResolver(bind.nodeIndex) ?: return@mapNotNull null
             ResolvedMorphBind(
                 entity = entity,
                 morphTargetIndex = bind.morphTargetIndex,
