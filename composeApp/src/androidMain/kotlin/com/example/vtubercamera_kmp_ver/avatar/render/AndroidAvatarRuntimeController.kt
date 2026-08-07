@@ -177,9 +177,9 @@ internal class AndroidAvatarRuntimeController private constructor(
             val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
             val specs = listOf(
                 BoneWeight(HEAD_BONE_NAME, 0.82f, 0f),
-                BoneWeight(NECK_BONE_NAME, 0.18f, 0.18f),
-                BoneWeight(CHEST_BONE_NAME, 0f, 0.42f),
-                BoneWeight(SPINE_BONE_NAME, 0f, 0.32f),
+                BoneWeight(NECK_BONE_NAME, 0.18f, 0.32f),
+                BoneWeight(CHEST_BONE_NAME, 0f, 0.72f),
+                BoneWeight(SPINE_BONE_NAME, 0f, 0.55f),
             )
             val available = specs.filter { nodes[it.name]?.let(nodeEntityResolver) != null }
             if (available.none { it.name == HEAD_BONE_NAME }) return emptyList()

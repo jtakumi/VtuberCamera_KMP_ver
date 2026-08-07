@@ -28,6 +28,7 @@ internal class AndroidFaceTrackingAnalyzer(
 ) : ImageAnalysis.Analyzer {
     private val isProcessing = AtomicBoolean(false)
     private var previousFrame: NormalizedFaceFrame? = null
+    private val translationEstimator = FaceTranslationEstimator()
 
     // Android lint recognizes @ExperimentalGetImage for ImageProxy.image access, while Kotlin reports @OptIn does not satisfy this CameraX check.
     @ExperimentalGetImage
@@ -46,16 +47,24 @@ internal class AndroidFaceTrackingAnalyzer(
         detectorClient.process(
             image = image,
             onSuccess = { faces ->
-                val nextFrame = faces.firstOrNull()?.toNormalizedFrame(
+                val face = faces.firstOrNull()
+                val nextFrame = face?.toNormalizedFrame(
                     timestampMillis = TimeUnit.NANOSECONDS.toMillis(imageProxy.imageInfo.timestamp),
                     lensFacing = lensFacing,
                     previousFrame = previousFrame,
+                    headTranslation = translationEstimator.estimate(
+                        face = face,
+                        frameWidthPixels = imageProxy.uprightWidthPixels(),
+                        lensFacing = lensFacing,
+                    ),
                 )
+                if (face == null) translationEstimator.reset()
                 previousFrame = nextFrame
                 onFaceFrame(nextFrame)
             },
             onFailure = {
                 previousFrame = null
+                translationEstimator.reset()
                 onFaceFrame(null)
             },
             onComplete = {
@@ -67,6 +76,7 @@ internal class AndroidFaceTrackingAnalyzer(
 
     fun close() {
         detectorClient.close()
+        translationEstimator.reset()
     }
 }
 
@@ -83,6 +93,7 @@ internal interface AndroidFaceDetectorClient {
 
 internal data class AndroidDetectedFace(
     val boundingBoxHeight: Float,
+    val boundingBoxCenterX: Float = 0f,
     val headEulerAngleX: Float,
     val headEulerAngleY: Float,
     val headEulerAngleZ: Float,
@@ -130,6 +141,7 @@ private class MlKitAndroidFaceDetectorClient : AndroidFaceDetectorClient {
 private fun Face.toDetectedFace(): AndroidDetectedFace {
     return AndroidDetectedFace(
         boundingBoxHeight = boundingBox.height().toFloat().coerceAtLeast(1f),
+        boundingBoxCenterX = boundingBox.exactCenterX(),
         headEulerAngleX = headEulerAngleX,
         headEulerAngleY = headEulerAngleY,
         headEulerAngleZ = headEulerAngleZ,
@@ -146,6 +158,7 @@ internal fun AndroidDetectedFace.toNormalizedFrame(
     timestampMillis: Long,
     lensFacing: CameraLensFacing,
     previousFrame: NormalizedFaceFrame?,
+    headTranslation: HeadTranslation = HeadTranslation(),
 ): NormalizedFaceFrame {
     val rawYaw = if (lensFacing == CameraLensFacing.Front) -headEulerAngleY else headEulerAngleY
     val rawRoll = if (lensFacing == CameraLensFacing.Front) -headEulerAngleZ else headEulerAngleZ
@@ -167,6 +180,8 @@ internal fun AndroidDetectedFace.toNormalizedFrame(
         headYawDegrees = rawYaw,
         headPitchDegrees = rawPitch,
         headRollDegrees = rawRoll,
+        headTranslationX = headTranslation.x,
+        headTranslationZ = headTranslation.z,
         leftEyeBlink = rawLeftBlink.coerceIn(0f, 1f),
         rightEyeBlink = rawRightBlink.coerceIn(0f, 1f),
         jawOpen = rawJawOpen,
@@ -174,6 +189,70 @@ internal fun AndroidDetectedFace.toNormalizedFrame(
     )
 
     return smoothFrame(previousFrame = previousFrame, currentFrame = currentFrame)
+}
+
+/** A relative position estimate based on the detected face rectangle. */
+internal data class HeadTranslation(
+    val x: Float = 0f,
+    val z: Float = 0f,
+)
+
+/**
+ * ML Kit face detection has no 3D translation output. The initial face position becomes neutral;
+ * lateral movement and apparent face-size changes provide a stable body-motion approximation.
+ */
+internal class FaceTranslationEstimator {
+    private var trackingId: Int? = null
+    private var neutralCenterX: Float? = null
+    private var neutralHeight: Float? = null
+
+    fun estimate(
+        face: AndroidDetectedFace,
+        frameWidthPixels: Int,
+        lensFacing: CameraLensFacing = CameraLensFacing.Back,
+    ): HeadTranslation {
+        val frameWidth = frameWidthPixels.coerceAtLeast(1).toFloat()
+        val centerX = (face.boundingBoxCenterX / frameWidth).coerceIn(0f, 1f)
+        val height = face.boundingBoxHeight.coerceAtLeast(1f) / frameWidth
+        if (neutralCenterX == null || neutralHeight == null || trackingId != face.trackingId) {
+            trackingId = face.trackingId
+            neutralCenterX = centerX
+            neutralHeight = height
+            return HeadTranslation()
+        }
+
+        val referenceHeight = neutralHeight!!.coerceAtLeast(MIN_REFERENCE_HEIGHT)
+        return HeadTranslation(
+            x = (((centerX - neutralCenterX!!) / referenceHeight) * LATERAL_SCALE * lensFacing.translationDirection())
+                .coerceIn(-MAX_LATERAL_TRANSLATION, MAX_LATERAL_TRANSLATION),
+            z = ((height / referenceHeight - 1f) * DEPTH_SCALE)
+                .coerceIn(-MAX_DEPTH_TRANSLATION, MAX_DEPTH_TRANSLATION),
+        )
+    }
+
+    fun reset() {
+        trackingId = null
+        neutralCenterX = null
+        neutralHeight = null
+    }
+
+    private companion object {
+        const val MIN_REFERENCE_HEIGHT = 0.08f
+        const val LATERAL_SCALE = 0.8f
+        const val DEPTH_SCALE = 0.8f
+        const val MAX_LATERAL_TRANSLATION = 1f
+        const val MAX_DEPTH_TRANSLATION = 0.7f
+    }
+}
+
+private fun CameraLensFacing.translationDirection(): Float = when (this) {
+    CameraLensFacing.Front -> -1f
+    CameraLensFacing.Back -> 1f
+}
+
+private fun ImageProxy.uprightWidthPixels(): Int = when (imageInfo.rotationDegrees) {
+    90, 270 -> height
+    else -> width
 }
 
 private fun AndroidDetectedFace.estimateJawOpen(): Float {

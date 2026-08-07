@@ -20,12 +20,12 @@ data class FaceToAvatarMapperConfig(
     val trackingConfidenceThreshold: Float = 0.5f,
     val clamp: AvatarMappingClampConfig = AvatarMappingClampConfig(),
     val smoothing: AvatarMotionSmoothingConfig = AvatarMotionSmoothingConfig(),
-    val bodySwayGain: Float = 8f,
-    val bodyLeanGain: Float = 5f,
-    // ML Kit Face Detection does not provide 3D head translation. Use the head pose as a
-    // natural body-motion fallback until a platform tracker supplies translation values.
-    val bodySwayFromYawGain: Float = 0.2f,
-    val bodyLeanFromPitchGain: Float = 0.18f,
+    val bodySwayGain: Float = 18f,
+    val bodyLeanGain: Float = 12f,
+    // Position estimates are derived from the face rectangle on Android. Head pose remains
+    // part of the result so the torso continues to follow a turn when the face stays centered.
+    val bodySwayFromYawGain: Float = 0.5f,
+    val bodyLeanFromPitchGain: Float = 0.4f,
 )
 
 /**
@@ -98,22 +98,14 @@ class FaceToAvatarMapper(
 
     private fun bodySwayDegrees(frame: NormalizedFaceFrame): Float {
         val translationSway = frame.headTranslationX * config.bodySwayGain
-        val poseFallback = if (frame.headTranslationX == 0f) {
-            frame.headYawDegrees * config.bodySwayFromYawGain
-        } else {
-            0f
-        }
-        return (translationSway + poseFallback).clamp(-12f, 12f)
+        val poseContribution = frame.headYawDegrees * config.bodySwayFromYawGain
+        return (translationSway + poseContribution).clamp(-18f, 18f)
     }
 
     private fun bodyLeanDegrees(frame: NormalizedFaceFrame): Float {
         val translationLean = -frame.headTranslationZ * config.bodyLeanGain
-        val poseFallback = if (frame.headTranslationZ == 0f) {
-            frame.headPitchDegrees * config.bodyLeanFromPitchGain
-        } else {
-            0f
-        }
-        return (translationLean + poseFallback).clamp(-8f, 8f)
+        val poseContribution = frame.headPitchDegrees * config.bodyLeanFromPitchGain
+        return (translationLean + poseContribution).clamp(-12f, 12f)
     }
 
     private fun buildDecayState(

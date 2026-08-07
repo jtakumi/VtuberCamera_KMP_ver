@@ -173,6 +173,49 @@ class AndroidFaceTrackingAnalyzerTest {
     }
 
     @Test
+    fun faceTranslationEstimator_usesFacePositionAndSizeRelativeToInitialFace() {
+        val estimator = FaceTranslationEstimator()
+        val neutral = face(boundingBoxCenterX = 200f, boundingBoxHeight = 100f)
+
+        assertEquals(HeadTranslation(), estimator.estimate(neutral, frameWidthPixels = 400))
+
+        val translated = estimator.estimate(
+            face(boundingBoxCenterX = 250f, boundingBoxHeight = 125f),
+            frameWidthPixels = 400,
+        )
+
+        assertEquals(expected = 0.4f, actual = translated.x, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.2f, actual = translated.z, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
+    fun faceTranslationEstimator_resetsWhenTrackingIdChanges() {
+        val estimator = FaceTranslationEstimator()
+        estimator.estimate(face(boundingBoxCenterX = 200f, trackingId = 1), frameWidthPixels = 400)
+
+        val translation = estimator.estimate(
+            face(boundingBoxCenterX = 260f, trackingId = 2),
+            frameWidthPixels = 400,
+        )
+
+        assertEquals(HeadTranslation(), translation)
+    }
+
+    @Test
+    fun faceTranslationEstimator_mirrorsLateralMotionForFrontCamera() {
+        val estimator = FaceTranslationEstimator()
+        estimator.estimate(face(boundingBoxCenterX = 200f), frameWidthPixels = 400)
+
+        val translation = estimator.estimate(
+            face(boundingBoxCenterX = 250f),
+            frameWidthPixels = 400,
+            lensFacing = CameraLensFacing.Front,
+        )
+
+        assertEquals(expected = -0.4f, actual = translation.x, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
     fun close_closesDetectorClient() {
         val detector = FakeAndroidFaceDetectorClient()
         val analyzer = createAnalyzer(detector = detector)
@@ -244,6 +287,7 @@ class AndroidFaceTrackingAnalyzerTest {
 
     private fun face(
         boundingBoxHeight: Float = 100f,
+        boundingBoxCenterX: Float = 0f,
         headEulerAngleX: Float = 0f,
         headEulerAngleY: Float = 0f,
         headEulerAngleZ: Float = 0f,
@@ -256,6 +300,7 @@ class AndroidFaceTrackingAnalyzerTest {
     ): AndroidDetectedFace {
         return AndroidDetectedFace(
             boundingBoxHeight = boundingBoxHeight,
+            boundingBoxCenterX = boundingBoxCenterX,
             headEulerAngleX = headEulerAngleX,
             headEulerAngleY = headEulerAngleY,
             headEulerAngleZ = headEulerAngleZ,

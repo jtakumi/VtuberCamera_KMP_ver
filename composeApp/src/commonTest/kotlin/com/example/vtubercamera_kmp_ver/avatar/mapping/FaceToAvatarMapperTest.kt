@@ -42,8 +42,8 @@ class FaceToAvatarMapperTest {
         assertEquals(40f, mapped.rig.headYawDegrees)
         assertEquals(-25f, mapped.rig.headPitchDegrees)
         assertEquals(30f, mapped.rig.headRollDegrees)
-        assertEquals(4f, mapped.rig.bodySwayDegrees)
-        assertEquals(2f, mapped.rig.bodyLeanDegrees)
+        assertEquals(18f, mapped.rig.bodySwayDegrees)
+        assertEquals(-11.2f, mapped.rig.bodyLeanDegrees)
         assertEquals(1f, mapped.expressions.leftEyeBlink)
         assertEquals(0f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
@@ -129,8 +129,8 @@ class FaceToAvatarMapperTest {
             ),
         )
 
-        assertEquals(expected = 6f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
-        assertEquals(expected = -3.6f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 15f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -8f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
     }
 
     @Test
