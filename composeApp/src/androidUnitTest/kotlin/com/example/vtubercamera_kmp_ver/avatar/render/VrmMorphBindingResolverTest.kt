@@ -23,7 +23,7 @@ class VrmMorphBindingResolverTest {
                     expression("aa", 2, 3, 1f),
                 ),
             ),
-            entities = intArrayOf(10, 20, 30),
+            nodeEntityResolver = { nodeIndex -> intArrayOf(10, 20, 30).getOrNull(nodeIndex) },
         )
 
         val smile = resolved.single { binding -> binding.expressionId == AvatarExpressionId.Smile }
@@ -47,7 +47,7 @@ class VrmMorphBindingResolverTest {
                     expression("aa", 3, 3, 1f),
                 ),
             ),
-            entities = intArrayOf(10, 20, 30, 40),
+            nodeEntityResolver = { nodeIndex -> intArrayOf(10, 20, 30, 40).getOrNull(nodeIndex) },
         )
 
         val smile = resolved.single { binding -> binding.expressionId == AvatarExpressionId.Smile }
@@ -67,7 +67,7 @@ class VrmMorphBindingResolverTest {
                     expression("happy", 99, 1, 1f),
                 ),
             ),
-            entities = intArrayOf(10),
+            nodeEntityResolver = { nodeIndex -> intArrayOf(10).getOrNull(nodeIndex) },
         )
 
         assertTrue(resolved.isEmpty())
@@ -91,7 +91,7 @@ class VrmMorphBindingResolverTest {
                     ),
                 ),
             ),
-            entities = intArrayOf(10, 20),
+            nodeEntityResolver = { nodeIndex -> intArrayOf(10, 20).getOrNull(nodeIndex) },
         )
 
         val blinkLeft = resolved.single()

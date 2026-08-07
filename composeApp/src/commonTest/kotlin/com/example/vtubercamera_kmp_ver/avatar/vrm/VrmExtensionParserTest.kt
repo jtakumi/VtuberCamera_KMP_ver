@@ -72,6 +72,7 @@ class VrmExtensionParserTest {
         assertEquals(0, descriptor.thumbnailImageIndex)
         assertEquals("head", descriptor.humanoidBones.first().boneName)
         assertEquals("leftUpperArm", descriptor.humanoidBones[1].boneName)
+        assertEquals(listOf("Root", "Face"), descriptor.nodeNames)
         assertEquals("joy", descriptor.expressions.single().runtimeName)
         assertEquals(1, descriptor.expressions.single().morphTargetBinds.single().nodeIndex)
         assertEquals(1f, descriptor.expressions.single().morphTargetBinds.single().weight)

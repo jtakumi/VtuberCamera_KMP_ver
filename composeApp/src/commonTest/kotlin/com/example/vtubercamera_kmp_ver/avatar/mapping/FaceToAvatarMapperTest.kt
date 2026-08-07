@@ -28,6 +28,8 @@ class FaceToAvatarMapperTest {
                 headYawDegrees = 120f,
                 headPitchDegrees = -40f,
                 headRollDegrees = 35f,
+                headTranslationX = 0.5f,
+                headTranslationZ = -0.4f,
                 leftEyeBlink = 1.5f,
                 rightEyeBlink = -0.2f,
                 jawOpen = 0.4f,
@@ -40,6 +42,8 @@ class FaceToAvatarMapperTest {
         assertEquals(40f, mapped.rig.headYawDegrees)
         assertEquals(-25f, mapped.rig.headPitchDegrees)
         assertEquals(30f, mapped.rig.headRollDegrees)
+        assertEquals(18f, mapped.rig.bodySwayDegrees)
+        assertEquals(-11.2f, mapped.rig.bodyLeanDegrees)
         assertEquals(1f, mapped.expressions.leftEyeBlink)
         assertEquals(0f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
@@ -98,6 +102,35 @@ class FaceToAvatarMapperTest {
         assertEquals(0.4f, mapped.expressions.jawOpen)
         assertEquals(0.25f, mapped.expressions.mouthSmile)
         assertEquals(120L, mapped.sourceTimestampMillis)
+    }
+
+    @Test
+    fun mapTrackingFrameUsesHeadPoseForBodyMotionWhenTranslationIsUnavailable() {
+        val mapper = FaceToAvatarMapper(
+            FaceToAvatarMapperConfig(
+                smoothing = AvatarMotionSmoothingConfig(
+                    trackingAlpha = 1f,
+                    lostAlpha = 1f,
+                ),
+            ),
+        )
+
+        val mapped = mapper.map(
+            frame = NormalizedFaceFrame(
+                timestampMillis = 100L,
+                trackingConfidence = 1f,
+                headYawDegrees = 30f,
+                headPitchDegrees = -20f,
+                headRollDegrees = 0f,
+                leftEyeBlink = 0f,
+                rightEyeBlink = 0f,
+                jawOpen = 0f,
+                mouthSmile = 0f,
+            ),
+        )
+
+        assertEquals(expected = 15f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -8f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
     }
 
     @Test

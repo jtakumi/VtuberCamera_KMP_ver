@@ -22,6 +22,8 @@ data class VrmRuntimeAssetDescriptor(
     val expressions: List<VrmExpressionDescriptor> = emptyList(),
     val lookAt: VrmLookAtDescriptor? = null,
     val firstPerson: VrmFirstPersonDescriptor? = null,
+    /** glTF node names indexed by their original node index. */
+    val nodeNames: List<String?> = emptyList(),
 ) {
     // 利用可能な表情名を重複なしで列挙する。
     val availableExpressionNames: Set<String>

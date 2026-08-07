@@ -99,7 +99,7 @@ object VrmExtensionParser {
         VrmSpecNormalizer.normalize(
             extension = parsedExtension,
             assetVersion = document.assetVersion,
-        )
+        ).copy(nodeNames = document.root.nodeNames())
     }
 
     internal fun parsePreviewAssetDescriptor(document: VrmGlbDocument): Result<VrmPreviewAssetDescriptor> = runCatching {
@@ -179,6 +179,10 @@ object VrmExtensionParser {
             ?.jsonObjectOrNull()
             ?.int("source")
     }
+
+    private fun JsonObject.nodeNames(): List<String?> = childArray("nodes")
+        ?.map { node -> node.jsonObjectOrNull()?.string("name") }
+        .orEmpty()
 
     private fun JsonObject?.toParsedVrm0Meta(): ParsedVrmMeta {
         val meta = this

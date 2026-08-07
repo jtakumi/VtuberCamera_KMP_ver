@@ -20,6 +20,12 @@ data class FaceToAvatarMapperConfig(
     val trackingConfidenceThreshold: Float = 0.5f,
     val clamp: AvatarMappingClampConfig = AvatarMappingClampConfig(),
     val smoothing: AvatarMotionSmoothingConfig = AvatarMotionSmoothingConfig(),
+    val bodySwayGain: Float = 18f,
+    val bodyLeanGain: Float = 12f,
+    // Position estimates are derived from the face rectangle on Android. Head pose remains
+    // part of the result so the torso continues to follow a turn when the face stays centered.
+    val bodySwayFromYawGain: Float = 0.5f,
+    val bodyLeanFromPitchGain: Float = 0.4f,
 )
 
 /**
@@ -28,6 +34,8 @@ data class FaceToAvatarMapperConfig(
 class FaceToAvatarMapper(
     private val config: FaceToAvatarMapperConfig = FaceToAvatarMapperConfig(),
 ) {
+    private val motionSmoother = AvatarMotionSmoother(config.smoothing)
+
     fun map(
         frame: NormalizedFaceFrame?,
         previousState: AvatarRenderState = AvatarRenderState.Neutral,
@@ -42,10 +50,9 @@ class FaceToAvatarMapper(
             )
         }
 
-        return AvatarMotionSmoother.smooth(
+        return motionSmoother.smooth(
             previous = previousState,
             target = target,
-            config = config.smoothing,
         )
     }
 
@@ -63,6 +70,8 @@ class FaceToAvatarMapper(
                 minValue = config.clamp.rollRangeDegrees.start,
                 maxValue = config.clamp.rollRangeDegrees.endInclusive,
             ),
+            bodySwayDegrees = bodySwayDegrees(frame),
+            bodyLeanDegrees = bodyLeanDegrees(frame),
         ),
         expressions = AvatarExpressionWeights(
             leftEyeBlink = frame.leftEyeBlink.clamp(
@@ -86,6 +95,18 @@ class FaceToAvatarMapper(
         trackingConfidence = frame.trackingConfidence.clamp(0f, 1f),
         sourceTimestampMillis = frame.timestampMillis,
     )
+
+    private fun bodySwayDegrees(frame: NormalizedFaceFrame): Float {
+        val translationSway = frame.headTranslationX * config.bodySwayGain
+        val poseContribution = frame.headYawDegrees * config.bodySwayFromYawGain
+        return (translationSway + poseContribution).clamp(-18f, 18f)
+    }
+
+    private fun bodyLeanDegrees(frame: NormalizedFaceFrame): Float {
+        val translationLean = -frame.headTranslationZ * config.bodyLeanGain
+        val poseContribution = frame.headPitchDegrees * config.bodyLeanFromPitchGain
+        return (translationLean + poseContribution).clamp(-12f, 12f)
+    }
 
     private fun buildDecayState(
         previousState: AvatarRenderState,

@@ -17,6 +17,8 @@ class AndroidFaceTrackingToAvatarMapperTest {
                     headYawDegrees = 50f,
                     headPitchDegrees = -40f,
                     headRollDegrees = 40f,
+                    bodySwayDegrees = 4.5f,
+                    bodyLeanDegrees = -2.75f,
                 ),
                 expressions = AvatarExpressionWeights(
                     leftEyeBlink = 0.92f,
@@ -33,10 +35,12 @@ class AndroidFaceTrackingToAvatarMapperTest {
         assertEquals(expected = 45f, actual = mapped.rig.headYawDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = -30f, actual = mapped.rig.headPitchDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = 35f, actual = mapped.rig.headRollDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 4.5f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -2.75f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = 1f, actual = mapped.expressions.leftEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.5f, actual = mapped.expressions.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.72f, actual = mapped.expressions.jawOpen, absoluteTolerance = 0.0001f)
-        assertEquals(expected = 0.5f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.74545455f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
         assertEquals(AvatarTrackingStatus.Tracking, mapped.trackingStatus)
         assertEquals(0.95f, mapped.trackingConfidence)
         assertEquals(100L, mapped.sourceTimestampMillis)
@@ -64,5 +68,17 @@ class AndroidFaceTrackingToAvatarMapperTest {
         val mapped = AndroidFaceTrackingToAvatarMapper().map(state)
 
         assertEquals(state, mapped)
+    }
+
+    @Test
+    fun map_smallSmileRemainsVisibleAfterAndroidCorrection() {
+        val mapped = AndroidFaceTrackingToAvatarMapper().map(
+            AvatarRenderState(
+                expressions = AvatarExpressionWeights(mouthSmile = 0.06f),
+                trackingStatus = AvatarTrackingStatus.Tracking,
+            ),
+        )
+
+        assertEquals(expected = 0.07272727f, actual = mapped.expressions.mouthSmile, absoluteTolerance = 0.0001f)
     }
 }

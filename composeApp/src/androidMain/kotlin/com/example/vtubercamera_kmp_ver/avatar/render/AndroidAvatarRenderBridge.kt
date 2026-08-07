@@ -1,12 +1,16 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
+import android.os.SystemClock
+import android.util.Log
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.tracking.AndroidFaceTrackingToAvatarMapper
 import com.example.vtubercamera_kmp_ver.camera.AvatarAssetStore
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
 import com.google.android.filament.Engine
 import com.google.android.filament.Scene
 import com.google.android.filament.gltfio.FilamentAsset
+import kotlin.math.abs
 import kotlin.math.max
 
 internal class AndroidAvatarRenderBridge(
@@ -21,8 +25,15 @@ internal class AndroidAvatarRenderBridge(
     private var currentAsset: FilamentAsset? = null
     private var currentAssetKey: AvatarAssetKey? = null
     private var currentRuntimeController: AndroidAvatarRuntimeController? = null
+    private var latestAppliedRenderState = AvatarRenderState.Neutral
+    private var previousTrackingRenderState: AvatarRenderState? = null
+    private var lastMotionLogElapsedMillis = Long.MIN_VALUE
+    private var lastTrackingStatus: AvatarTrackingStatus? = null
 
     fun prepareFrame() {
+        // updateBoneMatrices copies the current TransformManager pose into the skinning matrices.
+        // Face tracking therefore has to run first for its rotation to reach the rendered mesh.
+        currentRuntimeController?.apply(latestAppliedRenderState)
         currentAsset?.instance?.animator?.updateBoneMatrices()
     }
 
@@ -32,15 +43,23 @@ internal class AndroidAvatarRenderBridge(
         avatarRenderState: AvatarRenderState,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
-        val mappedRenderState = renderStateMapper.map(avatarRenderState)
-        onRenderStateChanged(mappedRenderState)
+        val trackingRenderState = avatarRenderState
+        val appliedRenderState = renderStateMapper.map(trackingRenderState)
+        latestAppliedRenderState = appliedRenderState
+        onRenderStateChanged(appliedRenderState)
 
         val nextAssetKey = AvatarAssetKey(
             assetId = avatarSelection.assetHandle.assetId,
             byteHash = avatarSelection.assetHandle.contentHash,
         )
         if (nextAssetKey == currentAssetKey) {
-            currentRuntimeController?.apply(mappedRenderState)
+            currentRuntimeController?.let { controller ->
+                applyAndLogMotion(
+                    controller = controller,
+                    trackingRenderState = trackingRenderState,
+                    appliedRenderState = appliedRenderState,
+                )
+            }
             return
         }
 
@@ -56,13 +75,18 @@ internal class AndroidAvatarRenderBridge(
             .onSuccess { nextAsset ->
                 runCatching {
                     nextAsset.configureRenderables()
+                    nextAsset.instance.animator.updateBoneMatrices()
                     val runtimeController = AndroidAvatarRuntimeController.create(
                         engine = engine,
                         asset = nextAsset,
                         runtimeDescriptor = avatarSelection.runtimeDescriptor,
                     )
-                    runtimeController.apply(mappedRenderState)
-                    nextAsset.instance.animator.updateBoneMatrices()
+                    applyAndLogMotion(
+                        controller = runtimeController,
+                        trackingRenderState = trackingRenderState,
+                        appliedRenderState = appliedRenderState,
+                    )
+                    runtimeController.apply(latestAppliedRenderState)
                     scene.addEntities(nextAsset.entities)
                     onSceneFramingChanged(nextAsset.toSceneFraming())
                     runtimeController
@@ -119,6 +143,9 @@ internal class AndroidAvatarRenderBridge(
         currentAsset = null
         currentAssetKey = null
         currentRuntimeController = null
+        latestAppliedRenderState = AvatarRenderState.Neutral
+        previousTrackingRenderState = null
+        lastTrackingStatus = null
     }
 
     private fun FilamentAsset.toSceneFraming(): AvatarSceneFraming {
@@ -163,7 +190,66 @@ internal class AndroidAvatarRenderBridge(
         currentAsset = null
         currentAssetKey = null
         currentRuntimeController = null
+        latestAppliedRenderState = AvatarRenderState.Neutral
+        previousTrackingRenderState = null
+        lastTrackingStatus = null
     }
+
+    private fun applyAndLogMotion(
+        controller: AndroidAvatarRuntimeController,
+        trackingRenderState: AvatarRenderState,
+        appliedRenderState: AvatarRenderState,
+    ) {
+        controller.apply(appliedRenderState)
+        val application = controller.applicationTargets()
+        val previousState = previousTrackingRenderState
+        val trackingChanged = previousState == null || trackingRenderState.differsVisiblyFrom(previousState)
+        val statusChanged = appliedRenderState.trackingStatus != lastTrackingStatus
+        val now = SystemClock.elapsedRealtime()
+        if (statusChanged || now - lastMotionLogElapsedMillis >= MOTION_LOG_INTERVAL_MILLIS) {
+            Log.d(
+                AVATAR_MOTION_LOG_TAG,
+                "sourceTs=${trackingRenderState.sourceTimestampMillis ?: -1L} " +
+                    "faceTracking(status=${trackingRenderState.trackingStatus},confidence=${trackingRenderState.trackingConfidence.format(2)},changed=$trackingChanged," +
+                    "head=${trackingRenderState.rig.poseLog()},body=${trackingRenderState.rig.bodyLog()},expression=${trackingRenderState.expressions.expressionLog()}) " +
+                    "avatar(status=${appliedRenderState.trackingStatus},head=${appliedRenderState.rig.poseLog()}," +
+                    "body=${appliedRenderState.rig.bodyLog()},expression=${appliedRenderState.expressions.expressionLog()}) " +
+                    "poseBindings=${application.poseBindingCount} " +
+                    "expressionBindings=${application.expressionBindingCount} " +
+                    "morphTargetEntities=${application.morphTargetEntityCount} " +
+                    "jointMatrix=${application.poseMatrices.joinToString { it.toLogString() }}",
+            )
+            lastMotionLogElapsedMillis = now
+        }
+        previousTrackingRenderState = trackingRenderState
+        lastTrackingStatus = appliedRenderState.trackingStatus
+    }
+
+    private fun com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState.poseLog(): String =
+        "(y=${headYawDegrees.format(1)},p=${headPitchDegrees.format(1)},r=${headRollDegrees.format(1)})"
+
+    private fun com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState.bodyLog(): String =
+        "(sway=${bodySwayDegrees.format(1)},lean=${bodyLeanDegrees.format(1)})"
+
+    private fun com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights.expressionLog(): String =
+        "(blinkL=${leftEyeBlink.format(2)},blinkR=${rightEyeBlink.format(2)},jaw=${jawOpen.format(2)},smile=${mouthSmile.format(2)})"
+
+    private fun AvatarRenderState.differsVisiblyFrom(other: AvatarRenderState): Boolean =
+        abs(rig.headYawDegrees - other.rig.headYawDegrees) > MOTION_EPSILON_DEGREES ||
+            abs(rig.headPitchDegrees - other.rig.headPitchDegrees) > MOTION_EPSILON_DEGREES ||
+            abs(rig.headRollDegrees - other.rig.headRollDegrees) > MOTION_EPSILON_DEGREES ||
+            abs(rig.bodySwayDegrees - other.rig.bodySwayDegrees) > MOTION_EPSILON_DEGREES ||
+            abs(rig.bodyLeanDegrees - other.rig.bodyLeanDegrees) > MOTION_EPSILON_DEGREES ||
+            abs(expressions.leftEyeBlink - other.expressions.leftEyeBlink) > EXPRESSION_EPSILON ||
+            abs(expressions.rightEyeBlink - other.expressions.rightEyeBlink) > EXPRESSION_EPSILON ||
+            abs(expressions.jawOpen - other.expressions.jawOpen) > EXPRESSION_EPSILON ||
+            abs(expressions.mouthSmile - other.expressions.mouthSmile) > EXPRESSION_EPSILON
+
+    private fun Float.format(decimalPlaces: Int): String =
+        "%1$.${decimalPlaces}f".format(java.util.Locale.US, this)
+
+    private fun AvatarPoseBindingDiagnostic.toLogString(): String =
+        "$boneName[m00=${m00.format(2)},m02=${m02.format(2)},m20=${m20.format(2)},m22=${m22.format(2)}]"
 
     private companion object {
         private const val DEFAULT_CAMERA_DISTANCE = 4.0
@@ -171,6 +257,10 @@ internal class AndroidAvatarRenderBridge(
         private const val MODEL_FIT_DISTANCE_MULTIPLIER = 2.8
         private const val SCENE_LAYER_MASK = 0xff
         private const val SCENE_LAYER_VISIBLE = 0x1
+        private const val AVATAR_MOTION_LOG_TAG = "AvatarMotion"
+        private const val MOTION_LOG_INTERVAL_MILLIS = 1_000L
+        private const val MOTION_EPSILON_DEGREES = 0.1f
+        private const val EXPRESSION_EPSILON = 0.01f
     }
 }
 

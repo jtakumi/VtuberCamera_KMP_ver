@@ -17,6 +17,8 @@ internal class AndroidFaceTrackingToAvatarMapper {
             headYawDegrees = (renderState.rig.headYawDegrees * YAW_GAIN).coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
             headPitchDegrees = (renderState.rig.headPitchDegrees * PITCH_GAIN).coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
             headRollDegrees = (renderState.rig.headRollDegrees * ROLL_GAIN).coerceIn(-MAX_ROLL_DEGREES, MAX_ROLL_DEGREES),
+            bodySwayDegrees = renderState.rig.bodySwayDegrees,
+            bodyLeanDegrees = renderState.rig.bodyLeanDegrees,
         )
 
         val correctedExpressions = AvatarExpressionWeights(
@@ -41,7 +43,7 @@ internal class AndroidFaceTrackingToAvatarMapper {
     }
 
     private fun emphasizeSmile(value: Float): Float {
-        return ((value - 0.08f) / 0.7f).coerceIn(0f, 1f)
+        return ((value - 0.02f) / 0.55f).coerceIn(0f, 1f)
     }
 
     private companion object {

@@ -10,27 +10,76 @@ import kotlin.math.sin
 
 internal class AndroidAvatarRuntimeController private constructor(
     private val engine: Engine,
-    private val headBinding: HeadBinding?,
+    private val poseBindings: List<PoseBinding>,
+    private val armPoseBindings: List<ArmPoseBinding>,
     private val morphTargets: Map<Int, FloatArray>,
     private val expressionBindings: List<ExpressionBinding>,
 ) {
     fun apply(renderState: AvatarRenderState) {
+        applyRelaxedArmPose()
         applyHeadPose(renderState)
         applyExpressions(renderState)
     }
 
-    private fun applyHeadPose(renderState: AvatarRenderState) {
-        val binding = headBinding ?: return
+    fun applicationTargets(): AvatarRenderApplicationResult {
         val transformManager = engine.transformManager
-        val rotation = rotationMatrix(
-            yawDegrees = renderState.rig.headYawDegrees,
-            pitchDegrees = renderState.rig.headPitchDegrees,
-            rollDegrees = renderState.rig.headRollDegrees,
+        val poseMatrices = poseBindings.map { binding ->
+            val localTransform = transformManager.getTransform(
+                binding.transformInstance,
+                FloatArray(MATRIX_SIZE),
+            )
+            AvatarPoseBindingDiagnostic(
+                boneName = binding.boneName,
+                m00 = localTransform[0],
+                m02 = localTransform[8],
+                m20 = localTransform[2],
+                m22 = localTransform[10],
+            )
+        }
+        return AvatarRenderApplicationResult(
+            poseBindingCount = poseBindings.size,
+            expressionBindingCount = expressionBindings.size,
+            morphTargetEntityCount = morphTargets.size,
+            poseMatrices = poseMatrices,
         )
-        transformManager.setTransform(
-            binding.transformInstance,
-            multiplyColumnMajor(binding.baseLocalTransform, rotation),
-        )
+    }
+
+    private fun applyHeadPose(renderState: AvatarRenderState) {
+        if (poseBindings.isEmpty()) return
+        val transformManager = engine.transformManager
+        poseBindings.forEach { binding ->
+            val rotation = rotationMatrix(
+                yawDegrees = renderState.rig.headYawDegrees * binding.rotationWeight +
+                    renderState.rig.bodySwayDegrees * binding.swayWeight,
+                pitchDegrees = renderState.rig.headPitchDegrees * binding.rotationWeight +
+                    renderState.rig.bodyLeanDegrees * binding.swayWeight,
+                rollDegrees = renderState.rig.headRollDegrees * binding.rotationWeight -
+                    renderState.rig.bodySwayDegrees * binding.swayWeight * 0.35f,
+            )
+            transformManager.setTransform(
+                binding.transformInstance,
+                multiplyColumnMajor(binding.baseLocalTransform, rotation),
+            )
+        }
+    }
+
+    /** Keeps imported VRM avatars out of their bind/T-pose while tracking is active. */
+    private fun applyRelaxedArmPose() {
+        if (armPoseBindings.isEmpty()) return
+        val transformManager = engine.transformManager
+        armPoseBindings.forEach { binding ->
+            transformManager.setTransform(
+                binding.transformInstance,
+                multiplyColumnMajor(
+                    binding.baseLocalTransform,
+                    rotationMatrix(
+                        yawDegrees = 0f,
+                        pitchDegrees = 0f,
+                        rollDegrees = binding.rollDegrees,
+                    ),
+                ),
+            )
+        }
     }
 
     private fun applyExpressions(renderState: AvatarRenderState) {
@@ -103,9 +152,18 @@ internal class AndroidAvatarRuntimeController private constructor(
         return multiplyColumnMajor(yawMatrix, multiplyColumnMajor(pitchMatrix, rollMatrix))
     }
 
-    private data class HeadBinding(
+    private data class PoseBinding(
+        val boneName: String,
         val transformInstance: Int,
         val baseLocalTransform: FloatArray,
+        val rotationWeight: Float,
+        val swayWeight: Float,
+    )
+
+    private data class ArmPoseBinding(
+        val transformInstance: Int,
+        val baseLocalTransform: FloatArray,
+        val rollDegrees: Float,
     )
 
     private data class ExpressionBinding(
@@ -125,38 +183,89 @@ internal class AndroidAvatarRuntimeController private constructor(
             asset: FilamentAsset,
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
         ): AndroidAvatarRuntimeController {
-            val entities = asset.entities
-            val headBinding = createHeadBinding(engine, entities, runtimeDescriptor)
+            val nodeEntityResolver = runtimeDescriptor.nodeEntityResolver(asset)
+            val poseBindings = createPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
+            val armPoseBindings = createArmPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
             val morphTargets = createMorphTargets(engine, asset)
-            val expressionBindings = createExpressionBindings(entities, runtimeDescriptor)
+            val expressionBindings = createExpressionBindings(nodeEntityResolver, runtimeDescriptor)
             return AndroidAvatarRuntimeController(
                 engine = engine,
-                headBinding = headBinding,
+                poseBindings = poseBindings,
+                armPoseBindings = armPoseBindings,
                 morphTargets = morphTargets,
                 expressionBindings = expressionBindings,
             )
         }
 
-        private fun createHeadBinding(
+        private fun createPoseBindings(
             engine: Engine,
-            entities: IntArray,
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
-        ): HeadBinding? {
-            val headNodeIndex = runtimeDescriptor.humanoidBones
-                .firstOrNull { bone -> bone.boneName == HEAD_BONE_NAME }
-                ?.nodeIndex
-                ?: return null
-            val headEntity = entities.getOrNull(headNodeIndex) ?: return null
+            nodeEntityResolver: (Int) -> Int?,
+        ): List<PoseBinding> {
             val transformManager = engine.transformManager
-            val transformInstance = transformManager.getInstance(headEntity)
-            if (transformInstance == 0) {
-                return null
-            }
-            return HeadBinding(
-                transformInstance = transformInstance,
-                baseLocalTransform = transformManager.getTransform(transformInstance, FloatArray(MATRIX_SIZE)).copyOf(),
+            val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
+            val specs = listOf(
+                BoneWeight(HEAD_BONE_NAME, 0.82f, 0f),
+                BoneWeight(NECK_BONE_NAME, 0.18f, 0.32f),
+                BoneWeight(CHEST_BONE_NAME, 0f, 0.72f),
+                BoneWeight(SPINE_BONE_NAME, 0f, 0.55f),
             )
+            val available = specs.filter { nodes[it.name]?.let(nodeEntityResolver) != null }
+            if (available.none { it.name == HEAD_BONE_NAME }) return emptyList()
+            val missingRotationWeight = specs.filterNot { it in available }.sumOf { it.rotationWeight.toDouble() }.toFloat()
+            return available.mapNotNull { spec ->
+                val entity = nodes[spec.name]?.let(nodeEntityResolver) ?: return@mapNotNull null
+                val transformInstance = transformManager.getInstance(entity)
+                if (transformInstance == 0) return@mapNotNull null
+                PoseBinding(
+                    boneName = spec.name,
+                    transformInstance = transformInstance,
+                    baseLocalTransform = transformManager.getTransform(
+                        transformInstance,
+                        FloatArray(MATRIX_SIZE),
+                    ).copyOf(),
+                    rotationWeight = spec.rotationWeight +
+                        if (spec.name == HEAD_BONE_NAME) missingRotationWeight else 0f,
+                    swayWeight = spec.swayWeight,
+                )
+            }
         }
+
+        private fun createArmPoseBindings(
+            engine: Engine,
+            runtimeDescriptor: VrmRuntimeAssetDescriptor,
+            nodeEntityResolver: (Int) -> Int?,
+        ): List<ArmPoseBinding> {
+            val transformManager = engine.transformManager
+            val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
+            return listOf(
+                ArmPoseSpec(LEFT_UPPER_ARM_BONE_NAME, RELAXED_LEFT_ARM_ROLL_DEGREES),
+                ArmPoseSpec(RIGHT_UPPER_ARM_BONE_NAME, RELAXED_RIGHT_ARM_ROLL_DEGREES),
+            ).mapNotNull { spec ->
+                val entity = nodes[spec.name]?.let(nodeEntityResolver) ?: return@mapNotNull null
+                val transformInstance = transformManager.getInstance(entity)
+                if (transformInstance == 0) return@mapNotNull null
+                ArmPoseBinding(
+                    transformInstance = transformInstance,
+                    baseLocalTransform = transformManager.getTransform(
+                        transformInstance,
+                        FloatArray(MATRIX_SIZE),
+                    ).copyOf(),
+                    rollDegrees = spec.rollDegrees,
+                )
+            }
+        }
+
+        private data class BoneWeight(
+            val name: String,
+            val rotationWeight: Float,
+            val swayWeight: Float,
+        )
+
+        private data class ArmPoseSpec(
+            val name: String,
+            val rollDegrees: Float,
+        )
 
         private fun createMorphTargets(
             engine: Engine,
@@ -178,12 +287,12 @@ internal class AndroidAvatarRuntimeController private constructor(
         }
 
         private fun createExpressionBindings(
-            entities: IntArray,
+            nodeEntityResolver: (Int) -> Int?,
             runtimeDescriptor: VrmRuntimeAssetDescriptor,
         ): List<ExpressionBinding> {
             return VrmMorphBindingResolver.resolve(
                 runtimeDescriptor = runtimeDescriptor,
-                entities = entities,
+                nodeEntityResolver = nodeEntityResolver,
             ).mapNotNull { binding ->
                 val weightProvider = when (binding.expressionId) {
                     AvatarExpressionId.BlinkLeft -> { state: AvatarRenderState -> state.expressions.leftEyeBlink }
@@ -222,7 +331,39 @@ internal class AndroidAvatarRuntimeController private constructor(
         }
 
         private const val HEAD_BONE_NAME = "head"
+        private const val NECK_BONE_NAME = "neck"
+        private const val CHEST_BONE_NAME = "chest"
+        private const val SPINE_BONE_NAME = "spine"
+        private const val LEFT_UPPER_ARM_BONE_NAME = "leftUpperArm"
+        private const val RIGHT_UPPER_ARM_BONE_NAME = "rightUpperArm"
+        private const val RELAXED_LEFT_ARM_ROLL_DEGREES = -75f
+        private const val RELAXED_RIGHT_ARM_ROLL_DEGREES = 75f
         private const val MATRIX_EDGE = 4
         private const val MATRIX_SIZE = MATRIX_EDGE * MATRIX_EDGE
+
+        private fun VrmRuntimeAssetDescriptor.nodeEntityResolver(
+            asset: FilamentAsset,
+        ): (Int) -> Int? = { nodeIndex ->
+            nodeNames.getOrNull(nodeIndex)
+                ?.let(asset::getEntitiesByName)
+                ?.firstOrNull()
+        }
     }
 }
+
+/** Summary of the rig targets that accepted a render-state update. */
+internal data class AvatarRenderApplicationResult(
+    val poseBindingCount: Int,
+    val expressionBindingCount: Int,
+    val morphTargetEntityCount: Int,
+    val poseMatrices: List<AvatarPoseBindingDiagnostic>,
+)
+
+/** Read-back of the TransformManager matrix applied to a VRM humanoid joint. */
+internal data class AvatarPoseBindingDiagnostic(
+    val boneName: String,
+    val m00: Float,
+    val m02: Float,
+    val m20: Float,
+    val m22: Float,
+)
