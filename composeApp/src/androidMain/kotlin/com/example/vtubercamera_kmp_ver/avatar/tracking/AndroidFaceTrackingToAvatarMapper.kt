@@ -17,6 +17,8 @@ internal class AndroidFaceTrackingToAvatarMapper {
             headYawDegrees = (renderState.rig.headYawDegrees * YAW_GAIN).coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
             headPitchDegrees = (renderState.rig.headPitchDegrees * PITCH_GAIN).coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
             headRollDegrees = (renderState.rig.headRollDegrees * ROLL_GAIN).coerceIn(-MAX_ROLL_DEGREES, MAX_ROLL_DEGREES),
+            bodySwayDegrees = renderState.rig.bodySwayDegrees,
+            bodyLeanDegrees = renderState.rig.bodyLeanDegrees,
         )
 
         val correctedExpressions = AvatarExpressionWeights(
