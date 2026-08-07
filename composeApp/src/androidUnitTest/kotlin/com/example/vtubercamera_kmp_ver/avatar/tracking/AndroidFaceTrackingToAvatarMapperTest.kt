@@ -17,6 +17,8 @@ class AndroidFaceTrackingToAvatarMapperTest {
                     headYawDegrees = 50f,
                     headPitchDegrees = -40f,
                     headRollDegrees = 40f,
+                    bodySwayDegrees = 4.5f,
+                    bodyLeanDegrees = -2.75f,
                 ),
                 expressions = AvatarExpressionWeights(
                     leftEyeBlink = 0.92f,
@@ -33,6 +35,8 @@ class AndroidFaceTrackingToAvatarMapperTest {
         assertEquals(expected = 45f, actual = mapped.rig.headYawDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = -30f, actual = mapped.rig.headPitchDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = 35f, actual = mapped.rig.headRollDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 4.5f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = -2.75f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = 1f, actual = mapped.expressions.leftEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.5f, actual = mapped.expressions.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.72f, actual = mapped.expressions.jawOpen, absoluteTolerance = 0.0001f)
