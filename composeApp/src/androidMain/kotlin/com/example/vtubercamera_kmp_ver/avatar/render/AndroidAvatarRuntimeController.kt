@@ -11,10 +11,12 @@ import kotlin.math.sin
 internal class AndroidAvatarRuntimeController private constructor(
     private val engine: Engine,
     private val poseBindings: List<PoseBinding>,
+    private val armPoseBindings: List<ArmPoseBinding>,
     private val morphTargets: Map<Int, FloatArray>,
     private val expressionBindings: List<ExpressionBinding>,
 ) {
     fun apply(renderState: AvatarRenderState) {
+        applyRelaxedArmPose()
         applyHeadPose(renderState)
         applyExpressions(renderState)
     }
@@ -57,6 +59,25 @@ internal class AndroidAvatarRuntimeController private constructor(
             transformManager.setTransform(
                 binding.transformInstance,
                 multiplyColumnMajor(binding.baseLocalTransform, rotation),
+            )
+        }
+    }
+
+    /** Keeps imported VRM avatars out of their bind/T-pose while tracking is active. */
+    private fun applyRelaxedArmPose() {
+        if (armPoseBindings.isEmpty()) return
+        val transformManager = engine.transformManager
+        armPoseBindings.forEach { binding ->
+            transformManager.setTransform(
+                binding.transformInstance,
+                multiplyColumnMajor(
+                    binding.baseLocalTransform,
+                    rotationMatrix(
+                        yawDegrees = 0f,
+                        pitchDegrees = 0f,
+                        rollDegrees = binding.rollDegrees,
+                    ),
+                ),
             )
         }
     }
@@ -139,6 +160,12 @@ internal class AndroidAvatarRuntimeController private constructor(
         val swayWeight: Float,
     )
 
+    private data class ArmPoseBinding(
+        val transformInstance: Int,
+        val baseLocalTransform: FloatArray,
+        val rollDegrees: Float,
+    )
+
     private data class ExpressionBinding(
         val weightProvider: (AvatarRenderState) -> Float,
         val morphBinds: List<MorphBind>,
@@ -158,11 +185,13 @@ internal class AndroidAvatarRuntimeController private constructor(
         ): AndroidAvatarRuntimeController {
             val nodeEntityResolver = runtimeDescriptor.nodeEntityResolver(asset)
             val poseBindings = createPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
+            val armPoseBindings = createArmPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
             val morphTargets = createMorphTargets(engine, asset)
             val expressionBindings = createExpressionBindings(nodeEntityResolver, runtimeDescriptor)
             return AndroidAvatarRuntimeController(
                 engine = engine,
                 poseBindings = poseBindings,
+                armPoseBindings = armPoseBindings,
                 morphTargets = morphTargets,
                 expressionBindings = expressionBindings,
             )
@@ -202,10 +231,40 @@ internal class AndroidAvatarRuntimeController private constructor(
             }
         }
 
+        private fun createArmPoseBindings(
+            engine: Engine,
+            runtimeDescriptor: VrmRuntimeAssetDescriptor,
+            nodeEntityResolver: (Int) -> Int?,
+        ): List<ArmPoseBinding> {
+            val transformManager = engine.transformManager
+            val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
+            return listOf(
+                ArmPoseSpec(LEFT_UPPER_ARM_BONE_NAME, RELAXED_LEFT_ARM_ROLL_DEGREES),
+                ArmPoseSpec(RIGHT_UPPER_ARM_BONE_NAME, RELAXED_RIGHT_ARM_ROLL_DEGREES),
+            ).mapNotNull { spec ->
+                val entity = nodes[spec.name]?.let(nodeEntityResolver) ?: return@mapNotNull null
+                val transformInstance = transformManager.getInstance(entity)
+                if (transformInstance == 0) return@mapNotNull null
+                ArmPoseBinding(
+                    transformInstance = transformInstance,
+                    baseLocalTransform = transformManager.getTransform(
+                        transformInstance,
+                        FloatArray(MATRIX_SIZE),
+                    ).copyOf(),
+                    rollDegrees = spec.rollDegrees,
+                )
+            }
+        }
+
         private data class BoneWeight(
             val name: String,
             val rotationWeight: Float,
             val swayWeight: Float,
+        )
+
+        private data class ArmPoseSpec(
+            val name: String,
+            val rollDegrees: Float,
         )
 
         private fun createMorphTargets(
@@ -275,6 +334,10 @@ internal class AndroidAvatarRuntimeController private constructor(
         private const val NECK_BONE_NAME = "neck"
         private const val CHEST_BONE_NAME = "chest"
         private const val SPINE_BONE_NAME = "spine"
+        private const val LEFT_UPPER_ARM_BONE_NAME = "leftUpperArm"
+        private const val RIGHT_UPPER_ARM_BONE_NAME = "rightUpperArm"
+        private const val RELAXED_LEFT_ARM_ROLL_DEGREES = -75f
+        private const val RELAXED_RIGHT_ARM_ROLL_DEGREES = 75f
         private const val MATRIX_EDGE = 4
         private const val MATRIX_SIZE = MATRIX_EDGE * MATRIX_EDGE
 
