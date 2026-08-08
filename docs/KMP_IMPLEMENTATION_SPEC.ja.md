@@ -12,6 +12,7 @@
 - `CameraViewModel` による権限・プレビュー状態・レンズ向き・ズーム・アバター状態の一元管理
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
 - ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
+- アバター表示倍率管理 (`AvatarScaleUiState` / `AvatarScaleController`) とピンチ操作対象の切り替え (`PinchGestureTarget` / `PinchGestureController`)
 - ファイルピッカー結果を反映する avatar preview UI
 - GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
 - VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
@@ -24,6 +25,7 @@
 - カメラ権限確認と permission request
 - フロント / バック camera の切り替え
 - ピンチ操作によるズーム制御（`setZoomRatio` / ズームインジケーター）
+- ピンチ操作によるアバター表示倍率調整（Filament カメラ距離への反映 / カメラズームとの切り替え）
 - `OpenDocument` を使ったファイル選択
 - ML Kit Face Detection を使った face tracking 解析と共有 state への反映
 - face tracking 結果をアバター状態へマッピング (`AndroidFaceTrackingToAvatarMapper`)
@@ -38,6 +40,7 @@
 - `UIDocumentPickerViewController` によるファイル選択
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
 - avatar render state を Filament ブリッジへ伝達 (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`)
+- アバター表示倍率を render state 通知へ載せて native へ伝達し、static preview へ適用（Filament renderer への適用は未実装）
 - `iosApp` は Compose のホストアプリ（`MainViewController` 起動）
 - Android は ML Kit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、Filament renderer の head bone / expression morph へ適用する。
 - iOS は ARKit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、native bridge へ通知する。

@@ -1,7 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleUiState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionUiState
+import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 
@@ -16,6 +18,8 @@ data class CameraUiState(
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
+    val avatarScale: AvatarScaleUiState = AvatarScaleUiState(),
+    val pinchTarget: PinchGestureTarget = PinchGestureTarget.CameraZoom,
 ) {
     val isPermissionGranted: Boolean
         get() = permission.permissionState == PermissionState.Granted
@@ -28,6 +32,14 @@ data class CameraUiState(
 
     val avatarPreview: AvatarPreviewData?
         get() = avatarSelection.avatarSelection?.preview
+
+    // アバター未選択ではアバター拡縮の対象が無いため、ピンチ操作をカメラズームへ戻す。
+    val effectivePinchTarget: PinchGestureTarget
+        get() = if (avatarSelection.avatarSelection == null) {
+            PinchGestureTarget.CameraZoom
+        } else {
+            pinchTarget
+        }
 
     val isDeletingPhoto: Boolean
         get() = photoDeletion == PhotoDeletionState.Deleting

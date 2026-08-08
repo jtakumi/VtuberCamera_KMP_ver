@@ -4,6 +4,10 @@ import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
+import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
 import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
 import kotlinx.coroutines.Dispatchers
@@ -837,6 +841,59 @@ class CameraViewModelTest {
 
         viewModel.onCameraZoomChanged(0.1f)
         assertEquals(1f, cameraRepository.setZoomRatioRequests.last())
+    }
+
+    // ---------------------------------------------------------------------------
+    // onAvatarScaleChanged() / onTogglePinchTarget()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onAvatarScaleChanged_appliesScaleChangeWithinBounds() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        assertEquals(DEFAULT_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
+
+        viewModel.onAvatarScaleChanged(2f)
+        assertEquals(2f, viewModel.uiState.value.avatarScale.currentAvatarScale)
+
+        viewModel.onAvatarScaleChanged(10f)
+        assertEquals(MAX_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
+
+        viewModel.onAvatarScaleChanged(0.01f)
+        assertEquals(MIN_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
+    }
+
+    @Test
+    fun onTogglePinchTarget_switchesPinchTargetOnlyWhileAvatarIsSelected() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        val selection = createAvatarSelectionData("scale.vrm", "Avatar Scale", byteArrayOf(7, 8, 9))
+
+        try {
+            advanceUntilIdle()
+            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.pinchTarget)
+
+            // アバター未選択のうちは、切り替えてもピンチ操作はカメラズームのままにする。
+            viewModel.onTogglePinchTarget()
+            advanceUntilIdle()
+            assertEquals(PinchGestureTarget.AvatarScale, viewModel.uiState.value.pinchTarget)
+            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.effectivePinchTarget)
+
+            viewModel.onFilePicked(FilePickerResult.Success(selection))
+            advanceUntilIdle()
+            assertEquals(PinchGestureTarget.AvatarScale, viewModel.uiState.value.effectivePinchTarget)
+
+            viewModel.onTogglePinchTarget()
+            advanceUntilIdle()
+            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.effectivePinchTarget)
+        } finally {
+            AvatarAssetStore.remove(selection.assetHandle)
+        }
     }
 
     // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、Compose Multiplatform の共有 camera 画面、platform camera preview、face tracking、VRM / GLB avatar 表示基盤を段階的に統合しています。
 
-現時点では、カメラ権限、リアルタイムプレビュー、フロント / バックカメラ切り替え、ピンチズーム、face tracking、VRM / GLB ファイル選択、avatar render state 連携、ライト / ダーク / システムテーマ切り替えまでを実装しています。
+現時点では、カメラ権限、リアルタイムプレビュー、フロント / バックカメラ切り替え、ピンチズーム、ピンチ操作によるアバター表示倍率調整、face tracking、VRM / GLB ファイル選択、avatar render state 連携、ライト / ダーク / システムテーマ切り替えまでを実装しています。
 
 <!-- BEGIN AUTO-GENERATED README STATUS -->
 
@@ -14,6 +14,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - CameraX によるリアルタイムプレビュー
 - フロント / バックカメラ切り替え
 - ピンチ操作によるカメラズーム制御とズーム倍率表示
+- ピンチ操作によるアバター表示倍率調整（カメラズームとの切り替え式）
 - OpenDocument による VRM / GLB ファイル選択
 - ML Kit Face Detection による face tracking 解析と共有 state 反映
 - face tracking 結果をアバター表情・ボーン状態へマッピング
@@ -32,6 +33,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - `UIDocumentPickerViewController` による VRM / GLB ファイル選択
 - SwiftUI + Filament による avatar view ホスト
 - avatar render state を Filament ブリッジへ伝達
+- ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達
 - ライト / ダーク / システムテーマ切り替え
 
 ### 共有コードで扱っているもの
@@ -41,6 +43,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - `CameraViewModel` による画面状態管理（権限・プレビュー・ズーム・アバター状態）
 - レンズ向き状態 (`Back` / `Front`)
 - ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新
+- アバター表示倍率 (`AvatarScaleUiState`) とピンチ操作対象 (`PinchGestureTarget`) の管理
 - face tracking の共有表示モデルと avatar 反映 state
 - VRM / GLB バイナリのパースと選択済み avatar metadata 抽出
 - VRM runtime descriptor による humanoid bone / expression / lookAt 情報の保持

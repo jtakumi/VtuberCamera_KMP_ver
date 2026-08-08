@@ -27,6 +27,10 @@ final class IOSAvatarRenderBridge {
     static let rightEyeBlinkKey = "rightEyeBlink"
     static let jawOpenKey = "jawOpen"
     static let mouthSmileKey = "mouthSmile"
+    static let avatarScaleKey = "avatarScale"
+
+    /// Scale applied when the shared Compose state has not published a pinch-driven scale yet.
+    static let defaultAvatarScale: Float = 1
 
     private weak var renderer: IOSAvatarRenderStateApplying?
     private var observerTokens: [NSObjectProtocol] = []
@@ -106,14 +110,20 @@ final class IOSAvatarRenderBridge {
         state.rightEyeBlink = floatValue(userInfo, key: rightEyeBlinkKey)
         state.jawOpen = floatValue(userInfo, key: jawOpenKey)
         state.mouthSmile = floatValue(userInfo, key: mouthSmileKey)
+        state.avatarScale = floatValue(userInfo, key: avatarScaleKey, defaultValue: defaultAvatarScale)
     }
 
-    /// Returns the bridged float value or `0` when the key is absent, which the renderer treats as
-    /// the neutral/default pose for that tracking channel.
-    private static func floatValue(_ userInfo: [AnyHashable: Any]?, key: String) -> Float {
+    /// Returns the bridged float value or `defaultValue` when the key is absent, which the renderer
+    /// treats as the neutral/default value for that channel. Tracking channels default to `0`;
+    /// the avatar scale defaults to its neutral `1`.
+    private static func floatValue(
+        _ userInfo: [AnyHashable: Any]?,
+        key: String,
+        defaultValue: Float = 0
+    ) -> Float {
         if let number = userInfo?[key] as? NSNumber {
             return number.floatValue
         }
-        return 0
+        return defaultValue
     }
 }

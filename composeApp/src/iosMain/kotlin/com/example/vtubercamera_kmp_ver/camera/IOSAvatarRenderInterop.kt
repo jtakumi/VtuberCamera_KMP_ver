@@ -1,6 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import platform.Foundation.NSLog
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -33,6 +36,7 @@ internal object IOSAvatarRenderInterop {
     const val rightEyeBlinkKey = "rightEyeBlink"
     const val jawOpenKey = "jawOpen"
     const val mouthSmileKey = "mouthSmile"
+    const val avatarScaleKey = "avatarScale"
 
     // Publishes the currently selected avatar asset once so the native renderer can load it.
     fun publishSelectedAvatar(avatarSelection: AvatarSelectionData): Boolean {
@@ -57,11 +61,14 @@ internal object IOSAvatarRenderInterop {
     }
 
     // Publishes render-state updates independently so tracking changes do not resend the full asset.
-    fun publishRenderState(avatarRenderState: AvatarRenderState) {
+    // The pinch-driven avatar scale rides along here because the native renderer applies it to the
+    // same frame as the tracking values.
+    fun publishRenderState(avatarRenderState: AvatarRenderState, avatarScale: Float) {
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarRenderStateDidChangeNotification,
             null,
             mapOf(
+                avatarScaleKey to avatarScale.sanitizedAvatarScale(),
                 headYawDegreesKey to avatarRenderState.rig.headYawDegrees,
                 headPitchDegreesKey to avatarRenderState.rig.headPitchDegrees,
                 headRollDegreesKey to avatarRenderState.rig.headRollDegrees,
@@ -76,6 +83,13 @@ internal object IOSAvatarRenderInterop {
     // Clears the native renderer when the current avatar selection leaves composition.
     fun publishClearedAvatar() {
         NSNotificationCenter.defaultCenter.postNotificationName(avatarSelectionDidClearNotification, null, null)
+    }
+
+    // Keeps NaN or out-of-range scales from reaching the native renderer, which would otherwise
+    // receive an unusable transform for the avatar.
+    private fun Float.sanitizedAvatarScale(): Float = when {
+        isNaN() -> DEFAULT_AVATAR_SCALE
+        else -> coerceIn(MIN_AVATAR_SCALE, MAX_AVATAR_SCALE)
     }
 
     // Copies avatar bytes into NSData so the host app can consume them via NotificationCenter.

@@ -13,6 +13,9 @@
     <string name="theme_mode_system">S</string>
     <string name="theme_mode_light">L</string>
     <string name="theme_mode_dark">D</string>
+    <string name="pinch_target_toggle_content_description">ピンチ操作の対象を切り替え</string>
+    <string name="pinch_target_camera_zoom">カメラ</string>
+    <string name="pinch_target_avatar_scale">アバター</string>
     <string name="camera_retry_button">再試行</string>
     <string name="camera_error_retrying_preview">カメラプレビューを再試行しています...</string>
     <string name="camera_error_switching_lens">カメラを切り替えています...</string>

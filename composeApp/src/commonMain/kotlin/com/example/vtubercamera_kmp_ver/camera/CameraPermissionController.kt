@@ -129,6 +129,7 @@ expect fun AvatarPreviewOverlay(
 expect fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 )

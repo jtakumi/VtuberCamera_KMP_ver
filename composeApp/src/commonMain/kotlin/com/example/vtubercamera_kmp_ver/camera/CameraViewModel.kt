@@ -2,8 +2,10 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleController
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionController
 import com.example.vtubercamera_kmp_ver.camera.facetracking.FaceTrackingPresenter
+import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureController
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionCoordinator
 import com.example.vtubercamera_kmp_ver.camera.permission.PermissionChange
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
@@ -49,6 +51,8 @@ class CameraViewModel(
     )
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
+    private val avatarScaleController = AvatarScaleController()
+    private val pinchGestureController = PinchGestureController()
 
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
@@ -126,6 +130,16 @@ class CameraViewModel(
                 _uiState.update { it.copy(avatarSelection = avatarSelection) }
             }
         }
+        mirrorScope.launch {
+            avatarScaleController.state.collect { avatarScale ->
+                _uiState.update { it.copy(avatarScale = avatarScale) }
+            }
+        }
+        mirrorScope.launch {
+            pinchGestureController.state.collect { pinchTarget ->
+                _uiState.update { it.copy(pinchTarget = pinchTarget) }
+            }
+        }
     }
 
     fun initialize() {
@@ -169,6 +183,16 @@ class CameraViewModel(
 
     fun onCameraZoomChanged(scaleChange: Float) {
         zoomController.onCameraZoomChanged(scaleChange)
+    }
+
+    // ピンチ操作の相対倍率をアバター表示倍率へ反映する。
+    fun onAvatarScaleChanged(scaleChange: Float) {
+        avatarScaleController.onAvatarScaleChanged(scaleChange)
+    }
+
+    // ピンチ操作の割り当て先をカメラズームとアバター拡縮で切り替える。
+    fun onTogglePinchTarget() {
+        pinchGestureController.onTogglePinchTarget()
     }
 
     fun onCapturePhoto() {

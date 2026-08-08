@@ -6,6 +6,9 @@ final class FilamentAvatarRenderer {
     private static let previewBackgroundAlpha: CGFloat = 0.82
     private static let previewCornerRadius: CGFloat = 28
     private static let previewSubtitleSeparator = " • "
+    private static let defaultAvatarScale: Float = 1
+    private static let minimumAvatarScale: Float = 0.5
+    private static let maximumAvatarScale: Float = 3
 
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
@@ -78,15 +81,29 @@ final class FilamentAvatarRenderer {
         currentAssetIdentity = nil
         isStaticPreviewVisible = false
         previewBackgroundView.isHidden = true
+        previewBackgroundView.transform = .identity
         previewImageView.image = nil
         previewImageView.isHidden = true
         titleLabel.text = nil
         subtitleLabel.text = nil
     }
 
-    /// Stores the latest tracking state so future dynamic rendering can consume it.
+    /// Stores the latest tracking state so future dynamic rendering can consume it, and scales the
+    /// static preview so the shared pinch gesture stays visible until Filament rendering lands.
     func updateAvatarState(_ state: VTCAvatarRenderState) {
         bridge.updateAvatarState(state)
+        applyAvatarScaleToStaticPreview(state.avatarScale)
+    }
+
+    /// Applies the pinch-driven avatar scale to the static preview, clamping unusable values so a
+    /// malformed scale cannot collapse or explode the preview.
+    private func applyAvatarScaleToStaticPreview(_ avatarScale: Float) {
+        let requestedScale = avatarScale.isNaN ? Self.defaultAvatarScale : avatarScale
+        let clampedScale = min(max(requestedScale, Self.minimumAvatarScale), Self.maximumAvatarScale)
+        let previewScale = CGFloat(clampedScale)
+        guard previewBackgroundView.transform.a != previewScale else { return }
+
+        previewBackgroundView.transform = CGAffineTransform(scaleX: previewScale, y: previewScale)
     }
 
     deinit {

@@ -17,6 +17,7 @@ import kotlinx.coroutines.isActive
 internal fun AndroidFilamentAvatarHost(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -34,6 +35,7 @@ internal fun AndroidFilamentAvatarHost(
             renderer.updateRendererState(
                 avatarSelection = avatarSelection,
                 nextRenderState = latestRenderState.value,
+                avatarScale = avatarScale,
                 onAvatarLoadFailure = latestLoadFailureHandler.value,
             )
         },

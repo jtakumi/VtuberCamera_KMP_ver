@@ -19,6 +19,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) float jawOpen;
 /// Smile amount normalized to 0.0...1.0.
 @property (nonatomic) float mouthSmile;
+/// Pinch-driven avatar display scale where `1.0` keeps the default size.
+@property (nonatomic) float avatarScale;
 
 @end
 

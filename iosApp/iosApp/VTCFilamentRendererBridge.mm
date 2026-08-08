@@ -26,7 +26,19 @@ static NSString *const VTCFilamentRendererErrorDomain = @"io.github.jtakumi.Vtub
 
 @end
 
+/// Neutral avatar scale used before any pinch gesture arrives.
+static const float VTCDefaultAvatarScale = 1.0f;
+
 @implementation VTCAvatarRenderState
+
+- (instancetype)init {
+    self = [super init];
+    if (self != nil) {
+        _avatarScale = VTCDefaultAvatarScale;
+    }
+    return self;
+}
+
 @end
 
 static VTCAvatarRenderState *VTCCopyAvatarRenderState(VTCAvatarRenderState *state) {
@@ -38,6 +50,7 @@ static VTCAvatarRenderState *VTCCopyAvatarRenderState(VTCAvatarRenderState *stat
     copy.rightEyeBlink = state.rightEyeBlink;
     copy.jawOpen = state.jawOpen;
     copy.mouthSmile = state.mouthSmile;
+    copy.avatarScale = state.avatarScale;
     return copy;
 }
 
