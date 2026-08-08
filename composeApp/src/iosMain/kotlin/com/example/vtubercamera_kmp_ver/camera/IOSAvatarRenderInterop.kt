@@ -1,6 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmExpressionDescriptor
+import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmHumanoidBoneBinding
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
@@ -29,14 +32,32 @@ internal object IOSAvatarRenderInterop {
     const val contentHashKey = "contentHash"
     const val fileNameKey = "fileName"
     const val assetBytesKey = "assetBytes"
+    const val specVersionKey = "specVersion"
+    const val nodeNamesKey = "nodeNames"
+    const val humanoidBonesKey = "humanoidBones"
+    const val expressionsKey = "expressions"
+    const val boneNameKey = "boneName"
+    const val nodeNameKey = "nodeName"
+    const val runtimeNameKey = "runtimeName"
+    const val morphTargetBindsKey = "morphTargetBinds"
+    const val nodeIndexKey = "nodeIndex"
+    const val morphTargetIndexKey = "morphTargetIndex"
+    const val weightKey = "weight"
     const val headYawDegreesKey = "headYawDegrees"
     const val headPitchDegreesKey = "headPitchDegrees"
     const val headRollDegreesKey = "headRollDegrees"
+    const val bodySwayDegreesKey = "bodySwayDegrees"
+    const val bodyLeanDegreesKey = "bodyLeanDegrees"
     const val leftEyeBlinkKey = "leftEyeBlink"
     const val rightEyeBlinkKey = "rightEyeBlink"
     const val jawOpenKey = "jawOpen"
     const val mouthSmileKey = "mouthSmile"
     const val avatarScaleKey = "avatarScale"
+    const val trackingConfidenceKey = "trackingConfidence"
+    const val isTrackingKey = "isTracking"
+
+    const val specVersionVrm0 = "vrm0"
+    const val specVersionVrm1 = "vrm1"
 
     // Publishes the currently selected avatar asset once so the native renderer can load it.
     fun publishSelectedAvatar(avatarSelection: AvatarSelectionData): Boolean {
@@ -47,6 +68,8 @@ internal object IOSAvatarRenderInterop {
             )
             return false
         }
+        val runtimeDescriptor = avatarSelection.runtimeDescriptor
+        val nodeNames = runtimeDescriptor.nodeNames.map { nodeName -> nodeName.orEmpty() }
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarSelectionDidChangeNotification,
             null,
@@ -55,9 +78,50 @@ internal object IOSAvatarRenderInterop {
                 contentHashKey to avatarSelection.assetHandle.contentHash,
                 fileNameKey to avatarSelection.preview.fileName,
                 assetBytesKey to assetBytes.toNSData(),
+                specVersionKey to runtimeDescriptor.specVersion.interopName(),
+                nodeNamesKey to nodeNames,
+                humanoidBonesKey to runtimeDescriptor.humanoidBones.toInteropHumanoidBones(nodeNames),
+                expressionsKey to runtimeDescriptor.expressions.toInteropExpressions(),
             ),
         )
         return true
+    }
+
+    // gltfio exposes the imported hierarchy by node name, so humanoid bones cross the bridge
+    // already resolved to a name. Bones whose node has no usable name are dropped because the
+    // native renderer could not bind them anyway.
+    private fun List<VrmHumanoidBoneBinding>.toInteropHumanoidBones(
+        nodeNames: List<String>,
+    ): List<Map<String, Any>> = mapNotNull { bone ->
+        val nodeName = nodeNames.getOrNull(bone.nodeIndex).orEmpty()
+        if (nodeName.isEmpty()) {
+            return@mapNotNull null
+        }
+        mapOf(
+            boneNameKey to bone.boneName,
+            nodeNameKey to nodeName,
+        )
+    }
+
+    // Morph binds stay keyed by node index here; the host app resolves them to Filament
+    // entities once the asset is loaded.
+    private fun List<VrmExpressionDescriptor>.toInteropExpressions(): List<Map<String, Any>> =
+        map { expression ->
+            mapOf(
+                runtimeNameKey to expression.runtimeName,
+                morphTargetBindsKey to expression.morphTargetBinds.map { bind ->
+                    mapOf(
+                        nodeIndexKey to bind.nodeIndex,
+                        morphTargetIndexKey to bind.morphTargetIndex,
+                        weightKey to bind.weight,
+                    )
+                },
+            )
+        }
+
+    private fun VrmSpecVersion.interopName(): String = when (this) {
+        VrmSpecVersion.Vrm0 -> specVersionVrm0
+        VrmSpecVersion.Vrm1 -> specVersionVrm1
     }
 
     // Publishes render-state updates independently so tracking changes do not resend the full asset.
@@ -72,10 +136,14 @@ internal object IOSAvatarRenderInterop {
                 headYawDegreesKey to avatarRenderState.rig.headYawDegrees,
                 headPitchDegreesKey to avatarRenderState.rig.headPitchDegrees,
                 headRollDegreesKey to avatarRenderState.rig.headRollDegrees,
+                bodySwayDegreesKey to avatarRenderState.rig.bodySwayDegrees,
+                bodyLeanDegreesKey to avatarRenderState.rig.bodyLeanDegrees,
                 leftEyeBlinkKey to avatarRenderState.expressions.leftEyeBlink,
                 rightEyeBlinkKey to avatarRenderState.expressions.rightEyeBlink,
                 jawOpenKey to avatarRenderState.expressions.jawOpen,
                 mouthSmileKey to avatarRenderState.expressions.mouthSmile,
+                trackingConfidenceKey to avatarRenderState.trackingConfidence,
+                isTrackingKey to avatarRenderState.isTracking,
             ),
         )
     }
