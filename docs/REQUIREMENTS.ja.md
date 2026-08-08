@@ -118,6 +118,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - ズーム状態は共有の `CameraZoomUiState` で管理し、zoom ratio 更新 API (`setZoomRatio`) を提供する。
 - ズーム倍率の範囲は 1.0x〜5.0x（既定 1.0x）とする。
 - 現在のズーム倍率をインジケーターとして画面に表示する。
+- ピンチ操作の割り当て先は `PinchGestureTarget` で管理し、カメラズームとアバター拡縮を排他で切り替える（FR-13 参照）。
 
 ### FR-05 写真撮影
 
@@ -207,6 +208,19 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - メッセージは `Guide` / `Error` の種別 (`CameraMessageType`) を持つ。
 - エラー種別 (`CameraError`): 権限拒否 / カメラ利用不可 / プレビュー初期化失敗 / レンズ切り替え失敗 / 写真撮影失敗 / 不明。
 - 文言は Compose Resources の `StringResource` で管理する。
+
+### FR-13 ピンチ操作によるアバター表示倍率調整
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象 | 共通 / A / I（深さに差あり） |
+| 概要 | ピンチ操作でアバターの表示サイズを拡大縮小する |
+
+- アバター表示倍率は共有の `AvatarScaleUiState` で管理し、範囲は 0.5x〜3.0x（既定 1.0x）とする。
+- ピンチ操作の割り当て先はカメラズームとアバター拡縮の排他選択とし、画面上部の切り替えチップで変更する。切り替えチップはアバター選択済みのときだけ表示し、未選択時はカメラズームへ固定する。
+- 倍率インジケーターには、現在の割り当て先に対応する倍率（カメラズーム倍率またはアバター表示倍率）を表示する。
+- Android: 倍率に応じて Filament カメラの距離を `cameraDistance / avatarScale` へ寄せ、3D シーン内で拡大縮小する。
+- iOS: 倍率を `IOSAvatarRenderInterop` の render state 通知へ載せ、`VTCAvatarRenderState.avatarScale` として native 側へ伝達する。native 側は現状の static preview に倍率を適用する（Filament renderer への適用は FR-10 と同じく未実装）。
 
 ## 5. 将来要件（未実装・計画中）
 

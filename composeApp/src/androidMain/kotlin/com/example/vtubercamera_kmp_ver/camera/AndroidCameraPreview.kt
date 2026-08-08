@@ -351,6 +351,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -361,6 +362,7 @@ actual fun AvatarBodyOverlay(
         AvatarRendererHostView(
             avatarSelection = avatarSelection,
             avatarRenderState = avatarRenderState,
+            avatarScale = avatarScale,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             modifier = Modifier
                 .fillMaxWidth(AVATAR_RENDERER_WIDTH_FRACTION)
@@ -373,12 +375,14 @@ actual fun AvatarBodyOverlay(
 private fun AvatarRendererHostView(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AndroidFilamentAvatarHost(
         avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
+        avatarScale = avatarScale,
         onAvatarLoadFailure = { throwable ->
             onAvatarRenderLoadFailed(
                 avatarSelection.assetHandle,

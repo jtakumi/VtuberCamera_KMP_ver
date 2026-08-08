@@ -281,6 +281,7 @@ actual fun AvatarPreviewOverlay(
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -304,8 +305,11 @@ actual fun AvatarBodyOverlay(
         }
     }
 
-    LaunchedEffect(avatarRenderState) {
-        IOSAvatarRenderInterop.publishRenderState(avatarRenderState)
+    LaunchedEffect(avatarRenderState, avatarScale) {
+        IOSAvatarRenderInterop.publishRenderState(
+            avatarRenderState = avatarRenderState,
+            avatarScale = avatarScale,
+        )
     }
 
     Box(modifier = modifier.fillMaxSize())

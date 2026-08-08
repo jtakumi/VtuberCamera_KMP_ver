@@ -91,6 +91,8 @@ def render_generated_block() -> str:
         android_items.append("フロント / バックカメラ切り替え")
     if all_in(camera_module, ("observeZoomState", "setZoomRatio")) and "onPlatformZoomStateChanged" in android_preview:
         android_items.append("ピンチ操作によるカメラズーム制御とズーム倍率表示")
+    if "avatarScale" in android_avatar_host and "AvatarScaleController" in camera_view_model:
+        android_items.append("ピンチ操作によるアバター表示倍率調整（カメラズームとの切り替え式）")
     if "ActivityResultContracts.OpenDocument" in android_preview:
         android_items.append("OpenDocument による VRM / GLB ファイル選択")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
@@ -133,6 +135,8 @@ def render_generated_block() -> str:
         ios_items.append("SwiftUI + Filament による avatar view ホスト")
     if "avatarRenderState" in ios_avatar_interop:
         ios_items.append("avatar render state を Filament ブリッジへ伝達")
+    if "avatarScaleKey" in ios_avatar_interop:
+        ios_items.append("ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達")
     if "onThemeModeToggle" in camera_screen:
         ios_items.append("ライト / ダーク / システムテーマ切り替え")
 
@@ -147,6 +151,10 @@ def render_generated_block() -> str:
         shared_items.append("レンズ向き状態 (`Back` / `Front`)")
     if all_in(camera_module, ("zoomUiState", "onCameraZoomChanged")):
         shared_items.append("ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新")
+    if all_in(camera_view_model, ("onAvatarScaleChanged", "onTogglePinchTarget")):
+        shared_items.append(
+            "アバター表示倍率 (`AvatarScaleUiState`) とピンチ操作対象 (`PinchGestureTarget`) の管理",
+        )
     if all_in(camera_module, ("FaceTrackingUiState", "FaceToAvatarMapper")):
         shared_items.append("face tracking の共有表示モデルと avatar 反映 state")
     if all_in(vrm_avatar_parser, ("supportedExtensions", "vrm", "glb")):

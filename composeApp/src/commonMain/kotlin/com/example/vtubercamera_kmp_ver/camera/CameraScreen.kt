@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.theme.ThemeMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlin.math.roundToInt
@@ -74,6 +75,9 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_tracking
 import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_avatar_scale
+import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_camera_zoom
+import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_toggle_content_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_dark
 import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_light
 import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_system
@@ -128,6 +132,8 @@ fun CameraRoute(
         onLensFacingChanged = cameraViewModel::onLensFacingChanged,
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
+        onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
+        onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
         onDeletePhoto = cameraViewModel::onDeletePhoto,
         themeMode = themeMode,
@@ -154,6 +160,8 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    onAvatarScaleChanged: (Float) -> Unit,
+    onTogglePinchTarget: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
@@ -189,6 +197,8 @@ fun CameraScreen(
                 onLensFacingChanged = onLensFacingChanged,
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
+                onAvatarScaleChanged = onAvatarScaleChanged,
+                onTogglePinchTarget = onTogglePinchTarget,
                 onCapturePhoto = onCapturePhoto,
                 onDeletePhoto = onDeletePhoto,
                 themeMode = themeMode,
@@ -241,6 +251,8 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
+    onAvatarScaleChanged: (Float) -> Unit,
+    onTogglePinchTarget: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
@@ -248,6 +260,7 @@ private fun CameraPreviewState(
 ) {
     val avatarSelection = uiState.avatarSelection.avatarSelection
     val avatarPreview = uiState.avatarPreview
+    val pinchTarget = uiState.effectivePinchTarget
 
     Box(modifier = Modifier.fillMaxSize()) {
         CameraBackgroundLayer(
@@ -261,16 +274,21 @@ private fun CameraPreviewState(
             avatarSelection = avatarSelection,
             avatarPreview = avatarPreview,
             avatarRenderState = uiState.avatarRender,
+            avatarScale = uiState.avatarScale.currentAvatarScale,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
         // ピンチジェスチャーを検出する透明オーバーレイ。ボタンより下に配置して操作を妨げない。
+        // 切り替えボタンで選んだ対象へジェスチャーを振り分けるため、対象が変わったら検出を貼り直す。
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .pointerInput(Unit) {
+                .pointerInput(pinchTarget) {
                     detectTransformGestures { _, _, zoomChange, _ ->
-                        onCameraZoomChanged(zoomChange)
+                        when (pinchTarget) {
+                            PinchGestureTarget.CameraZoom -> onCameraZoomChanged(zoomChange)
+                            PinchGestureTarget.AvatarScale -> onAvatarScaleChanged(zoomChange)
+                        }
                     }
                 },
         )
@@ -278,6 +296,10 @@ private fun CameraPreviewState(
             avatarPreview = avatarPreview,
             faceTracking = uiState.faceTracking,
             zoomScale = uiState.zoom.currentCameraZoomRatio,
+            avatarScale = uiState.avatarScale.currentAvatarScale,
+            pinchTarget = pinchTarget,
+            canTogglePinchTarget = avatarSelection != null,
+            onTogglePinchTarget = onTogglePinchTarget,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
@@ -335,6 +357,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarSelection: AvatarSelectionData?,
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -345,6 +368,7 @@ private fun BoxScope.CameraRendererLayer(
                 avatarSelection = avatarSelection,
                 avatarPreview = avatarPreview,
                 avatarRenderState = avatarRenderState,
+                avatarScale = avatarScale,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -364,8 +388,9 @@ private fun BoxScope.CameraRendererLayer(
  *
  * [avatarSelection] は renderer が使う選択済み asset handle / runtime 情報、[avatarPreview] は
  * 表示用のメタ情報、[avatarRenderState] は renderer host が参照する共有の tracking / render state、
- * [onAvatarRenderLoadFailed] は renderer 側の読み込み失敗を UI へ戻す callback、[modifier] は
- * CameraScreen 側で決めた renderer layer の配置情報を表す。
+ * [avatarScale] はピンチ操作で決まったアバター表示倍率、[onAvatarRenderLoadFailed] は renderer 側の
+ * 読み込み失敗を UI へ戻す callback、[modifier] は CameraScreen 側で決めた renderer layer の
+ * 配置情報を表す。
  */
 data class RendererHostSlotState(
     /** renderer host が参照する選択済み avatar の asset handle / runtime 情報。 */
@@ -374,6 +399,8 @@ data class RendererHostSlotState(
     val avatarPreview: AvatarPreviewData,
     /** renderer host が参照する共有の avatar tracking / render state。 */
     val avatarRenderState: AvatarRenderState,
+    /** ピンチ操作で決まったアバター表示倍率。1.0 が既定サイズを表す。 */
+    val avatarScale: Float,
     /** renderer 側の読み込み失敗を UI へ戻す callback。 */
     val onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     /** CameraScreen 側で決めた renderer layer の配置と padding。 */
@@ -408,6 +435,7 @@ private fun DefaultAvatarRendererHost(
     AvatarBodyOverlay(
         avatarSelection = state.avatarSelection,
         avatarRenderState = state.avatarRenderState,
+        avatarScale = state.avatarScale,
         onAvatarRenderLoadFailed = state.onAvatarRenderLoadFailed,
         modifier = state.modifier,
     )
@@ -421,6 +449,10 @@ private fun BoxScope.CameraUiLayer(
     avatarPreview: AvatarPreviewData?,
     faceTracking: FaceTrackingUiState,
     zoomScale: Float,
+    avatarScale: Float,
+    pinchTarget: PinchGestureTarget,
+    canTogglePinchTarget: Boolean,
+    onTogglePinchTarget: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
@@ -439,6 +471,10 @@ private fun BoxScope.CameraUiLayer(
     TopStatusOverlay(
         faceTracking = faceTracking,
         zoomScale = zoomScale,
+        avatarScale = avatarScale,
+        pinchTarget = pinchTarget,
+        canTogglePinchTarget = canTogglePinchTarget,
+        onTogglePinchTarget = onTogglePinchTarget,
         themeMode = themeMode,
         themeToggleContentDescription = themeToggleContentDescription,
         isFaceTrackingExpanded = isFaceTrackingExpanded,
@@ -477,9 +513,14 @@ private val ThemeMode.symbol: String
         },
     )
 
+/**
+ * ピンチ操作の対象に対応する倍率を表示するインジケーター。
+ *
+ * [ratio] にはカメラズーム倍率とアバター表示倍率のどちらかが渡る。
+ */
 @Composable
-private fun ZoomIndicator(
-    zoomScale: Float,
+private fun ScaleRatioIndicator(
+    ratio: Float,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -489,7 +530,7 @@ private fun ZoomIndicator(
         tonalElevation = MaterialTheme.spacing.xs,
     ) {
         Text(
-            text = zoomScale.toZoomRatio(),
+            text = ratio.toRatioLabel(),
             modifier = Modifier.padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.xs,
@@ -500,20 +541,65 @@ private fun ZoomIndicator(
     }
 }
 
-private fun Float.toZoomRatio(): String{
-    val roundedTenths = (this * ZOOM_RATIO_LABEL_RATIO).roundToInt()
-    val whole = roundedTenths /ZOOM_RATIO_LABEL_RATIO
-    val decimal = roundedTenths % ZOOM_RATIO_LABEL_RATIO
+/**
+ * ピンチ操作の対象をカメラズームとアバター拡縮で切り替えるチップ。
+ *
+ * 表示ラベルは現在の対象を示し、押下で [onClick] を通じてもう一方へ切り替える。
+ */
+@Composable
+private fun PinchTargetToggleChip(
+    pinchTarget: PinchGestureTarget,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val toggleContentDescription = stringResource(
+        Res.string.pinch_target_toggle_content_description,
+    )
+
+    Surface(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = toggleContentDescription },
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Text(
+            text = stringResource(pinchTarget.labelRes),
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.xs,
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+    }
+}
+
+private val PinchGestureTarget.labelRes: StringResource
+    get() = when (this) {
+        PinchGestureTarget.CameraZoom -> Res.string.pinch_target_camera_zoom
+        PinchGestureTarget.AvatarScale -> Res.string.pinch_target_avatar_scale
+    }
+
+private fun Float.toRatioLabel(): String{
+    val roundedTenths = (this * RATIO_LABEL_SCALE).roundToInt()
+    val whole = roundedTenths /RATIO_LABEL_SCALE
+    val decimal = roundedTenths % RATIO_LABEL_SCALE
 
     return "${whole}.${decimal}x"
 }
 
-private const val ZOOM_RATIO_LABEL_RATIO = 10
+private const val RATIO_LABEL_SCALE = 10
 
 @Composable
 private fun TopStatusOverlay(
     faceTracking: FaceTrackingUiState,
     zoomScale: Float,
+    avatarScale: Float,
+    pinchTarget: PinchGestureTarget,
+    canTogglePinchTarget: Boolean,
+    onTogglePinchTarget: () -> Unit,
     themeMode: ThemeMode,
     themeToggleContentDescription: String,
     isFaceTrackingExpanded: Boolean,
@@ -539,7 +625,19 @@ private fun TopStatusOverlay(
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ZoomIndicator(zoomScale = zoomScale)
+                // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
+                if (canTogglePinchTarget) {
+                    PinchTargetToggleChip(
+                        pinchTarget = pinchTarget,
+                        onClick = onTogglePinchTarget,
+                    )
+                }
+                ScaleRatioIndicator(
+                    ratio = when (pinchTarget) {
+                        PinchGestureTarget.CameraZoom -> zoomScale
+                        PinchGestureTarget.AvatarScale -> avatarScale
+                    },
+                )
                 Surface(
                     shape = RoundedCornerShape(MaterialTheme.spacing.md),
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),

@@ -64,6 +64,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state?.rightEyeBlink == 0)
         #expect(state?.jawOpen == 0.72)
         #expect(state?.mouthSmile == 0.31)
+        // アバター倍率キーが無い通知では、既定倍率のままにする。
+        #expect(state?.avatarScale == IOSAvatarRenderBridge.defaultAvatarScale)
     }
 
     @Test
@@ -83,7 +85,8 @@ struct IOSAvatarRenderBridgeTests {
                 IOSAvatarRenderBridge.leftEyeBlinkKey: NSNumber(value: 0.4),
                 IOSAvatarRenderBridge.rightEyeBlinkKey: NSNumber(value: 0.6),
                 IOSAvatarRenderBridge.jawOpenKey: NSNumber(value: 0.8),
-                IOSAvatarRenderBridge.mouthSmileKey: NSNumber(value: 0.2)
+                IOSAvatarRenderBridge.mouthSmileKey: NSNumber(value: 0.2),
+                IOSAvatarRenderBridge.avatarScaleKey: NSNumber(value: 1.8)
             ]
         )
         NotificationCenter.default.post(
@@ -99,6 +102,7 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state?.rightEyeBlink == 0.6)
         #expect(state?.jawOpen == 0.8)
         #expect(state?.mouthSmile == 0.2)
+        #expect(state?.avatarScale == 1.8)
         #expect(renderer.clearAvatarCallCount == 1)
     }
 
@@ -113,10 +117,12 @@ struct IOSAvatarRenderBridgeTests {
         state.rightEyeBlink = 0.5
         state.jawOpen = 0.75
         state.mouthSmile = 1
+        state.avatarScale = 2.5
 
         bridge.updateAvatarState(state)
         state.headYawDegrees = 99
         state.jawOpen = 0
+        state.avatarScale = 1
 
         #expect(bridge.latestAvatarState.headYawDegrees == 22)
         #expect(bridge.latestAvatarState.headPitchDegrees == -6)
@@ -125,6 +131,7 @@ struct IOSAvatarRenderBridgeTests {
         #expect(bridge.latestAvatarState.rightEyeBlink == 0.5)
         #expect(bridge.latestAvatarState.jawOpen == 0.75)
         #expect(bridge.latestAvatarState.mouthSmile == 1)
+        #expect(bridge.latestAvatarState.avatarScale == 2.5)
     }
 }
 

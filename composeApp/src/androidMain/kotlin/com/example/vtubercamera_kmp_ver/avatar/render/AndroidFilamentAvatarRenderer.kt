@@ -20,6 +20,9 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.gltfio.Gltfio
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
+import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import kotlin.math.sin
 import android.view.View as AndroidView
 import com.google.android.filament.View as FilamentView
@@ -47,6 +50,8 @@ internal class AndroidFilamentAvatarRenderer(
     private var appliedSceneFraming: AvatarSceneFraming? = null
     private var renderState: AvatarRenderState = AvatarRenderState.Neutral
     private var appliedRenderState: AvatarRenderState? = null
+    private var avatarScale: Float = DEFAULT_AVATAR_SCALE
+    private var appliedAvatarScale: Float? = null
     private var destroyed = false
 
     init {
@@ -99,11 +104,14 @@ internal class AndroidFilamentAvatarRenderer(
         configureSurface()
     }
 
+    // 選択中アバターと tracking state に加えて、ピンチ操作で決まった表示倍率も次フレームへ反映する。
     fun updateRendererState(
         avatarSelection: AvatarSelectionData,
         nextRenderState: AvatarRenderState,
+        avatarScale: Float,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
+        this.avatarScale = avatarScale.sanitizedAvatarScale()
         renderBridge.update(
             avatarSelection = avatarSelection,
             avatarRenderState = nextRenderState,
@@ -160,7 +168,7 @@ internal class AndroidFilamentAvatarRenderer(
         view.scene = scene
         view.camera = camera
         view.blendMode = FilamentView.BlendMode.TRANSLUCENT
-        updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral)
+        updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral, avatarScale)
     }
 
     private fun configureLight() {
@@ -178,12 +186,17 @@ internal class AndroidFilamentAvatarRenderer(
 
     private fun applyRenderState() {
         val currentSceneFraming = sceneFraming
-        if (renderState == appliedRenderState && currentSceneFraming == appliedSceneFraming) {
+        val currentAvatarScale = avatarScale
+        val isUpToDate = renderState == appliedRenderState &&
+            currentSceneFraming == appliedSceneFraming &&
+            currentAvatarScale == appliedAvatarScale
+        if (isUpToDate) {
             return
         }
-        updateCameraLookAt(currentSceneFraming, renderState)
+        updateCameraLookAt(currentSceneFraming, renderState, currentAvatarScale)
         appliedRenderState = renderState
         appliedSceneFraming = currentSceneFraming
+        appliedAvatarScale = currentAvatarScale
     }
 
     private fun configureSurface() {
@@ -231,10 +244,14 @@ internal class AndroidFilamentAvatarRenderer(
         renderState = nextState
     }
 
+    // 表示倍率が大きいほどカメラをアバターへ寄せ、3D シーン内で拡大縮小したように見せる。
     private fun updateCameraLookAt(
         sceneFraming: AvatarSceneFraming,
         renderState: AvatarRenderState,
+        avatarScale: Float,
     ) {
+        val scaledCameraDistance =
+            sceneFraming.cameraDistance / avatarScale.sanitizedAvatarScale().toDouble()
         val trackingInfluence = if (renderState.isTracking) {
             renderState.trackingConfidence.coerceIn(0f, 1f).toDouble()
         } else {
@@ -257,7 +274,7 @@ internal class AndroidFilamentAvatarRenderer(
             sceneFraming.targetY +
                 sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence +
                 expressionInfluence * EXPRESSION_Y_OFFSET_SCALE,
-            sceneFraming.targetZ + sceneFraming.cameraDistance - expressionInfluence * EXPRESSION_Z_OFFSET_SCALE,
+            sceneFraming.targetZ + scaledCameraDistance - expressionInfluence * EXPRESSION_Z_OFFSET_SCALE,
             sceneFraming.targetX,
             sceneFraming.targetY,
             sceneFraming.targetZ,
@@ -265,6 +282,12 @@ internal class AndroidFilamentAvatarRenderer(
             1.0,
             0.0,
         )
+    }
+
+    // NaN や 0 以下の倍率が渡ってもカメラ距離が壊れないよう、想定可変域へ丸める。
+    private fun Float.sanitizedAvatarScale(): Float = when {
+        isNaN() -> DEFAULT_AVATAR_SCALE
+        else -> coerceIn(MIN_AVATAR_SCALE, MAX_AVATAR_SCALE)
     }
 
     private fun destroySwapChain() {
