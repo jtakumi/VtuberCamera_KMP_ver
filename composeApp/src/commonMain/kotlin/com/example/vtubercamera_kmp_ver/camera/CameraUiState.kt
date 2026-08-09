@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.camera
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleUiState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionUiState
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundUiState
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
@@ -19,6 +20,7 @@ data class CameraUiState(
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
     val avatarScale: AvatarScaleUiState = AvatarScaleUiState(),
+    val background: CameraBackgroundUiState = CameraBackgroundUiState(),
     val pinchTarget: PinchGestureTarget = PinchGestureTarget.CameraZoom,
 ) {
     val isPermissionGranted: Boolean
