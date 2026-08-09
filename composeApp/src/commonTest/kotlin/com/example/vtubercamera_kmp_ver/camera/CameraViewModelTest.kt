@@ -7,6 +7,7 @@ import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
 import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
@@ -894,6 +895,27 @@ class CameraViewModelTest {
         } finally {
             AvatarAssetStore.remove(selection.assetHandle)
         }
+    }
+
+    // ---------------------------------------------------------------------------
+    // onToggleBackgroundMode()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onToggleBackgroundMode_publishesNextBackgroundPresetToUiState() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        assertEquals(CameraBackgroundMode.Camera, viewModel.uiState.value.background.mode)
+        assertEquals(false, viewModel.uiState.value.background.hidesCameraImage)
+
+        viewModel.onToggleBackgroundMode()
+        advanceUntilIdle()
+
+        assertEquals(CameraBackgroundMode.Black, viewModel.uiState.value.background.mode)
+        assertEquals(true, viewModel.uiState.value.background.hidesCameraImage)
     }
 
     // ---------------------------------------------------------------------------
