@@ -23,7 +23,9 @@
 #include <filament/Viewport.h>
 
 #include <gltfio/AssetLoader.h>
+#include <gltfio/Animator.h>
 #include <gltfio/FilamentAsset.h>
+#include <gltfio/FilamentInstance.h>
 #include <gltfio/MaterialProvider.h>
 #include <gltfio/ResourceLoader.h>
 #include <gltfio/TextureProvider.h>
@@ -743,7 +745,25 @@ private:
         applyRelaxedArmPose();
         applyHeadPose();
         applyExpressions();
+        updateBoneMatrices();
         updateCamera();
+    }
+
+    // Changing a joint's TransformManager matrix does not automatically update the matrices
+    // consumed by skinned renderables. Keep this in the same state-application path as Android's
+    // Animator.updateBoneMatrices call so the relaxed arm pose is visible from the first frame.
+    void updateBoneMatrices() {
+        if (mAsset == nullptr) {
+            return;
+        }
+        gltfio::FilamentInstance* instance = mAsset->getInstance();
+        if (instance == nullptr) {
+            return;
+        }
+        gltfio::Animator* animator = instance->getAnimator();
+        if (animator != nullptr) {
+            animator->updateBoneMatrices();
+        }
     }
 
     void applyHeadPose() {
