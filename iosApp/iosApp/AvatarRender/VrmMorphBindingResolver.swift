@@ -5,6 +5,20 @@ enum VrmRendererExpressionId: CaseIterable, Equatable {
     case blinkRight
     case jawOpen
     case smile
+
+    /// The renderer channel this expression drives once bound to Filament morph targets.
+    var bridgeChannel: VTCVrmExpressionChannel {
+        switch self {
+        case .blinkLeft:
+            return .blinkLeft
+        case .blinkRight:
+            return .blinkRight
+        case .jawOpen:
+            return .jawOpen
+        case .smile:
+            return .smile
+        }
+    }
 }
 
 enum VrmRendererSpecVersion {

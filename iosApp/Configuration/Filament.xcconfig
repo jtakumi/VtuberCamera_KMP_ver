@@ -1,10 +1,12 @@
+// Empty defaults so a checkout without the Filament SDK still builds. The renderer
+// compiles out via __has_include(<filament/Engine.h>) and falls back to the static
+// avatar preview at runtime.
 FILAMENT_HEADER_SEARCH_PATHS =
 FILAMENT_FRAMEWORK_SEARCH_PATHS =
 FILAMENT_LIBRARY_SEARCH_PATHS =
 FILAMENT_OTHER_LDFLAGS =
 
-// Example local overrides:
-// FILAMENT_HEADER_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/include"
-// FILAMENT_FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
-// FILAMENT_LIBRARY_SEARCH_PATHS = "$(SRCROOT)/../Vendor/filament/lib"
-// FILAMENT_OTHER_LDFLAGS = -framework filament -framework gltfio -framework utils
+// Machine-local SDK paths written by scripts/setup_filament_ios.sh. Included last so
+// its assignments override the empty defaults above; the file is gitignored because it
+// points at the vendored binaries.
+#include? "Filament.local.xcconfig"

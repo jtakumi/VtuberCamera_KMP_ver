@@ -24,3 +24,6 @@ discord-codex-bot/logs/
 .gradle-user-home/
 .android-home/
 discord-codex-bot/.env.example
+# Filament iOS SDK, fetched by scripts/setup_filament_ios.sh
+iosApp/Vendor/
+iosApp/Configuration/Filament.local.xcconfig
