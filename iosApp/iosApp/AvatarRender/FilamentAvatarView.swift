@@ -7,7 +7,7 @@ struct FilamentAvatarView: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIView {
-        let hostView = UIView(frame: .zero)
+        let hostView = AvatarRenderHostView(frame: .zero)
         hostView.backgroundColor = .clear
         hostView.isOpaque = false
 
@@ -15,6 +15,9 @@ struct FilamentAvatarView: UIViewRepresentable {
         renderView.frame = hostView.bounds
         renderView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         hostView.addSubview(renderView)
+        hostView.onLayout = { [weak renderer = context.coordinator.renderer] bounds, contentScale in
+            renderer?.resize(to: bounds, contentScale: contentScale)
+        }
 
         context.coordinator.lifecycle.attach(renderer: context.coordinator.renderer)
         context.coordinator.avatarRenderBridge.connect()
@@ -23,8 +26,7 @@ struct FilamentAvatarView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
-        let contentScale = uiView.window?.screen.scale ?? UIScreen.main.scale
-        context.coordinator.renderer.resize(to: uiView.bounds, contentScale: contentScale)
+        (uiView as? AvatarRenderHostView)?.notifyRendererOfCurrentLayout()
     }
 
     static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
@@ -44,6 +46,23 @@ struct FilamentAvatarView: UIViewRepresentable {
             self.renderer = renderer
             avatarRenderBridge = IOSAvatarRenderBridge(renderer: renderer)
         }
+    }
+}
+
+/// SwiftUI applies the final frame during UIKit layout, which does not necessarily trigger
+/// `updateUIView`. Forwarding every layout pass prevents Filament from retaining its initial
+/// zero-sized viewport and silently skipping all draw calls.
+private final class AvatarRenderHostView: UIView {
+    var onLayout: ((CGRect, CGFloat) -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        notifyRendererOfCurrentLayout()
+    }
+
+    func notifyRendererOfCurrentLayout() {
+        let contentScale = window?.screen.scale ?? UIScreen.main.scale
+        onLayout?(bounds, contentScale)
     }
 }
 
