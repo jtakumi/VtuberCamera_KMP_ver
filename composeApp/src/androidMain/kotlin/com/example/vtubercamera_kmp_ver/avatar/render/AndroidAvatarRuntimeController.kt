@@ -1,6 +1,5 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
-import android.util.Log
 import com.example.vtubercamera_kmp_ver.avatar.mapping.AvatarExpressionId
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
@@ -187,12 +186,6 @@ internal class AndroidAvatarRuntimeController private constructor(
             val nodeEntityResolver = runtimeDescriptor.nodeEntityResolver(asset)
             val poseBindings = createPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
             val armPoseBindings = createArmPoseBindings(engine, runtimeDescriptor, nodeEntityResolver)
-            logOrientationDiagnostics(
-                engine = engine,
-                asset = asset,
-                runtimeDescriptor = runtimeDescriptor,
-                nodeEntityResolver = nodeEntityResolver,
-            )
             val morphTargets = createMorphTargets(engine, asset)
             val expressionBindings = createExpressionBindings(nodeEntityResolver, runtimeDescriptor)
             return AndroidAvatarRuntimeController(
@@ -274,65 +267,6 @@ internal class AndroidAvatarRuntimeController private constructor(
             val rollDegrees: Float,
         )
 
-        /**
-         * Records the imported coordinate basis before this controller applies any tracking or
-         * relaxed-arm rotations. This lets us distinguish an asset whose visual forward direction
-         * is reversed from one whose individual arm bones use a different local axis.
-         */
-        private fun logOrientationDiagnostics(
-            engine: Engine,
-            asset: FilamentAsset,
-            runtimeDescriptor: VrmRuntimeAssetDescriptor,
-            nodeEntityResolver: (Int) -> Int?,
-        ) {
-            val transformManager = engine.transformManager
-            val rootInstance = transformManager.getInstance(asset.root)
-            val rootChildren = if (rootInstance == 0) {
-                emptyList()
-            } else {
-                transformManager.getChildren(rootInstance, null).toList()
-            }
-            val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
-            val inspectedBones = listOf(
-                HEAD_BONE_NAME,
-                LEFT_UPPER_ARM_BONE_NAME,
-                RIGHT_UPPER_ARM_BONE_NAME,
-            )
-            val boneDiagnostics = inspectedBones.joinToString(separator = "; ") { boneName ->
-                val entity = nodes[boneName]?.let(nodeEntityResolver)
-                val transformInstance = entity?.let(transformManager::getInstance)
-                if (transformInstance == null || transformInstance == 0) {
-                    "$boneName=missing"
-                } else {
-                    val local = transformManager.getTransform(transformInstance, FloatArray(MATRIX_SIZE))
-                    val world = transformManager.getWorldTransform(transformInstance, FloatArray(MATRIX_SIZE))
-                    "$boneName(local=${local.basisLog()}, world=${world.basisLog()})"
-                }
-            }
-            val rootDiagnostics = rootChildren.joinToString(separator = "; ") { entity ->
-                val instance = transformManager.getInstance(entity)
-                val world = if (instance == 0) null else {
-                    transformManager.getWorldTransform(instance, FloatArray(MATRIX_SIZE))
-                }
-                "entity=$entity(world=${world?.basisLog() ?: "missing"})"
-            }
-
-            Log.d(
-                AVATAR_ORIENTATION_LOG_TAG,
-                "cameraExpectedForward=+Z; assetRootChildren=[$rootDiagnostics]; " +
-                    "headWorldLocalPlusZ is the diagnostic forward axis; " +
-                    "relaxedArmRolls=leftUpperArm:$RELAXED_LEFT_ARM_ROLL_DEGREES," +
-                    "rightUpperArm:$RELAXED_RIGHT_ARM_ROLL_DEGREES; bones=[$boneDiagnostics]",
-            )
-        }
-
-        private fun FloatArray.basisLog(): String =
-            "x=(${this[0].format()},${this[1].format()},${this[2].format()})," +
-                "y=(${this[4].format()},${this[5].format()},${this[6].format()})," +
-                "z=(${this[8].format()},${this[9].format()},${this[10].format()})"
-
-        private fun Float.format(): String = "%1$.2f".format(java.util.Locale.US, this)
-
         private fun createMorphTargets(
             engine: Engine,
             asset: FilamentAsset,
@@ -404,7 +338,6 @@ internal class AndroidAvatarRuntimeController private constructor(
         private const val RIGHT_UPPER_ARM_BONE_NAME = "rightUpperArm"
         private const val RELAXED_LEFT_ARM_ROLL_DEGREES = -75f
         private const val RELAXED_RIGHT_ARM_ROLL_DEGREES = 75f
-        private const val AVATAR_ORIENTATION_LOG_TAG = "AvatarOrientation"
         private const val MATRIX_EDGE = 4
         private const val MATRIX_SIZE = MATRIX_EDGE * MATRIX_EDGE
 
