@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.theme.ThemeMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
@@ -51,6 +53,12 @@ import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_title
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_black
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_blue
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_camera
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_green
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_white
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_toggle_content_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_message
@@ -134,6 +142,7 @@ fun CameraRoute(
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
         onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
         onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
+        onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
         onDeletePhoto = cameraViewModel::onDeletePhoto,
         themeMode = themeMode,
@@ -162,6 +171,7 @@ fun CameraScreen(
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
     onTogglePinchTarget: () -> Unit,
+    onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
@@ -199,6 +209,7 @@ fun CameraScreen(
                 onCameraZoomChanged = onCameraZoomChanged,
                 onAvatarScaleChanged = onAvatarScaleChanged,
                 onTogglePinchTarget = onTogglePinchTarget,
+                onToggleBackgroundMode = onToggleBackgroundMode,
                 onCapturePhoto = onCapturePhoto,
                 onDeletePhoto = onDeletePhoto,
                 themeMode = themeMode,
@@ -253,6 +264,7 @@ private fun CameraPreviewState(
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
     onTogglePinchTarget: () -> Unit,
+    onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
     themeMode: ThemeMode,
@@ -267,6 +279,7 @@ private fun CameraPreviewState(
             cameraRepository = cameraRepository,
             lensFacing = uiState.session.lensFacing,
             zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
+            backgroundMode = uiState.background.mode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
         )
@@ -300,6 +313,8 @@ private fun CameraPreviewState(
             pinchTarget = pinchTarget,
             canTogglePinchTarget = avatarSelection != null,
             onTogglePinchTarget = onTogglePinchTarget,
+            backgroundMode = uiState.background.mode,
+            onToggleBackgroundMode = onToggleBackgroundMode,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
@@ -315,12 +330,17 @@ private fun CameraPreviewState(
 
 /**
  * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
+ *
+ * [backgroundMode] が単色プリセットのときは、preview host の上へ不透明な単色を重ねて
+ * 実際の顔が映らないようにする。preview host 自体は常に構成したままにして face tracking を
+ * 止めないため、背景を隠してもアバターは顔の動きに追従し続ける。
  */
 @Composable
 private fun CameraBackgroundLayer(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     zoomScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
 ) {
@@ -341,8 +361,44 @@ private fun CameraBackgroundLayer(
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
+        backgroundMode.overlayColor?.let { overlayColor ->
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(overlayColor),
+            )
+        }
     }
 }
+
+/**
+ * 背景モードに対応する不透明な単色を返す。カメラ映像をそのまま見せるモードでは null を返す。
+ */
+private val CameraBackgroundMode.overlayColor: Color?
+    get() = when (this) {
+        CameraBackgroundMode.Camera -> null
+        CameraBackgroundMode.Black -> BACKGROUND_BLACK
+        CameraBackgroundMode.White -> BACKGROUND_WHITE
+        CameraBackgroundMode.Green -> BACKGROUND_CHROMA_GREEN
+        CameraBackgroundMode.Blue -> BACKGROUND_CHROMA_BLUE
+    }
+
+/** 背景モードに対応するチップ表示用のラベル。 */
+private val CameraBackgroundMode.labelRes: StringResource
+    get() = when (this) {
+        CameraBackgroundMode.Camera -> Res.string.camera_background_mode_camera
+        CameraBackgroundMode.Black -> Res.string.camera_background_mode_black
+        CameraBackgroundMode.White -> Res.string.camera_background_mode_white
+        CameraBackgroundMode.Green -> Res.string.camera_background_mode_green
+        CameraBackgroundMode.Blue -> Res.string.camera_background_mode_blue
+    }
+
+private val BACKGROUND_BLACK = Color(0xFF000000)
+private val BACKGROUND_WHITE = Color(0xFFFFFFFF)
+
+// 合成用途で背景を差し替えやすいよう、緑・青はクロマキー標準色に合わせる。
+private val BACKGROUND_CHROMA_GREEN = Color(0xFF00B140)
+private val BACKGROUND_CHROMA_BLUE = Color(0xFF0047BB)
 
 /**
  * platform renderer host を差し込む中間レイヤーを構成する。
@@ -453,6 +509,8 @@ private fun BoxScope.CameraUiLayer(
     pinchTarget: PinchGestureTarget,
     canTogglePinchTarget: Boolean,
     onTogglePinchTarget: () -> Unit,
+    backgroundMode: CameraBackgroundMode,
+    onToggleBackgroundMode: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
@@ -475,6 +533,8 @@ private fun BoxScope.CameraUiLayer(
         pinchTarget = pinchTarget,
         canTogglePinchTarget = canTogglePinchTarget,
         onTogglePinchTarget = onTogglePinchTarget,
+        backgroundMode = backgroundMode,
+        onToggleBackgroundMode = onToggleBackgroundMode,
         themeMode = themeMode,
         themeToggleContentDescription = themeToggleContentDescription,
         isFaceTrackingExpanded = isFaceTrackingExpanded,
@@ -600,6 +660,8 @@ private fun TopStatusOverlay(
     pinchTarget: PinchGestureTarget,
     canTogglePinchTarget: Boolean,
     onTogglePinchTarget: () -> Unit,
+    backgroundMode: CameraBackgroundMode,
+    onToggleBackgroundMode: () -> Unit,
     themeMode: ThemeMode,
     themeToggleContentDescription: String,
     isFaceTrackingExpanded: Boolean,
@@ -660,9 +722,54 @@ private fun TopStatusOverlay(
                 }
             }
         }
+        // チップが増えても 1 行に収まらなくなるため、背景切り替えは次の行の右端へ置く。
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            CameraBackgroundToggleChip(
+                backgroundMode = backgroundMode,
+                onClick = onToggleBackgroundMode,
+            )
+        }
         if (isFaceTrackingExpanded) {
             FaceTrackingDetailsPanel(faceTracking = faceTracking)
         }
+    }
+}
+
+/**
+ * カメラ映像を覆う背景プリセットを順番に切り替えるチップ。
+ *
+ * 表示ラベルは現在の背景モードを示し、押下で [onClick] を通じて次のプリセットへ進む。
+ */
+@Composable
+private fun CameraBackgroundToggleChip(
+    backgroundMode: CameraBackgroundMode,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val toggleContentDescription = stringResource(
+        Res.string.camera_background_toggle_content_description,
+    )
+
+    Surface(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = toggleContentDescription },
+        shape = RoundedCornerShape(MaterialTheme.spacing.md),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = MaterialTheme.spacing.xs,
+    ) {
+        Text(
+            text = stringResource(backgroundMode.labelRes),
+            modifier = Modifier.padding(
+                horizontal = MaterialTheme.spacing.md,
+                vertical = MaterialTheme.spacing.xs,
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

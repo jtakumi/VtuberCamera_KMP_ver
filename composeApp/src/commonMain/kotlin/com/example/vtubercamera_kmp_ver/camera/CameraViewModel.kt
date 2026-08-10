@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleController
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionController
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundController
 import com.example.vtubercamera_kmp_ver.camera.facetracking.FaceTrackingPresenter
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureController
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionCoordinator
@@ -52,6 +53,7 @@ class CameraViewModel(
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
     private val avatarScaleController = AvatarScaleController()
+    private val backgroundController = CameraBackgroundController()
     private val pinchGestureController = PinchGestureController()
 
     private val _uiState = MutableStateFlow(CameraUiState())
@@ -136,6 +138,11 @@ class CameraViewModel(
             }
         }
         mirrorScope.launch {
+            backgroundController.state.collect { background ->
+                _uiState.update { it.copy(background = background) }
+            }
+        }
+        mirrorScope.launch {
             pinchGestureController.state.collect { pinchTarget ->
                 _uiState.update { it.copy(pinchTarget = pinchTarget) }
             }
@@ -193,6 +200,11 @@ class CameraViewModel(
     // ピンチ操作の割り当て先をカメラズームとアバター拡縮で切り替える。
     fun onTogglePinchTarget() {
         pinchGestureController.onTogglePinchTarget()
+    }
+
+    // カメラ映像を覆う背景モードを次のプリセットへ切り替える。
+    fun onToggleBackgroundMode() {
+        backgroundController.onToggleBackgroundMode()
     }
 
     fun onCapturePhoto() {
