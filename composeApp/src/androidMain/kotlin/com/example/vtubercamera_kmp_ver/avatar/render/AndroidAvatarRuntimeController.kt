@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.util.Log
 import com.example.vtubercamera_kmp_ver.avatar.mapping.AvatarExpressionId
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.google.android.filament.Engine
@@ -245,9 +246,13 @@ internal class AndroidAvatarRuntimeController private constructor(
         ): List<ArmPoseBinding> {
             val transformManager = engine.transformManager
             val nodes = runtimeDescriptor.humanoidBones.associate { it.boneName to it.nodeIndex }
+            val armRollSign = when(runtimeDescriptor.specVersion){
+                VrmSpecVersion.Vrm1 -> 1f
+                VrmSpecVersion.Vrm0 -> -1f
+            }
             return listOf(
-                ArmPoseSpec(LEFT_UPPER_ARM_BONE_NAME, RELAXED_LEFT_ARM_ROLL_DEGREES),
-                ArmPoseSpec(RIGHT_UPPER_ARM_BONE_NAME, RELAXED_RIGHT_ARM_ROLL_DEGREES),
+                ArmPoseSpec(LEFT_UPPER_ARM_BONE_NAME, RELAXED_LEFT_ARM_ROLL_DEGREES * armRollSign),
+                ArmPoseSpec(RIGHT_UPPER_ARM_BONE_NAME, RELAXED_RIGHT_ARM_ROLL_DEGREES * armRollSign),
             ).mapNotNull { spec ->
                 val entity = nodes[spec.name]?.let(nodeEntityResolver) ?: return@mapNotNull null
                 val transformInstance = transformManager.getInstance(entity)
