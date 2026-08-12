@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.os.SystemClock
 import android.util.Log
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.tracking.AndroidFaceTrackingToAvatarMapper
@@ -75,6 +76,7 @@ internal class AndroidAvatarRenderBridge(
             .onSuccess { nextAsset ->
                 runCatching {
                     nextAsset.configureRenderables()
+                    nextAsset.normalizeVrmForwardDirection(avatarSelection.runtimeDescriptor.specVersion)
                     nextAsset.instance.animator.updateBoneMatrices()
                     val runtimeController = AndroidAvatarRuntimeController.create(
                         engine = engine,
@@ -88,7 +90,9 @@ internal class AndroidAvatarRenderBridge(
                     )
                     runtimeController.apply(latestAppliedRenderState)
                     scene.addEntities(nextAsset.entities)
-                    onSceneFramingChanged(nextAsset.toSceneFraming())
+                    onSceneFramingChanged(
+                        nextAsset.toSceneFraming(avatarSelection.runtimeDescriptor.specVersion),
+                    )
                     runtimeController
                 }.onSuccess { runtimeController ->
                     val previousAsset = currentAsset
@@ -134,6 +138,27 @@ internal class AndroidAvatarRenderBridge(
         }
     }
 
+    /**
+     * VRM 0.x defines visual forward as -Z, while this renderer (and VRM 1.0) uses +Z as
+     * forward. Rotate the asset's synthetic root instead of modifying individual humanoid bones,
+     * keeping all tracking transforms in the model's local coordinate system.
+     */
+    private fun FilamentAsset.normalizeVrmForwardDirection(specVersion: VrmSpecVersion) {
+        val rootInstance = engine.transformManager.getInstance(root)
+        if (rootInstance == 0) {
+            return
+        }
+        engine.transformManager.setTransform(
+            rootInstance,
+            if (specVersion == VrmSpecVersion.Vrm0) VRM0_TO_RENDERER_COORDINATES else IDENTITY_MATRIX,
+        )
+        Log.d(
+            AVATAR_ORIENTATION_LOG_TAG,
+            "specVersion=$specVersion; rootYRotationDegrees=" +
+                if (specVersion == VrmSpecVersion.Vrm0) "180" else "0",
+        )
+    }
+
     fun destroy() {
         resourceCleaner.destroyAsset(
             scene = scene,
@@ -148,7 +173,7 @@ internal class AndroidAvatarRenderBridge(
         lastTrackingStatus = null
     }
 
-    private fun FilamentAsset.toSceneFraming(): AvatarSceneFraming {
+    private fun FilamentAsset.toSceneFraming(specVersion: VrmSpecVersion): AvatarSceneFraming {
         val bounds = boundingBox
         val center = bounds.center
         val halfExtent = bounds.halfExtent
@@ -158,14 +183,19 @@ internal class AndroidAvatarRenderBridge(
         )
 
         return AvatarSceneFraming(
-            targetX = center[0].toDouble(),
+            targetX = center[0].toDouble() * specVersion.horizontalCoordinateSign(),
             targetY = center[1].toDouble(),
-            targetZ = center[2].toDouble(),
+            targetZ = center[2].toDouble() * specVersion.horizontalCoordinateSign(),
             cameraDistance = max(
                 DEFAULT_CAMERA_DISTANCE,
                 maxHalfExtent.toDouble() * MODEL_FIT_DISTANCE_MULTIPLIER,
             ),
         )
+    }
+
+    private fun VrmSpecVersion.horizontalCoordinateSign(): Double = when (this) {
+        VrmSpecVersion.Vrm0 -> -1.0
+        VrmSpecVersion.Vrm1 -> 1.0
     }
 
     private data class AvatarAssetKey(
@@ -258,9 +288,22 @@ internal class AndroidAvatarRenderBridge(
         private const val SCENE_LAYER_MASK = 0xff
         private const val SCENE_LAYER_VISIBLE = 0x1
         private const val AVATAR_MOTION_LOG_TAG = "AvatarMotion"
+        private const val AVATAR_ORIENTATION_LOG_TAG = "AvatarOrientation"
         private const val MOTION_LOG_INTERVAL_MILLIS = 1_000L
         private const val MOTION_EPSILON_DEGREES = 0.1f
         private const val EXPRESSION_EPSILON = 0.01f
+        private val IDENTITY_MATRIX = floatArrayOf(
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f,
+        )
+        private val VRM0_TO_RENDERER_COORDINATES = floatArrayOf(
+            -1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, -1f, 0f,
+            0f, 0f, 0f, 1f,
+        )
     }
 }
 
