@@ -4,14 +4,17 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.hardware.camera2.CaptureRequest
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.util.Range
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.ZoomState
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -205,10 +208,16 @@ actual fun CameraPreviewHost(
                     .build()
                     .also { it.surfaceProvider = previewView.surfaceProvider }
 
-                val analysis = ImageAnalysis.Builder()
+                val analysisBuilder = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer) }
+                // 描画と ML Kit の更新を 30 fps に揃え、60 fps センサーで不要な解析をしない。
+                Camera2Interop.Extender(analysisBuilder).setCaptureRequestOption(
+                    CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE,
+                    Range(TARGET_ANALYSIS_FRAME_RATE, TARGET_ANALYSIS_FRAME_RATE),
+                )
+                val analysis = analysisBuilder.build().also {
+                    it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer)
+                }
 
                 val imageCapture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
@@ -272,6 +281,8 @@ actual fun CameraPreviewHost(
         }
     }
 }
+
+private const val TARGET_ANALYSIS_FRAME_RATE = 30
 
 @Composable
 actual fun AvatarPreviewOverlay(
