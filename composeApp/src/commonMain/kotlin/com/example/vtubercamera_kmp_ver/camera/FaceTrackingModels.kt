@@ -34,5 +34,4 @@ data class FaceTrackingDisplayState(
 data class FaceTrackingUiState(
     val isTracking: Boolean = false,
     val frame: NormalizedFaceFrame? = null,
-    val display: FaceTrackingDisplayState? = null,
 )
