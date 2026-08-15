@@ -97,6 +97,13 @@ typedef NS_ENUM(NSInteger, VTCVrmExpressionChannel) {
              humanoidBones:(NSArray<VTCVrmHumanoidBone *> *)humanoidBones
                      error:(NSError * _Nullable __autoreleasing * _Nullable)error;
 
+/// Loads a VRM/GLB asset with its parsed VRM specification version. VRM 0.x assets are rotated
+/// into the +Z-forward renderer coordinate system while VRM 1.0 assets retain their native basis.
+- (BOOL)loadAvatarWithData:(NSData *)data
+             humanoidBones:(NSArray<VTCVrmHumanoidBone *> *)humanoidBones
+                    isVrm0:(BOOL)isVrm0
+                      error:(NSError * _Nullable __autoreleasing * _Nullable)error;
+
 /// Returns the Filament entity ID for each glTF node name, or `NSNotFound` where the loaded
 /// asset has no entity for that name. Call after a successful load to resolve morph binds.
 - (NSArray<NSNumber *> *)entityIdsForNodeNames:(NSArray<NSString *> *)nodeNames;
