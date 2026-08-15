@@ -355,6 +355,27 @@ mat4f rotationMatrix(float yawDegrees, float pitchDegrees, float rollDegrees) {
     return yawMatrix * (pitchMatrix * rollMatrix);
 }
 
+// VRM 0.x defines visual forward as -Z, while this renderer (and VRM 1.0) uses +Z as
+// forward. Applying the conversion to the synthetic asset root keeps humanoid tracking in the
+// model's local coordinate system instead of requiring per-bone corrections.
+mat4f vrm0ToRendererCoordinates() {
+    return mat4f{
+        float4{-1.0f, 0.0f, 0.0f, 0.0f},
+        float4{0.0f, 1.0f, 0.0f, 0.0f},
+        float4{0.0f, 0.0f, -1.0f, 0.0f},
+        float4{0.0f, 0.0f, 0.0f, 1.0f},
+    };
+}
+
+mat4f identityMatrix() {
+    return mat4f{
+        float4{1.0f, 0.0f, 0.0f, 0.0f},
+        float4{0.0f, 1.0f, 0.0f, 0.0f},
+        float4{0.0f, 0.0f, 1.0f, 0.0f},
+        float4{0.0f, 0.0f, 0.0f, 1.0f},
+    };
+}
+
 /// Camera target and distance derived from the loaded model's bounding box.
 struct SceneFraming {
     double targetX = 0.0;
@@ -434,6 +455,7 @@ public:
     bool loadAvatar(const uint8_t* bytes,
                     size_t size,
                     const std::vector<std::pair<std::string, std::string>>& humanoidBones,
+                    bool isVrm0,
                     VTCFilamentRendererErrorCode& errorCode) {
         clearAvatar();
 
@@ -455,9 +477,10 @@ public:
 
         mAsset = asset;
         configureRenderables();
-        createPoseBindings(humanoidBones);
+        normalizeVrmForwardDirection(isVrm0);
+        createPoseBindings(humanoidBones, isVrm0);
         createMorphTargetBuffers();
-        mFraming = framingForAsset(asset);
+        mFraming = framingForAsset(asset, isVrm0);
         mScene->addEntities(asset->getEntities(), asset->getEntityCount());
         applyAvatarState();
         return true;
@@ -636,24 +659,36 @@ private:
         }
     }
 
-    static SceneFraming framingForAsset(gltfio::FilamentAsset* asset) {
+    static SceneFraming framingForAsset(gltfio::FilamentAsset* asset, bool isVrm0) {
         const Aabb bounds = asset->getBoundingBox();
         const float3 center = bounds.center();
         const float3 halfExtent = bounds.extent();
         const float maxHalfExtent = std::max(std::max(halfExtent.x, halfExtent.y),
                                              std::max(halfExtent.z, kMinModelHalfExtent));
         SceneFraming framing;
-        framing.targetX = static_cast<double>(center.x);
+        const double horizontalCoordinateSign = isVrm0 ? -1.0 : 1.0;
+        framing.targetX = static_cast<double>(center.x) * horizontalCoordinateSign;
         framing.targetY = static_cast<double>(center.y);
-        framing.targetZ = static_cast<double>(center.z);
+        framing.targetZ = static_cast<double>(center.z) * horizontalCoordinateSign;
         framing.cameraDistance = std::max(kDefaultCameraDistance,
                                           static_cast<double>(maxHalfExtent) * kModelFitDistanceMultiplier);
         return framing;
     }
 
+    void normalizeVrmForwardDirection(bool isVrm0) {
+        const auto rootInstance = mEngine->getTransformManager().getInstance(mAsset->getRoot());
+        if (!rootInstance) {
+            return;
+        }
+        mEngine->getTransformManager().setTransform(
+            rootInstance,
+            isVrm0 ? vrm0ToRendererCoordinates() : identityMatrix());
+    }
+
     // Mirrors AndroidAvatarRuntimeController.createPoseBindings: head carries the rotation weight
     // of any joint the model is missing, so tracking still moves an incompletely rigged avatar.
-    void createPoseBindings(const std::vector<std::pair<std::string, std::string>>& humanoidBones) {
+    void createPoseBindings(const std::vector<std::pair<std::string, std::string>>& humanoidBones,
+                            bool isVrm0) {
         struct BoneWeight {
             const char* name;
             float rotationWeight;
@@ -705,8 +740,8 @@ private:
         }
 
         const std::pair<const char*, float> armSpecs[] = {
-            {kLeftUpperArmBoneName, kRelaxedLeftArmRollDegrees},
-            {kRightUpperArmBoneName, kRelaxedRightArmRollDegrees},
+            {kLeftUpperArmBoneName, kRelaxedLeftArmRollDegrees * (isVrm0 ? -1.0f : 1.0f)},
+            {kRightUpperArmBoneName, kRelaxedRightArmRollDegrees * (isVrm0 ? -1.0f : 1.0f)},
         };
         for (const auto& spec : armSpecs) {
             const auto found = boneEntities.find(spec.first);
@@ -978,6 +1013,16 @@ private:
 - (BOOL)loadAvatarWithData:(NSData *)data
              humanoidBones:(NSArray<VTCVrmHumanoidBone *> *)humanoidBones
                      error:(NSError * _Nullable __autoreleasing *)error {
+    return [self loadAvatarWithData:data
+                       humanoidBones:humanoidBones
+                              isVrm0:NO
+                                error:error];
+}
+
+- (BOOL)loadAvatarWithData:(NSData *)data
+             humanoidBones:(NSArray<VTCVrmHumanoidBone *> *)humanoidBones
+                    isVrm0:(BOOL)isVrm0
+                      error:(NSError * _Nullable __autoreleasing *)error {
     if (data.length == 0) {
         [self populateError:error
                        code:VTCFilamentRendererErrorCodeInvalidInput
@@ -1006,6 +1051,7 @@ private:
     const BOOL didLoad = _scene->loadAvatar(static_cast<const uint8_t *>(data.bytes),
                                             data.length,
                                             bones,
+                                            isVrm0,
                                             errorCode);
     if (!didLoad) {
         NSString *message = errorCode == VTCFilamentRendererErrorCodeResourceLoadFailed
