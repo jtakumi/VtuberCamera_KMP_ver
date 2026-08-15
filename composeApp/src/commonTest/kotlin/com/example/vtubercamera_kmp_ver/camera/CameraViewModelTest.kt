@@ -550,7 +550,7 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun onFaceTrackingFrameChanged_formatsAngleAndClampsPercentLabels() = runTest {
+    fun onFaceTrackingFrameChanged_keepsRawFrameForDeferredDisplayFormatting() = runTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
@@ -570,18 +570,11 @@ class CameraViewModelTest {
         viewModel.onFaceTrackingFrameChanged(frame)
         advanceUntilIdle()
 
-        val display = assertNotNull(viewModel.uiState.value.faceTracking.display)
-        assertEquals("12 deg", display.headYawLabel)
-        assertEquals("-9 deg", display.headPitchLabel)
-        assertEquals("30 deg", display.headRollLabel)
-        assertEquals("0%", display.leftEyeBlinkLabel)
-        assertEquals("45%", display.rightEyeBlinkLabel)
-        assertEquals("100%", display.jawOpenLabel)
-        assertEquals("100%", display.mouthSmileLabel)
+        assertEquals(frame, viewModel.uiState.value.faceTracking.frame)
     }
 
     @Test
-    fun onFaceTrackingFrameChanged_whenFrameIsNull_setsNotTrackingAndClearsDisplay() = runTest {
+    fun onFaceTrackingFrameChanged_whenFrameIsNull_setsNotTrackingAndClearsFrame() = runTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
@@ -595,7 +588,6 @@ class CameraViewModelTest {
         val faceTracking = viewModel.uiState.value.faceTracking
         assertEquals(false, faceTracking.isTracking)
         assertNull(faceTracking.frame)
-        assertNull(faceTracking.display)
     }
 
     @Test
