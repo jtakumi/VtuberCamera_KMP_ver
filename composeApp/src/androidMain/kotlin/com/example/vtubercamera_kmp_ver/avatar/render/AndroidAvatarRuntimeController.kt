@@ -187,13 +187,57 @@ internal class AndroidAvatarRuntimeController private constructor(
         val baseLocalTransform: FloatArray,
         val rotationWeight: Float,
         val swayWeight: Float,
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as PoseBinding
+
+            if (transformInstance != other.transformInstance) return false
+            if (rotationWeight != other.rotationWeight) return false
+            if (swayWeight != other.swayWeight) return false
+            if (boneName != other.boneName) return false
+            if (!baseLocalTransform.contentEquals(other.baseLocalTransform)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = transformInstance
+            result = 31 * result + rotationWeight.hashCode()
+            result = 31 * result + swayWeight.hashCode()
+            result = 31 * result + boneName.hashCode()
+            result = 31 * result + baseLocalTransform.contentHashCode()
+            return result
+        }
+    }
 
     private data class ArmPoseBinding(
         val transformInstance: Int,
         val baseLocalTransform: FloatArray,
         val rollDegrees: Float,
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as ArmPoseBinding
+
+            if (transformInstance != other.transformInstance) return false
+            if (rollDegrees != other.rollDegrees) return false
+            if (!baseLocalTransform.contentEquals(other.baseLocalTransform)) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = transformInstance
+            result = 31 * result + rollDegrees.hashCode()
+            result = 31 * result + baseLocalTransform.contentHashCode()
+            return result
+        }
+    }
 
     private data class ExpressionBinding(
         val weightProvider: (AvatarRenderState) -> Float,
