@@ -53,8 +53,9 @@ internal class AndroidAvatarRenderBridge(
             byteHash = avatarSelection.assetHandle.contentHash,
         )
         if (nextAssetKey == currentAssetKey) {
+            // 姿勢の反映は次の prepareFrame が latestAppliedRenderState を使って行うため、ここでは記録だけに留める。
             currentRuntimeController?.let { controller ->
-                applyAndLogMotion(
+                logMotion(
                     controller = controller,
                     trackingRenderState = trackingRenderState,
                     appliedRenderState = appliedRenderState,
@@ -81,12 +82,13 @@ internal class AndroidAvatarRenderBridge(
                         asset = nextAsset,
                         runtimeDescriptor = avatarSelection.runtimeDescriptor,
                     )
-                    applyAndLogMotion(
+                    // 診断ログが適用後の姿勢を読み戻せるよう、apply を先に済ませてから記録する。
+                    runtimeController.apply(latestAppliedRenderState)
+                    logMotion(
                         controller = runtimeController,
                         trackingRenderState = trackingRenderState,
                         appliedRenderState = appliedRenderState,
                     )
-                    runtimeController.apply(latestAppliedRenderState)
                     scene.addEntities(nextAsset.entities)
                     onSceneFramingChanged(nextAsset.toSceneFraming())
                     runtimeController
@@ -195,18 +197,23 @@ internal class AndroidAvatarRenderBridge(
         lastTrackingStatus = null
     }
 
-    private fun applyAndLogMotion(
+    /**
+     * tracking / 適用済み render state を診断ログへ記録する。
+     *
+     * rig への姿勢反映は行わない。読み戻しを伴う [AndroidAvatarRuntimeController.applicationTargets] は
+     * 実際にログを出力するときだけ呼び、毎フレームの JNI 往復と一時オブジェクト生成を避ける。
+     */
+    private fun logMotion(
         controller: AndroidAvatarRuntimeController,
         trackingRenderState: AvatarRenderState,
         appliedRenderState: AvatarRenderState,
     ) {
-        controller.apply(appliedRenderState)
-        val application = controller.applicationTargets()
         val previousState = previousTrackingRenderState
         val trackingChanged = previousState == null || trackingRenderState.differsVisiblyFrom(previousState)
         val statusChanged = appliedRenderState.trackingStatus != lastTrackingStatus
         val now = SystemClock.elapsedRealtime()
         if (statusChanged || now - lastMotionLogElapsedMillis >= MOTION_LOG_INTERVAL_MILLIS) {
+            val application = controller.applicationTargets()
             Log.d(
                 AVATAR_MOTION_LOG_TAG,
                 "sourceTs=${trackingRenderState.sourceTimestampMillis ?: -1L} " +
