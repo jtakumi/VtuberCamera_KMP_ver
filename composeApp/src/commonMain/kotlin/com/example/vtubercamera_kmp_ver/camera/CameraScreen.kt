@@ -45,6 +45,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
+import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
+import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 import com.example.vtubercamera_kmp_ver.theme.ThemeMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlin.math.roundToInt
@@ -129,7 +131,19 @@ fun CameraRoute(
     CameraScreen(
         modifier = modifier,
         cameraRepository = repositories.cameraRepository,
-        uiState = uiState,
+        session = uiState.session,
+        permission = uiState.permission,
+        zoom = uiState.zoom,
+        photoCapture = uiState.photoCapture,
+        photoDeletion = uiState.photoDeletion,
+        capturedPhotoUri = uiState.capturedPhotoUri,
+        faceTracking = uiState.faceTracking,
+        avatarRender = uiState.avatarRender,
+        avatarSelection = uiState.avatarSelection.avatarSelection,
+        filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
+        avatarScale = uiState.avatarScale.currentAvatarScale,
+        backgroundMode = uiState.background.mode,
+        pinchTarget = uiState.effectivePinchTarget,
         rendererHost = rendererHost,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
@@ -159,7 +173,19 @@ fun CameraRoute(
 @Composable
 fun CameraScreen(
     cameraRepository: CameraRepository,
-    uiState: CameraUiState,
+    session: CameraSessionUiState,
+    permission: CameraPermissionUiState,
+    zoom: CameraZoomUiState,
+    photoCapture: PhotoCaptureState,
+    photoDeletion: PhotoDeletionState,
+    capturedPhotoUri: String?,
+    faceTracking: FaceTrackingUiState,
+    avatarRender: AvatarRenderState,
+    avatarSelection: AvatarSelectionData?,
+    filePickerErrorMessageRes: StringResource?,
+    avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
+    pinchTarget: PinchGestureTarget,
     onRequestPermission: () -> Unit,
     onRetryPreview: () -> Unit,
     onOpenFilePicker: () -> Unit,
@@ -179,7 +205,7 @@ fun CameraScreen(
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
-    val previewError = uiState.session.previewState as? PreviewState.Error
+    val previewError = session.previewState as? PreviewState.Error
 
     Box(
         modifier = modifier
@@ -187,8 +213,8 @@ fun CameraScreen(
             .background(MaterialTheme.colorScheme.scrim),
     ) {
         when {
-            uiState.isPermissionChecking -> LoadingState()
-            uiState.permission.permissionState == PermissionState.Denied -> PermissionDeniedState(
+            permission.permissionState == PermissionState.Unknown -> LoadingState()
+            permission.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
             )
 
@@ -197,9 +223,19 @@ fun CameraScreen(
                 onRetryPreview = onRetryPreview,
             )
 
-            uiState.isPermissionGranted -> CameraPreviewState(
+            permission.permissionState == PermissionState.Granted -> CameraPreviewState(
                 cameraRepository = cameraRepository,
-                uiState = uiState,
+                lensFacing = session.lensFacing,
+                zoomScale = zoom.currentCameraZoomRatio,
+                backgroundMode = backgroundMode,
+                faceTracking = faceTracking,
+                avatarSelection = avatarSelection,
+                avatarRenderState = avatarRender,
+                avatarScale = avatarScale,
+                pinchTarget = pinchTarget,
+                photoCapture = photoCapture,
+                photoDeletion = photoDeletion,
+                capturedPhotoUri = capturedPhotoUri,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -220,9 +256,9 @@ fun CameraScreen(
         }
 
         (
-            uiState.photoDeletion.toCameraMessage()
-                ?: uiState.photoCapture.toCameraMessage()
-                ?: uiState.session.message
+            photoDeletion.toCameraMessage()
+                ?: photoCapture.toCameraMessage()
+                ?: session.message
         )?.let { message ->
             CameraMessageBanner(
                 message = message,
@@ -236,7 +272,7 @@ fun CameraScreen(
             )
         }
 
-        uiState.avatarSelection.filePickerErrorMessageRes?.let { messageRes ->
+        filePickerErrorMessageRes?.let { messageRes ->
             AlertDialog(
                 onDismissRequest = onDismissFilePickerError,
                 title = { Text(stringResource(Res.string.avatar_error_dialog_title)) },
@@ -254,7 +290,17 @@ fun CameraScreen(
 @Composable
 private fun CameraPreviewState(
     cameraRepository: CameraRepository,
-    uiState: CameraUiState,
+    lensFacing: CameraLensFacing,
+    zoomScale: Float,
+    backgroundMode: CameraBackgroundMode,
+    faceTracking: FaceTrackingUiState,
+    avatarSelection: AvatarSelectionData?,
+    avatarRenderState: AvatarRenderState,
+    avatarScale: Float,
+    pinchTarget: PinchGestureTarget,
+    photoCapture: PhotoCaptureState,
+    photoDeletion: PhotoDeletionState,
+    capturedPhotoUri: String?,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -270,24 +316,22 @@ private fun CameraPreviewState(
     themeMode: ThemeMode,
     onThemeModeToggle: () -> Unit,
 ) {
-    val avatarSelection = uiState.avatarSelection.avatarSelection
-    val avatarPreview = uiState.avatarPreview
-    val pinchTarget = uiState.effectivePinchTarget
+    val avatarPreview = avatarSelection?.preview
 
     Box(modifier = Modifier.fillMaxSize()) {
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
-            lensFacing = uiState.session.lensFacing,
+            lensFacing = lensFacing,
             zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
-            backgroundMode = uiState.background.mode,
+            backgroundMode = backgroundMode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
         )
         CameraRendererLayer(
             avatarSelection = avatarSelection,
             avatarPreview = avatarPreview,
-            avatarRenderState = uiState.avatarRender,
-            avatarScale = uiState.avatarScale.currentAvatarScale,
+            avatarRenderState = avatarRenderState,
+            avatarScale = avatarScale,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
@@ -307,21 +351,21 @@ private fun CameraPreviewState(
         )
         CameraUiLayer(
             avatarPreview = avatarPreview,
-            faceTracking = uiState.faceTracking,
-            zoomScale = uiState.zoom.currentCameraZoomRatio,
-            avatarScale = uiState.avatarScale.currentAvatarScale,
+            faceTracking = faceTracking,
+            zoomScale = zoomScale,
+            avatarScale = avatarScale,
             pinchTarget = pinchTarget,
             canTogglePinchTarget = avatarSelection != null,
             onTogglePinchTarget = onTogglePinchTarget,
-            backgroundMode = uiState.background.mode,
+            backgroundMode = backgroundMode,
             onToggleBackgroundMode = onToggleBackgroundMode,
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
             onDeletePhoto = onDeletePhoto,
-            isCapturingPhoto = uiState.photoCapture == PhotoCaptureState.Capturing,
-            canDeletePhoto = uiState.canDeletePhoto,
-            isDeletingPhoto = uiState.isDeletingPhoto,
+            isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
+            canDeletePhoto = capturedPhotoUri != null && photoDeletion != PhotoDeletionState.Deleting,
+            isDeletingPhoto = photoDeletion == PhotoDeletionState.Deleting,
             themeMode = themeMode,
             onThemeModeToggle = onThemeModeToggle,
         )
@@ -839,7 +883,7 @@ private fun FaceTrackingDetailsPanel(
                 text = stringResource(Res.string.face_tracking_title),
                 style = MaterialTheme.typography.titleSmall,
             )
-            faceTracking.display?.let { display ->
+            faceTracking.frame?.toDisplayState()?.let { display ->
                 FaceTrackingMetricRow(
                     label = stringResource(Res.string.face_tracking_label_yaw),
                     value = display.headYawLabel,
@@ -876,6 +920,20 @@ private fun FaceTrackingDetailsPanel(
         }
     }
 }
+
+// 数値ラベルは詳細パネルが展開されている間だけ必要なため、フレーム到着時ではなく描画時に生成する。
+private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
+    FaceTrackingDisplayState(
+        headYawLabel = "${headYawDegrees.roundToInt()} deg",
+        headPitchLabel = "${headPitchDegrees.roundToInt()} deg",
+        headRollLabel = "${headRollDegrees.roundToInt()} deg",
+        leftEyeBlinkLabel = leftEyeBlink.asPercentLabel(),
+        rightEyeBlinkLabel = rightEyeBlink.asPercentLabel(),
+        jawOpenLabel = jawOpen.asPercentLabel(),
+        mouthSmileLabel = mouthSmile.asPercentLabel(),
+    )
+
+private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"
 
 @Composable
 private fun BottomCaptureControls(
