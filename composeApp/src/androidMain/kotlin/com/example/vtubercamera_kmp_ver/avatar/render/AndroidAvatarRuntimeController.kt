@@ -15,12 +15,27 @@ internal class AndroidAvatarRuntimeController private constructor(
     private val morphTargets: Map<Int, FloatArray>,
     private val expressionBindings: List<ExpressionBinding>,
 ) {
-    fun apply(renderState: AvatarRenderState) {
+    // 描画ループ内で毎フレーム行列を組み立てるため、確保済みバッファを使い回して GC 負荷を避ける。
+    // apply / prepareFrame はいずれも Compose の main thread から呼ばれるので共有して問題ない。
+    private val rotationScratch = FloatArray(MATRIX_SIZE)
+    private val transformScratch = FloatArray(MATRIX_SIZE)
+
+    init {
+        // 脱力させた腕の姿勢は定数なので、毎フレーム計算せず生成時に一度だけ適用する。
         applyRelaxedArmPose()
+    }
+
+    fun apply(renderState: AvatarRenderState) {
         applyHeadPose(renderState)
         applyExpressions(renderState)
     }
 
+    /**
+     * 現在 rig に適用されている姿勢を診断用に読み戻す。
+     *
+     * TransformManager への JNI 読み出しと診断オブジェクト生成を伴うため、
+     * 毎フレームではなくログ出力が実際に必要なタイミングでのみ呼ぶこと。
+     */
     fun applicationTargets(): AvatarRenderApplicationResult {
         val transformManager = engine.transformManager
         val poseMatrices = poseBindings.map { binding ->
@@ -47,38 +62,49 @@ internal class AndroidAvatarRuntimeController private constructor(
     private fun applyHeadPose(renderState: AvatarRenderState) {
         if (poseBindings.isEmpty()) return
         val transformManager = engine.transformManager
-        poseBindings.forEach { binding ->
-            val rotation = rotationMatrix(
+        // 描画ループ内のためイテレータを確保しない index ベースで回す。
+        for (index in poseBindings.indices) {
+            val binding = poseBindings[index]
+            writeRotationMatrix(
                 yawDegrees = renderState.rig.headYawDegrees * binding.rotationWeight +
                     renderState.rig.bodySwayDegrees * binding.swayWeight,
                 pitchDegrees = renderState.rig.headPitchDegrees * binding.rotationWeight +
                     renderState.rig.bodyLeanDegrees * binding.swayWeight,
                 rollDegrees = renderState.rig.headRollDegrees * binding.rotationWeight -
                     renderState.rig.bodySwayDegrees * binding.swayWeight * 0.35f,
+                destination = rotationScratch,
             )
-            transformManager.setTransform(
-                binding.transformInstance,
-                multiplyColumnMajor(binding.baseLocalTransform, rotation),
+            multiplyColumnMajor(
+                left = binding.baseLocalTransform,
+                right = rotationScratch,
+                destination = transformScratch,
             )
+            transformManager.setTransform(binding.transformInstance, transformScratch)
         }
     }
 
-    /** Keeps imported VRM avatars out of their bind/T-pose while tracking is active. */
+    /**
+     * Keeps imported VRM avatars out of their bind/T-pose while tracking is active.
+     *
+     * 適用する角度は binding が持つ定数なので結果は不変であり、生成時の一度だけ呼べばよい。
+     */
     private fun applyRelaxedArmPose() {
         if (armPoseBindings.isEmpty()) return
         val transformManager = engine.transformManager
-        armPoseBindings.forEach { binding ->
-            transformManager.setTransform(
-                binding.transformInstance,
-                multiplyColumnMajor(
-                    binding.baseLocalTransform,
-                    rotationMatrix(
-                        yawDegrees = 0f,
-                        pitchDegrees = 0f,
-                        rollDegrees = binding.rollDegrees,
-                    ),
-                ),
+        for (index in armPoseBindings.indices) {
+            val binding = armPoseBindings[index]
+            writeRotationMatrix(
+                yawDegrees = 0f,
+                pitchDegrees = 0f,
+                rollDegrees = binding.rollDegrees,
+                destination = rotationScratch,
             )
+            multiplyColumnMajor(
+                left = binding.baseLocalTransform,
+                right = rotationScratch,
+                destination = transformScratch,
+            )
+            transformManager.setTransform(binding.transformInstance, transformScratch)
         }
     }
 
@@ -114,11 +140,18 @@ internal class AndroidAvatarRuntimeController private constructor(
         }
     }
 
-    private fun rotationMatrix(
+    /**
+     * yaw → pitch → roll の合成回転を column-major 行列として [destination] へ書き込む。
+     *
+     * 中間行列を組み立てて掛け合わせる代わりに積を展開しているため、呼び出しごとの確保が発生しない。
+     * [destination] は 16 要素すべてが上書きされるので、呼び出し側で初期化する必要はない。
+     */
+    private fun writeRotationMatrix(
         yawDegrees: Float,
         pitchDegrees: Float,
         rollDegrees: Float,
-    ): FloatArray {
+        destination: FloatArray,
+    ) {
         val yaw = Math.toRadians(yawDegrees.toDouble())
         val pitch = Math.toRadians(pitchDegrees.toDouble())
         val roll = Math.toRadians(rollDegrees.toDouble())
@@ -130,26 +163,22 @@ internal class AndroidAvatarRuntimeController private constructor(
         val cr = cos(roll).toFloat()
         val sr = sin(roll).toFloat()
 
-        val yawMatrix = floatArrayOf(
-            cy, 0f, -sy, 0f,
-            0f, 1f, 0f, 0f,
-            sy, 0f, cy, 0f,
-            0f, 0f, 0f, 1f,
-        )
-        val pitchMatrix = floatArrayOf(
-            1f, 0f, 0f, 0f,
-            0f, cp, sp, 0f,
-            0f, -sp, cp, 0f,
-            0f, 0f, 0f, 1f,
-        )
-        val rollMatrix = floatArrayOf(
-            cr, sr, 0f, 0f,
-            -sr, cr, 0f, 0f,
-            0f, 0f, 1f, 0f,
-            0f, 0f, 0f, 1f,
-        )
-
-        return multiplyColumnMajor(yawMatrix, multiplyColumnMajor(pitchMatrix, rollMatrix))
+        destination[0] = cy * cr + sy * sp * sr
+        destination[1] = cp * sr
+        destination[2] = -sy * cr + cy * sp * sr
+        destination[3] = 0f
+        destination[4] = -cy * sr + sy * sp * cr
+        destination[5] = cp * cr
+        destination[6] = sy * sr + cy * sp * cr
+        destination[7] = 0f
+        destination[8] = sy * cp
+        destination[9] = -sp
+        destination[10] = cy * cp
+        destination[11] = 0f
+        destination[12] = 0f
+        destination[13] = 0f
+        destination[14] = 0f
+        destination[15] = 1f
     }
 
     private data class PoseBinding(
@@ -313,21 +342,25 @@ internal class AndroidAvatarRuntimeController private constructor(
             }
         }
 
+        /**
+         * column-major 4x4 行列の積 `left * right` を [destination] へ書き込む。
+         *
+         * [destination] は書き込みながら [left] / [right] を読むため、これらと同じ配列を渡してはならない。
+         */
         private fun multiplyColumnMajor(
             left: FloatArray,
             right: FloatArray,
-        ): FloatArray {
-            val result = FloatArray(MATRIX_SIZE)
+            destination: FloatArray,
+        ) {
             for (column in 0 until MATRIX_EDGE) {
                 for (row in 0 until MATRIX_EDGE) {
                     var value = 0f
                     for (index in 0 until MATRIX_EDGE) {
                         value += left[index * MATRIX_EDGE + row] * right[column * MATRIX_EDGE + index]
                     }
-                    result[column * MATRIX_EDGE + row] = value
+                    destination[column * MATRIX_EDGE + row] = value
                 }
             }
-            return result
         }
 
         private const val HEAD_BONE_NAME = "head"
