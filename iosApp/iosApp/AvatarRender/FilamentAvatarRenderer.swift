@@ -73,7 +73,11 @@ final class FilamentAvatarRenderer {
         }
 
         do {
-            try bridge.loadAvatar(with: payload.assetData, humanoidBones: payload.rig.humanoidBones)
+            try bridge.loadAvatar(
+                with: payload.assetData,
+                humanoidBones: payload.rig.humanoidBones,
+                isVrm0: payload.rig.specVersion == .vrm0
+            )
             applyExpressionBindings(for: payload.rig)
             hideStaticPreview()
             needsDisplayLink = true
