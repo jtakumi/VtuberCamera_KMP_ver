@@ -123,7 +123,11 @@ private class MlKitAndroidFaceDetectorClient : AndroidFaceDetectorClient {
     ) {
         detector.process(image)
             .addOnSuccessListener { faces ->
-                onSuccess(faces.map(Face::toDetectedFace))
+                // アバターは最も目立つ 1 人だけを追跡する。全顔の輪郭点を Kotlin オブジェクトへ
+                // 展開せず、必要な顔だけ変換する。
+                onSuccess(
+                    faces.firstOrNull()?.let(Face::toDetectedFace)?.let(::listOf).orEmpty(),
+                )
             }
             .addOnFailureListener { throwable ->
                 onFailure(throwable)
