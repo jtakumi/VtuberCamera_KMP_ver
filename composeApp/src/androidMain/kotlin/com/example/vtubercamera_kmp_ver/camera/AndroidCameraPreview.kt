@@ -15,6 +15,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
 import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.ZoomState
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -149,6 +150,7 @@ actual fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit):
 
 @Composable
 @ExperimentalGetImage
+@ExperimentalCamera2Interop
 actual fun CameraPreviewHost(
     modifier: Modifier,
     cameraRepository: CameraRepository,
