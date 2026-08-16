@@ -83,7 +83,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - 権限状態は `Unknown` / `Granted` / `Denied` の 3 状態で管理する (`PermissionState`)。
 - `CameraPermissionCoordinator` が権限変化イベント（`GrantedEntered` / `GrantedRefreshed` / `DeniedReceived` / `UnknownReceived`）を発行し、権限が Granted へ遷移した時点でプレビュー開始を起動する。
 - 権限拒否時はエラーメッセージ（ローカライズ済みリソース）を表示する。
-- 権限文言は共有リソース (`resources/CameraPermissionTexts.kt` ほか) で管理する。
+- 権限文言は共有リソース (`composeResources/values/strings.xml`) で管理する。
 
 ### FR-02 リアルタイムカメラプレビュー
 
