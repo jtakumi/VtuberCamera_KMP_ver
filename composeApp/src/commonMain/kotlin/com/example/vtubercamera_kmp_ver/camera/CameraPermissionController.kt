@@ -68,7 +68,9 @@ data class AvatarPreviewData(
         if (avatarName != other.avatarName) return false
         if (authorName != other.authorName) return false
         if (vrmVersion != other.vrmVersion) return false
-        if (!thumbnailBytes.contentEquals(other.thumbnailBytes)) return false
+        // サムネイルは読み込み済みの immutable asset handle として扱う。内容比較は描画時に
+        // 毎回バイト列全体を走査してしまうため、同じバッファを保持している場合だけ等価にする。
+        if (thumbnailBytes !== other.thumbnailBytes) return false
 
         return true
     }
@@ -80,7 +82,7 @@ data class AvatarPreviewData(
         result = hashMultiplier * result + avatarName.hashCode()
         result = hashMultiplier * result + (authorName?.hashCode() ?: defaultHashValue)
         result = hashMultiplier * result + (vrmVersion?.hashCode() ?: defaultHashValue)
-        result = hashMultiplier * result + (thumbnailBytes?.contentHashCode() ?: defaultHashValue)
+        result = hashMultiplier * result + (thumbnailBytes?.hashCode() ?: defaultHashValue)
         return result
     }
 }

@@ -5,13 +5,12 @@ import com.example.vtubercamera_kmp_ver.camera.NormalizedFaceFrame
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class FaceTrackingPresenterTest {
 
     @Test
-    fun onFaceTrackingFrameChanged_withFrame_formatsLabelsAndMarksTracking() {
+    fun onFaceTrackingFrameChanged_withFrame_storesRawFrameAndMarksTracking() {
         val presenter = FaceTrackingPresenter()
         val frame = NormalizedFaceFrame(
             timestampMillis = 100L,
@@ -27,14 +26,7 @@ class FaceTrackingPresenterTest {
 
         presenter.onFaceTrackingFrameChanged(frame)
 
-        val display = assertNotNull(presenter.state.value.faceTracking.display)
-        assertEquals("12 deg", display.headYawLabel)
-        assertEquals("-9 deg", display.headPitchLabel)
-        assertEquals("30 deg", display.headRollLabel)
-        assertEquals("0%", display.leftEyeBlinkLabel)
-        assertEquals("45%", display.rightEyeBlinkLabel)
-        assertEquals("100%", display.jawOpenLabel)
-        assertEquals("100%", display.mouthSmileLabel)
+        assertEquals(frame, presenter.state.value.faceTracking.frame)
         assertEquals(true, presenter.state.value.faceTracking.isTracking)
     }
 
@@ -59,7 +51,6 @@ class FaceTrackingPresenterTest {
 
         assertFalse(presenter.state.value.faceTracking.isTracking)
         assertNull(presenter.state.value.faceTracking.frame)
-        assertNull(presenter.state.value.faceTracking.display)
         assertEquals(
             AvatarTrackingStatus.NotTracked,
             presenter.state.value.avatarRender.trackingStatus,
