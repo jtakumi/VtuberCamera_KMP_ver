@@ -48,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -61,7 +63,9 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -158,6 +162,21 @@ actual fun CameraPreviewHost(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
+    if (LocalInspectionMode.current) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Camera Preview Placeholder",
+                color = Color.White
+            )
+        }
+        return
+    }
+
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
@@ -458,12 +477,48 @@ actual fun rememberCameraRepositories(
     permissionController: CameraPermissionController,
 ): CameraRepositories {
     val context = LocalContext.current
-    return remember(permissionController, context) {
-        createCameraRepositories(
-            context = context,
-            permissionController = permissionController,
-        )
+    val isInspectionMode = LocalInspectionMode.current
+    return remember(permissionController, context, isInspectionMode) {
+        if (isInspectionMode) {
+            createMockCameraRepositories()
+        } else {
+            createCameraRepositories(
+                context = context,
+                permissionController = permissionController,
+            )
+        }
     }
+}
+
+private fun createMockCameraRepositories(): CameraRepositories {
+    return CameraRepositories(
+        cameraRepository = object : CameraRepository {
+            override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> =
+                Result.success(lensFacing)
+
+            override suspend fun stopPreview() {}
+            override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> =
+                Result.success(current)
+
+            override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> =
+                Result.success(preferred)
+
+            override fun observePreviewState(): Flow<PreviewState> = emptyFlow()
+            override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = emptyFlow()
+            override suspend fun capturePhoto(): Result<String?> = Result.success(null)
+            override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = emptyFlow()
+            override suspend fun deletePhoto(uri: String): Result<Unit> = Result.success(Unit)
+            override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {}
+            override fun onPlatformPreviewError(lensFacing: CameraLensFacing, error: CameraError) {}
+            override fun observeZoomState(): Flow<CameraZoomUiState> = emptyFlow()
+            override fun onPlatformZoomStateChanged(zoomUiState: CameraZoomUiState) {}
+            override fun setZoomRatio(updatedZoomRatio: Float) {}
+        },
+        permissionRepository = object : PermissionRepository {
+            override suspend fun checkCameraPermission(): PermissionState = PermissionState.Granted
+            override suspend fun requestCameraPermission(): PermissionState = PermissionState.Granted
+        },
+    )
 }
 
 private fun createCameraPermissionController(): CameraPermissionController {
