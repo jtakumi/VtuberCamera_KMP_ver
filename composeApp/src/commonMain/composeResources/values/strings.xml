@@ -2,11 +2,6 @@
     <string name="camera_permission_required_message">カメラプレビューを表示するにはカメラ権限が必要です。</string>
     <string name="camera_permission_granted_description">権限を許可するとカメラのプレビューを表示します。</string>
     <string name="camera_permission_request_button">カメラを許可</string>
-    <string name="camera_permission_denied_description">設定アプリでカメラへのアクセスを許可すると、カメラのプレビューを表示できます。</string>
-    <string name="camera_permission_not_determined_description">「カメラを起動」を押すと、iOS の権限ダイアログを表示します。</string>
-    <string name="camera_permission_checking_description">権限を確認しています。</string>
-    <string name="camera_permission_open_settings_button">設定を開く</string>
-    <string name="camera_permission_launch_button">カメラを起動</string>
     <string name="camera_switch_button">カメラ切り替え</string>
     <string name="camera_capture_button">写真撮影</string>
     <string name="theme_toggle_content_description">テーマ切り替え</string>
@@ -47,9 +42,6 @@
     <string name="avatar_preview_vrm_badge">VRM</string>
     <string name="avatar_preview_author_label">Author: %1$s</string>
     <string name="avatar_preview_version_label">Version: %1$s</string>
-    <string name="avatar_renderer_host_title">Avatar Renderer Host</string>
-    <string name="avatar_renderer_host_ready">Android surface reserved for the VRM renderer.</string>
-    <string name="avatar_renderer_host_hint">Next step: attach avatar rig updates and draw the selected model here.</string>
     <string name="face_tracking_title">Face Tracking</string>
     <string name="face_tracking_status_tracking">Tracking face</string>
     <string name="face_tracking_status_searching">Searching for face</string>
@@ -62,7 +54,6 @@
     <string name="face_tracking_label_blink_right">Blink R</string>
     <string name="face_tracking_label_jaw">Jaw</string>
     <string name="face_tracking_label_smile">Smile</string>
-    <string name="ios_camera_preview_placeholder">iOS のカメラプレビューはネイティブ iOS 側で表示されます。</string>
     <string name="vrm_error_select_file">VRM/GLBファイルを選択してください。</string>
     <string name="vrm_error_read_failed">VRM/GLBファイルの読み込みに失敗しました。</string>
     <string name="vrm_error_invalid_format">VRM/GLBファイルの形式が不正です。</string>
