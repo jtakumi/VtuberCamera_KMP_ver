@@ -114,19 +114,19 @@ class CameraSessionControllerTest {
     @Test
     fun onToggleLensFacing_whenSwitchSucceeds_updatesLensFacingAndClearsError() = runTest {
         val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.success(CameraLensFacing.Front),
+            switchLensResult = Result.success(CameraLensFacing.Back),
         )
         val controller = CameraSessionController(cameraRepository, controllerScope())
         advanceUntilIdle()
-        assertEquals(CameraLensFacing.Back, controller.state.value.lensFacing)
+        assertEquals(CameraLensFacing.Front, controller.state.value.lensFacing)
 
         controller.onToggleLensFacing()
         advanceUntilIdle()
 
-        assertEquals(CameraLensFacing.Front, controller.state.value.lensFacing)
+        assertEquals(CameraLensFacing.Back, controller.state.value.lensFacing)
         assertNull(controller.state.value.errorState)
         assertEquals(1, cameraRepository.switchLensCallCount)
-        assertEquals(listOf(CameraLensFacing.Back), cameraRepository.switchLensRequests)
+        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.switchLensRequests)
     }
 
     @Test

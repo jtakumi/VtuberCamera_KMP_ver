@@ -18,7 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -47,7 +46,6 @@ import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
-import com.example.vtubercamera_kmp_ver.theme.ThemeMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
@@ -72,26 +70,10 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_req
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_left
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_blink_right
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_jaw
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_pitch
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_roll
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_smile
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_label_yaw
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_details_hide
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_details_show
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_searching
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_status_tracking
-import vtubercamera_kmp_ver.composeapp.generated.resources.face_tracking_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_avatar_scale
 import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_camera_zoom
 import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_toggle_content_description
-import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_dark
-import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_light
-import vtubercamera_kmp_ver.composeapp.generated.resources.theme_mode_system
-import vtubercamera_kmp_ver.composeapp.generated.resources.theme_toggle_content_description
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -103,8 +85,6 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.theme_toggle_content_
 fun CameraRoute(
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
-    themeMode: ThemeMode = ThemeMode.System,
-    onThemeModeToggle: () -> Unit = {},
 ) {
     val permissionController = rememberCameraPermissionController()
     val repositories = rememberCameraRepositories(permissionController)
@@ -137,7 +117,6 @@ fun CameraRoute(
         photoCapture = uiState.photoCapture,
         photoDeletion = uiState.photoDeletion,
         capturedPhotoUri = uiState.capturedPhotoUri,
-        faceTracking = uiState.faceTracking,
         avatarRender = uiState.avatarRender,
         avatarSelection = uiState.avatarSelection.avatarSelection,
         filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
@@ -159,8 +138,6 @@ fun CameraRoute(
         onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
         onDeletePhoto = cameraViewModel::onDeletePhoto,
-        themeMode = themeMode,
-        onThemeModeToggle = onThemeModeToggle,
     )
 }
 
@@ -179,7 +156,6 @@ fun CameraScreen(
     photoCapture: PhotoCaptureState,
     photoDeletion: PhotoDeletionState,
     capturedPhotoUri: String?,
-    faceTracking: FaceTrackingUiState,
     avatarRender: AvatarRenderState,
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
@@ -200,8 +176,6 @@ fun CameraScreen(
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
-    themeMode: ThemeMode,
-    onThemeModeToggle: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -228,7 +202,6 @@ fun CameraScreen(
                 lensFacing = session.lensFacing,
                 zoomScale = zoom.currentCameraZoomRatio,
                 backgroundMode = backgroundMode,
-                faceTracking = faceTracking,
                 avatarSelection = avatarSelection,
                 avatarRenderState = avatarRender,
                 avatarScale = avatarScale,
@@ -248,8 +221,6 @@ fun CameraScreen(
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onCapturePhoto = onCapturePhoto,
                 onDeletePhoto = onDeletePhoto,
-                themeMode = themeMode,
-                onThemeModeToggle = onThemeModeToggle,
             )
 
             else -> LoadingState()
@@ -293,7 +264,6 @@ private fun CameraPreviewState(
     lensFacing: CameraLensFacing,
     zoomScale: Float,
     backgroundMode: CameraBackgroundMode,
-    faceTracking: FaceTrackingUiState,
     avatarSelection: AvatarSelectionData?,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
@@ -313,8 +283,6 @@ private fun CameraPreviewState(
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
     onDeletePhoto: () -> Unit,
-    themeMode: ThemeMode,
-    onThemeModeToggle: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
 
@@ -351,7 +319,6 @@ private fun CameraPreviewState(
         )
         CameraUiLayer(
             avatarPreview = avatarPreview,
-            faceTracking = faceTracking,
             zoomScale = zoomScale,
             avatarScale = avatarScale,
             pinchTarget = pinchTarget,
@@ -366,8 +333,6 @@ private fun CameraPreviewState(
             isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
             canDeletePhoto = capturedPhotoUri != null && photoDeletion != PhotoDeletionState.Deleting,
             isDeletingPhoto = photoDeletion == PhotoDeletionState.Deleting,
-            themeMode = themeMode,
-            onThemeModeToggle = onThemeModeToggle,
         )
     }
 }
@@ -542,12 +507,11 @@ private fun DefaultAvatarRendererHost(
 }
 
 /**
- * カメラ操作ボタン、avatar preview overlay、face tracking 情報を前景 UI として重ねる。
+ * カメラ操作ボタンと avatar preview overlay を前景 UI として重ねる。
  */
 @Composable
 private fun BoxScope.CameraUiLayer(
     avatarPreview: AvatarPreviewData?,
-    faceTracking: FaceTrackingUiState,
     zoomScale: Float,
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
@@ -562,16 +526,8 @@ private fun BoxScope.CameraUiLayer(
     isCapturingPhoto: Boolean,
     canDeletePhoto: Boolean,
     isDeletingPhoto: Boolean,
-    themeMode: ThemeMode,
-    onThemeModeToggle: () -> Unit,
 ) {
-    val themeToggleContentDescription = stringResource(
-        Res.string.theme_toggle_content_description,
-    )
-    var isFaceTrackingExpanded by remember { mutableStateOf(false) }
-
     TopStatusOverlay(
-        faceTracking = faceTracking,
         zoomScale = zoomScale,
         avatarScale = avatarScale,
         pinchTarget = pinchTarget,
@@ -579,11 +535,6 @@ private fun BoxScope.CameraUiLayer(
         onTogglePinchTarget = onTogglePinchTarget,
         backgroundMode = backgroundMode,
         onToggleBackgroundMode = onToggleBackgroundMode,
-        themeMode = themeMode,
-        themeToggleContentDescription = themeToggleContentDescription,
-        isFaceTrackingExpanded = isFaceTrackingExpanded,
-        onFaceTrackingClick = { isFaceTrackingExpanded = !isFaceTrackingExpanded },
-        onThemeModeToggle = onThemeModeToggle,
         modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
@@ -606,16 +557,6 @@ private fun BoxScope.CameraUiLayer(
             .padding(MaterialTheme.spacing.lg),
     )
 }
-
-private val ThemeMode.symbol: String
-    @Composable
-    get() = stringResource(
-        when (this) {
-            ThemeMode.System -> Res.string.theme_mode_system
-            ThemeMode.Light -> Res.string.theme_mode_light
-            ThemeMode.Dark -> Res.string.theme_mode_dark
-        },
-    )
 
 /**
  * ピンチ操作の対象に対応する倍率を表示するインジケーター。
@@ -698,7 +639,6 @@ private const val RATIO_LABEL_SCALE = 10
 
 @Composable
 private fun TopStatusOverlay(
-    faceTracking: FaceTrackingUiState,
     zoomScale: Float,
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
@@ -706,11 +646,6 @@ private fun TopStatusOverlay(
     onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
-    themeMode: ThemeMode,
-    themeToggleContentDescription: String,
-    isFaceTrackingExpanded: Boolean,
-    onFaceTrackingClick: () -> Unit,
-    onThemeModeToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -719,54 +654,27 @@ private fun TopStatusOverlay(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(
+                space = MaterialTheme.spacing.sm,
+                alignment = Alignment.End,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            FaceTrackingStatusChip(
-                faceTracking = faceTracking,
-                isExpanded = isFaceTrackingExpanded,
-                onClick = onFaceTrackingClick,
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
-                if (canTogglePinchTarget) {
-                    PinchTargetToggleChip(
-                        pinchTarget = pinchTarget,
-                        onClick = onTogglePinchTarget,
-                    )
-                }
-                ScaleRatioIndicator(
-                    ratio = when (pinchTarget) {
-                        PinchGestureTarget.CameraZoom -> zoomScale
-                        PinchGestureTarget.AvatarScale -> avatarScale
-                    },
+            // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
+            if (canTogglePinchTarget) {
+                PinchTargetToggleChip(
+                    pinchTarget = pinchTarget,
+                    onClick = onTogglePinchTarget,
                 )
-                Surface(
-                    shape = RoundedCornerShape(MaterialTheme.spacing.md),
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-                    tonalElevation = MaterialTheme.spacing.xs,
-                )
-                {
-                    IconButton(
-                        onClick = onThemeModeToggle,
-                        modifier = Modifier
-                            .size(CONTROL_CHIP_SIZE)
-                            .semantics {
-                                contentDescription = themeToggleContentDescription
-                            },
-                    ) {
-                        Text(
-                            text = themeMode.symbol,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                }
             }
+            ScaleRatioIndicator(
+                ratio = when (pinchTarget) {
+                    PinchGestureTarget.CameraZoom -> zoomScale
+                    PinchGestureTarget.AvatarScale -> avatarScale
+                },
+            )
         }
-        // チップが増えても 1 行に収まらなくなるため、背景切り替えは次の行の右端へ置く。
+        // 背景切り替えは次の行の右端へ置く。
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -775,9 +683,6 @@ private fun TopStatusOverlay(
                 backgroundMode = backgroundMode,
                 onClick = onToggleBackgroundMode,
             )
-        }
-        if (isFaceTrackingExpanded) {
-            FaceTrackingDetailsPanel(faceTracking = faceTracking)
         }
     }
 }
@@ -816,124 +721,6 @@ private fun CameraBackgroundToggleChip(
         )
     }
 }
-
-@Composable
-private fun FaceTrackingStatusChip(
-    faceTracking: FaceTrackingUiState,
-    isExpanded: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Row(
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.md,
-                vertical = MaterialTheme.spacing.sm,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(
-                    if (faceTracking.isTracking) {
-                        Res.string.face_tracking_status_tracking
-                    } else {
-                        Res.string.face_tracking_status_searching
-                    },
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = stringResource(
-                    if (isExpanded) {
-                        Res.string.face_tracking_details_hide
-                    } else {
-                        Res.string.face_tracking_details_show
-                    },
-                ),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun FaceTrackingDetailsPanel(
-    faceTracking: FaceTrackingUiState,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Column(
-            modifier = Modifier.padding(MaterialTheme.spacing.md),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs),
-        ) {
-            Text(
-                text = stringResource(Res.string.face_tracking_title),
-                style = MaterialTheme.typography.titleSmall,
-            )
-            faceTracking.frame?.toDisplayState()?.let { display ->
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_yaw),
-                    value = display.headYawLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_pitch),
-                    value = display.headPitchLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_roll),
-                    value = display.headRollLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_blink_left),
-                    value = display.leftEyeBlinkLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_blink_right),
-                    value = display.rightEyeBlinkLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_jaw),
-                    value = display.jawOpenLabel,
-                )
-                FaceTrackingMetricRow(
-                    label = stringResource(Res.string.face_tracking_label_smile),
-                    value = display.mouthSmileLabel,
-                )
-            } ?: Text(
-                text = stringResource(Res.string.face_tracking_status_searching),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-// 数値ラベルは詳細パネルが展開されている間だけ必要なため、フレーム到着時ではなく描画時に生成する。
-private fun NormalizedFaceFrame.toDisplayState(): FaceTrackingDisplayState =
-    FaceTrackingDisplayState(
-        headYawLabel = "${headYawDegrees.roundToInt()} deg",
-        headPitchLabel = "${headPitchDegrees.roundToInt()} deg",
-        headRollLabel = "${headRollDegrees.roundToInt()} deg",
-        leftEyeBlinkLabel = leftEyeBlink.asPercentLabel(),
-        rightEyeBlinkLabel = rightEyeBlink.asPercentLabel(),
-        jawOpenLabel = jawOpen.asPercentLabel(),
-        mouthSmileLabel = mouthSmile.asPercentLabel(),
-    )
-
-private fun Float.asPercentLabel(): String = "${(coerceIn(0f, 1f) * 100).roundToInt()}%"
 
 @Composable
 private fun BottomCaptureControls(
@@ -1065,30 +852,7 @@ private fun CompactAvatarChip(
     }
 }
 
-private val CONTROL_CHIP_SIZE = 44.dp
 private val CAPTURE_PROGRESS_SIZE = 20.dp
-
-@Composable
-private fun FaceTrackingMetricRow(
-    label: String,
-    value: String,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-        )
-    }
-}
-
 
 @Composable
 private fun CameraMessageBanner(

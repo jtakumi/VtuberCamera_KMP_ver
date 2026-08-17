@@ -16,7 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 // commonTest 全体で共有するカメラリポジトリのフェイク実装。call 記録 / 結果差し替え / preview state 注入を提供する。
 internal class FakeCameraRepository(
     private val resolveInitialLensResult: Result<CameraLensFacing> = Result.success(
-        CameraLensFacing.Back,
+        CameraLensFacing.Front,
     ),
     private val startPreviewResult: Result<CameraLensFacing>? = null,
     private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),

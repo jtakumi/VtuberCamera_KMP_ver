@@ -148,7 +148,7 @@ class CameraViewModelTest {
         assertNull(uiState.session.errorState)
         assertNull(uiState.session.message)
         assertEquals(1, cameraRepository.resolveInitialLensCallCount)
-        assertEquals(listOf(CameraLensFacing.Back), cameraRepository.resolveInitialLensRequests)
+        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.resolveInitialLensRequests)
         assertEquals(1, cameraRepository.startPreviewCallCount)
         assertEquals(listOf(CameraLensFacing.Front), cameraRepository.startPreviewRequests)
     }
@@ -507,23 +507,23 @@ class CameraViewModelTest {
     @Test
     fun onToggleLensFacing_whenSwitchSucceeds_updatesLensFacing() = runTest {
         val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.success(CameraLensFacing.Front),
+            switchLensResult = Result.success(CameraLensFacing.Back),
         )
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
         advanceUntilIdle()
-        assertEquals(CameraLensFacing.Back, viewModel.uiState.value.session.lensFacing)
+        assertEquals(CameraLensFacing.Front, viewModel.uiState.value.session.lensFacing)
 
         viewModel.onToggleLensFacing()
         advanceUntilIdle()
 
         val uiState = viewModel.uiState.value
-        assertEquals(CameraLensFacing.Front, uiState.session.lensFacing)
+        assertEquals(CameraLensFacing.Back, uiState.session.lensFacing)
         assertNull(uiState.session.errorState)
         assertEquals(1, cameraRepository.switchLensCallCount)
-        assertEquals(listOf(CameraLensFacing.Back), cameraRepository.switchLensRequests)
+        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.switchLensRequests)
     }
 
     @Test
@@ -900,13 +900,13 @@ class CameraViewModelTest {
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
         )
         advanceUntilIdle()
-        assertEquals(CameraBackgroundMode.Camera, viewModel.uiState.value.background.mode)
-        assertEquals(false, viewModel.uiState.value.background.hidesCameraImage)
+        assertEquals(CameraBackgroundMode.Green, viewModel.uiState.value.background.mode)
+        assertEquals(true, viewModel.uiState.value.background.hidesCameraImage)
 
         viewModel.onToggleBackgroundMode()
         advanceUntilIdle()
 
-        assertEquals(CameraBackgroundMode.Black, viewModel.uiState.value.background.mode)
+        assertEquals(CameraBackgroundMode.Blue, viewModel.uiState.value.background.mode)
         assertEquals(true, viewModel.uiState.value.background.hidesCameraImage)
     }
 
