@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -760,14 +761,18 @@ private fun BottomCaptureControls(
                 ) {
                     Button(
                         onClick = onOpenFilePicker,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
                     ) {
                         Text(stringResource(Res.string.file_picker_open_button))
                     }
                     Button(
                         onClick = onCapturePhoto,
                         enabled = !isCapturingPhoto,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
                     ) {
                         if (isCapturingPhoto) {
                             CircularProgressIndicator(
@@ -779,7 +784,9 @@ private fun BottomCaptureControls(
                     }
                     Button(
                         onClick = onLensFacingToggle,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
                     ) {
                         Text(stringResource(Res.string.camera_switch_button))
                     }
@@ -852,6 +859,7 @@ private fun CompactAvatarChip(
     }
 }
 
+private val CAPTURE_CONTROL_BUTTON_HEIGHT = 64.dp
 private val CAPTURE_PROGRESS_SIZE = 20.dp
 
 @Composable
