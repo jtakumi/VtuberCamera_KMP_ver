@@ -2,22 +2,27 @@ package com.example.vtubercamera_kmp_ver.camera.background
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class CameraBackgroundControllerTest {
     @Test
-    fun initialState_showsCameraImage() {
+    fun initialState_usesGreenBackground() {
         val controller = CameraBackgroundController()
 
         assertEquals(DEFAULT_CAMERA_BACKGROUND_MODE, controller.state.value.mode)
-        assertFalse(controller.state.value.hidesCameraImage)
+        assertTrue(controller.state.value.hidesCameraImage)
     }
 
     @Test
-    fun onToggleBackgroundMode_walksThroughEveryPresetAndReturnsToCamera() {
+    fun onToggleBackgroundMode_walksThroughEveryPresetAndReturnsToGreen() {
         val controller = CameraBackgroundController()
-        val expectedModes = CameraBackgroundMode.entries.drop(1) + CameraBackgroundMode.Camera
+        val expectedModes = listOf(
+            CameraBackgroundMode.Blue,
+            CameraBackgroundMode.Camera,
+            CameraBackgroundMode.Black,
+            CameraBackgroundMode.White,
+            CameraBackgroundMode.Green,
+        )
 
         val visitedModes = expectedModes.map {
             controller.onToggleBackgroundMode()
@@ -28,16 +33,13 @@ class CameraBackgroundControllerTest {
     }
 
     @Test
-    fun hidesCameraImage_isTrueForEverySolidColorPreset() {
+    fun hidesCameraImage_reflectsTheSelectedPreset() {
         val controller = CameraBackgroundController()
 
-        // Camera 以外のプリセットは、カメラ映像を単色で覆って顔が映らない状態にする。
-        repeat(CameraBackgroundMode.entries.size - 1) {
-            controller.onToggleBackgroundMode()
-            assertTrue(controller.state.value.hidesCameraImage)
-        }
-
+        assertTrue(controller.state.value.hidesCameraImage)
         controller.onToggleBackgroundMode()
-        assertFalse(controller.state.value.hidesCameraImage)
+        assertTrue(controller.state.value.hidesCameraImage)
+        controller.onToggleBackgroundMode()
+        kotlin.test.assertFalse(controller.state.value.hidesCameraImage)
     }
 }

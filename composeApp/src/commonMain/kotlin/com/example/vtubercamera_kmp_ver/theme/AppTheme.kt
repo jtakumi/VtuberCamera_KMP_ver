@@ -60,10 +60,9 @@ val MaterialTheme.spacing: AppSpacing
 
 @Composable
 fun VtuberCameraTheme(
-    themeMode: ThemeMode = ThemeMode.System,
     content: @Composable () -> Unit,
 ) {
-    val useDarkTheme = themeMode.useDarkTheme(isSystemInDarkTheme())
+    val useDarkTheme = isSystemInDarkTheme()
 
     MaterialTheme(
         colorScheme = if (useDarkTheme) DarkAppColorScheme else LightAppColorScheme,
