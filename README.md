@@ -31,7 +31,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - フロント / バックカメラ切り替え
 - ピンチ操作によるカメラズーム制御とズーム倍率表示
 - `UIDocumentPickerViewController` による VRM / GLB ファイル選択
-- SwiftUI + Filament による avatar view ホスト
+- Filament renderer host view を Compose のアバターレイヤーへ提供（`IOSAvatarRenderHost`）
 - avatar render state を Filament ブリッジへ伝達
 - ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達
 - ライト / ダーク / システムテーマ切り替え
