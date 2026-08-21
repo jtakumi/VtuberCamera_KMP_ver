@@ -10,6 +10,8 @@ struct FilamentAvatarView: UIViewRepresentable {
         let hostView = AvatarRenderHostView(frame: .zero)
         hostView.backgroundColor = .clear
         hostView.isOpaque = false
+        // Keep pinch-scaled avatar content inside the clearance reserved above camera controls.
+        hostView.clipsToBounds = true
 
         let renderView = context.coordinator.renderer.renderView
         renderView.frame = hostView.bounds
