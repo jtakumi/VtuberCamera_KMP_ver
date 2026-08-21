@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -259,6 +260,13 @@ fun CameraScreen(
     }
 }
 
+// カメラ画面のレイヤー重ね順。数値が大きいほど手前に描画される。アバターは画面全体を使えるため、
+// 操作 UI が常にアバターより手前になるようにここで順序を固定する。
+private const val CAMERA_BACKGROUND_LAYER_Z_INDEX = 0f
+private const val AVATAR_RENDERER_LAYER_Z_INDEX = 1f
+private const val PINCH_GESTURE_LAYER_Z_INDEX = 2f
+private const val CAMERA_CONTROLS_LAYER_Z_INDEX = 3f
+
 @Composable
 private fun CameraPreviewState(
     cameraRepository: CameraRepository,
@@ -287,6 +295,8 @@ private fun CameraPreviewState(
 ) {
     val avatarPreview = avatarSelection?.preview
 
+    // レイヤーは背景 → アバター → ジェスチャー → 操作 UI の順で重ねる。アバターを拡大しても
+    // ボタン類が隠れないよう、z 順を zIndex で明示して操作 UI を常に最前面に置く。
     Box(modifier = Modifier.fillMaxSize()) {
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
@@ -295,6 +305,7 @@ private fun CameraPreviewState(
             backgroundMode = backgroundMode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
+            modifier = Modifier.zIndex(CAMERA_BACKGROUND_LAYER_Z_INDEX),
         )
         CameraRendererLayer(
             avatarSelection = avatarSelection,
@@ -309,6 +320,7 @@ private fun CameraPreviewState(
         Box(
             modifier = Modifier
                 .matchParentSize()
+                .zIndex(PINCH_GESTURE_LAYER_Z_INDEX)
                 .pointerInput(pinchTarget) {
                     detectTransformGestures { _, _, zoomChange, _ ->
                         when (pinchTarget) {
@@ -353,9 +365,10 @@ private fun CameraBackgroundLayer(
     backgroundMode: CameraBackgroundMode,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .clipToBounds(),
     ) {
@@ -436,14 +449,11 @@ private fun BoxScope.CameraRendererLayer(
                 avatarRenderState = avatarRenderState,
                 avatarScale = avatarScale,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
+                // アバターの表示可能領域は画面全体。拡大しても操作 UI に隠されるだけで
+                // 画面外へ切り取られないよう、余白を持たせずに全面へ広げる。
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(
-                        start = MaterialTheme.spacing.lg,
-                        end = MaterialTheme.spacing.lg,
-                        top = MaterialTheme.spacing.xl * 2,
-                        bottom = MaterialTheme.spacing.xl,
-                    ),
+                    .matchParentSize()
+                    .zIndex(AVATAR_RENDERER_LAYER_Z_INDEX),
             ),
         )
     }
@@ -456,7 +466,7 @@ private fun BoxScope.CameraRendererLayer(
  * 表示用のメタ情報、[avatarRenderState] は renderer host が参照する共有の tracking / render state、
  * [avatarScale] はピンチ操作で決まったアバター表示倍率、[onAvatarRenderLoadFailed] は renderer 側の
  * 読み込み失敗を UI へ戻す callback、[modifier] は CameraScreen 側で決めた renderer layer の
- * 配置情報を表す。
+ * 配置情報（画面全体を占める layer）を表す。
  */
 data class RendererHostSlotState(
     /** renderer host が参照する選択済み avatar の asset handle / runtime 情報。 */
@@ -469,7 +479,7 @@ data class RendererHostSlotState(
     val avatarScale: Float,
     /** renderer 側の読み込み失敗を UI へ戻す callback。 */
     val onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
-    /** CameraScreen 側で決めた renderer layer の配置と padding。 */
+    /** CameraScreen 側で決めた renderer layer の配置。画面全体を占める layer を表す。 */
     val modifier: Modifier,
 )
 
@@ -509,6 +519,9 @@ private fun DefaultAvatarRendererHost(
 
 /**
  * カメラ操作ボタンと avatar preview overlay を前景 UI として重ねる。
+ *
+ * アバターが画面全体まで拡大してもボタン類が隠れないよう、この layer は他のどの layer よりも
+ * 大きい [CAMERA_CONTROLS_LAYER_Z_INDEX] を持つ。
  */
 @Composable
 private fun BoxScope.CameraUiLayer(
@@ -539,6 +552,7 @@ private fun BoxScope.CameraUiLayer(
         modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
+            .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
             .statusBarsPadding()
             .padding(MaterialTheme.spacing.lg),
     )
@@ -554,6 +568,7 @@ private fun BoxScope.CameraUiLayer(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
+            .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
             .navigationBarsPadding()
             .padding(MaterialTheme.spacing.lg),
     )
