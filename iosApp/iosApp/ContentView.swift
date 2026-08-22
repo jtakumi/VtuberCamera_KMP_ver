@@ -2,8 +2,7 @@ import SwiftUI
 import UIKit
 import ComposeApp
 
-private let avatarOverlayWidthRatio: CGFloat = 0.56
-private let avatarOverlayHeightRatio: CGFloat = 0.48
+private let avatarOverlayWidthRatio: CGFloat = 0.92
 private let avatarOverlayBottomPadding: CGFloat = 24
 private let cameraLayerZIndex: Double = 0
 private let rendererLayerZIndex: Double = 1
@@ -11,6 +10,11 @@ private let rendererLayerZIndex: Double = 1
 struct ContentView: View {
     var body: some View {
         GeometryReader { geometry in
+            let avatarOverlayHeight = max(
+                0,
+                geometry.size.height - geometry.safeAreaInsets.top - avatarOverlayBottomPadding
+            )
+
             ZStack(alignment: .bottom) {
                 ComposeCameraRootView()
                     .ignoresSafeArea()
@@ -19,7 +23,7 @@ struct ContentView: View {
                 FilamentAvatarView()
                     .frame(
                         width: geometry.size.width * avatarOverlayWidthRatio,
-                        height: geometry.size.height * avatarOverlayHeightRatio
+                        height: avatarOverlayHeight
                     )
                     .padding(.bottom, avatarOverlayBottomPadding)
                     .allowsHitTesting(false)
