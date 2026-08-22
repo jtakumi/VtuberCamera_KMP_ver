@@ -381,6 +381,7 @@ private fun CameraBackgroundLayer(
                 },
             cameraRepository = cameraRepository,
             lensFacing = lensFacing,
+            backgroundMode = backgroundMode,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
