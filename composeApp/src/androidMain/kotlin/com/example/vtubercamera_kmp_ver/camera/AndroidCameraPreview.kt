@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -379,6 +378,8 @@ actual fun AvatarPreviewOverlay(
     }
 }
 
+// アバターの表示可能領域は CameraScreen から渡された layer 全体、つまり画面全体とする。
+// ボタン類は Compose 側でより手前の layer に置かれるため、拡大したアバターに隠されない。
 @Composable
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
@@ -387,20 +388,13 @@ actual fun AvatarBodyOverlay(
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {
-    Box(
+    AvatarRendererHostView(
+        avatarSelection = avatarSelection,
+        avatarRenderState = avatarRenderState,
+        avatarScale = avatarScale,
+        onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
         modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        AvatarRendererHostView(
-            avatarSelection = avatarSelection,
-            avatarRenderState = avatarRenderState,
-            avatarScale = avatarScale,
-            onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
-            modifier = Modifier
-                .fillMaxWidth(AVATAR_RENDERER_WIDTH_FRACTION)
-                .fillMaxHeight(AVATAR_RENDERER_HEIGHT_FRACTION),
-        )
-    }
+    )
 }
 
 @Composable
@@ -443,9 +437,6 @@ private fun Context.resolveDisplayName(uri: Uri): String? {
             }
         }
 }
-
-private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.68f
-private const val AVATAR_RENDERER_HEIGHT_FRACTION = 0.6f
 
 private fun Throwable.toFilePickerError(defaultMessageRes: StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
     return when (this) {

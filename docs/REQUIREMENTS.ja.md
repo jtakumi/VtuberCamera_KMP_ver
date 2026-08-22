@@ -66,7 +66,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | `composeApp/src/commonMain` | 共有 UI、状態管理、VRM / GLB パース、face→avatar マッピング、テーマ、リソース |
 | `composeApp/src/androidMain` | CameraX プレビュー、ML Kit face tracking、Filament レンダラー、権限処理、`MainActivity` |
 | `composeApp/src/iosMain` | AVFoundation プレビュー (`IOSCameraPreview`)、ARKit face tracking、native bridge への interop |
-| `iosApp` | Compose Multiplatform のホストアプリ (Xcode プロジェクト)、SwiftUI + Filament の avatar view |
+| `iosApp` | Compose Multiplatform のホストアプリ (Xcode プロジェクト)、Compose のアバターレイヤーへ渡す Filament renderer host view |
 | `discord-codex-bot` | Discord slash command から Codex task / Android debug build を起動する補助 Bot（アプリ本体の要件外） |
 
 ## 4. 機能要件（実装済み）
@@ -185,8 +185,9 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | 対象 | A / I（深さに差あり） |
 | 概要 | 選択した VRM アバターを描画し、face tracking 結果を反映する |
 
+- アバターの表示可能領域は画面全体とする。カメラ画面のレイヤーは背景 → アバター → ピンチ検出 → 操作 UI の順に重ね、アバターを拡大してもボタン類が隠れないよう操作 UI を最前面に置く。
 - Android: Filament / gltfio により VRM avatar を描画する。共有 `AvatarRenderState` に Android 向けの gain / emphasis を適用したうえで、head bone transform と VRM expression morph weights へ反映する（end-to-end 統合済み）。
-- iOS: SwiftUI + Filament による avatar view をホストし、共有 `AvatarRenderState` を `VTCAvatarRenderState` へ変換して native bridge (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`) へ伝達する。ただし native Filament renderer での mesh loading / head pose / expression morph 適用は未実装（第 5 章参照）。
+- iOS: Filament renderer の host view を `IOSAvatarRenderHost` 経由で iosApp から受け取り、Compose のアバターレイヤーへ埋め込む。共有 `AvatarRenderState` は `VTCAvatarRenderState` へ変換して native bridge (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`) へ伝達する。ただし native Filament renderer での mesh loading / head pose / expression morph 適用は未実装（第 5 章参照）。
 
 ### FR-11 テーマ切り替えと永続化
 
@@ -221,6 +222,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - 倍率インジケーターには、現在の割り当て先に対応する倍率（カメラズーム倍率またはアバター表示倍率）を表示する。
 - Android: 倍率に応じて Filament カメラの距離を `cameraDistance / avatarScale` へ寄せ、3D シーン内で拡大縮小する。
 - iOS: 倍率を `IOSAvatarRenderInterop` の render state 通知へ載せ、`VTCAvatarRenderState.avatarScale` として native 側へ伝達する。native 側は現状の static preview に倍率を適用する（Filament renderer への適用は FR-10 と同じく未実装）。
+- 拡大時もアバターは画面全体まで広がるだけで、操作 UI より前面には出ない（FR-10 のレイヤー順参照）。
 
 ## 5. 将来要件（未実装・計画中）
 

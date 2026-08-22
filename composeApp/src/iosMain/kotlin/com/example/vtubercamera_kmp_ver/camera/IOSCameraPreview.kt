@@ -277,7 +277,8 @@ actual fun AvatarPreviewOverlay(
 }
 
 @Composable
-// カメラ画面の下部にアバター本体用のオーバーレイを表示する。
+// アバター本体のレイヤーを画面全体へ表示する。renderer host view は iosApp から受け取り、
+// Compose の layer 構成へ取り込むことでカメラ操作ボタンより後ろに描画されるようにする。
 actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
@@ -312,7 +313,24 @@ actual fun AvatarBodyOverlay(
         )
     }
 
-    Box(modifier = modifier.fillMaxSize())
+    val hostView = remember { IOSAvatarRenderHost.makeHostView() }
+
+    DisposableEffect(hostView) {
+        onDispose {
+            hostView?.let { IOSAvatarRenderHost.releaseHostView(it) }
+        }
+    }
+
+    if (hostView == null) {
+        // provider 未登録時は renderer を持たないため、layer だけを確保して他の layer の
+        // 重ね順を変えないようにする。
+        Box(modifier = modifier.fillMaxSize())
+    } else {
+        UIKitView(
+            modifier = modifier.fillMaxSize(),
+            factory = { hostView },
+        )
+    }
 }
 
 // AVFoundation preview layer と ARKit preview view を切り替えて保持する UIKit コンテナ。
