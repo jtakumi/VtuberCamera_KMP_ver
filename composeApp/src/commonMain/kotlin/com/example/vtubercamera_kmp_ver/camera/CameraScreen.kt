@@ -437,10 +437,10 @@ private fun BoxScope.CameraRendererLayer(
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .statusBarsPadding()
                     .padding(
                         start = MaterialTheme.spacing.lg,
                         end = MaterialTheme.spacing.lg,
-                        top = MaterialTheme.spacing.xl * 2,
                         bottom = MaterialTheme.spacing.xl,
                     ),
             ),

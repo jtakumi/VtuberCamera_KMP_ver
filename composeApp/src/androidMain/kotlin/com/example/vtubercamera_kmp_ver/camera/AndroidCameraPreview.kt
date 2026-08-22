@@ -444,8 +444,9 @@ private fun Context.resolveDisplayName(uri: Uri): String? {
         }
 }
 
-private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.68f
-private const val AVATAR_RENDERER_HEIGHT_FRACTION = 0.6f
+// 拡大表示時にアバターがレンダラー領域で見切れないよう、画面内の表示領域を広く確保する。
+private const val AVATAR_RENDERER_WIDTH_FRACTION = 0.92f
+private const val AVATAR_RENDERER_HEIGHT_FRACTION = 1.0f
 
 private fun Throwable.toFilePickerError(defaultMessageRes: StringResource = Res.string.vrm_error_read_failed): FilePickerResult.Error {
     return when (this) {
