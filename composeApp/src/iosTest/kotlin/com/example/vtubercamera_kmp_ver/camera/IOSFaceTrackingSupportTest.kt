@@ -94,16 +94,33 @@ class IOSFaceTrackingSupportTest {
         val pitchRadians = 10f * PI.toFloat() / 180f
         val rollRadians = -20f * PI.toFloat() / 180f
         val pose = iosHeadPoseDegreesFromRotationMatrix(
-            matrix02 = -sin(pitchRadians),
-            matrix12 = sin(rollRadians) * cos(pitchRadians),
-            matrix22 = cos(rollRadians) * cos(pitchRadians),
-            matrix01 = sin(yawRadians) * cos(pitchRadians),
-            matrix00 = cos(yawRadians) * cos(pitchRadians),
+            // Yaw(Y) → pitch(X) → roll(Z), matching the iOS Filament renderer.
+            matrix02 = sin(yawRadians) * cos(pitchRadians),
+            matrix10 = cos(pitchRadians) * sin(rollRadians),
+            matrix11 = cos(pitchRadians) * cos(rollRadians),
+            matrix12 = -sin(pitchRadians),
+            matrix22 = cos(yawRadians) * cos(pitchRadians),
         )
 
         assertEquals(expected = 30f, actual = pose.yawDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = 10f, actual = pose.pitchDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = -20f, actual = pose.rollDegrees, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
+    fun iosHeadPoseDegreesFromRotationMatrix_mapsVerticalMotionToPitchOnly() {
+        val pitchRadians = 25f * PI.toFloat() / 180f
+        val pose = iosHeadPoseDegreesFromRotationMatrix(
+            matrix02 = 0f,
+            matrix10 = 0f,
+            matrix11 = cos(pitchRadians),
+            matrix12 = -sin(pitchRadians),
+            matrix22 = cos(pitchRadians),
+        )
+
+        assertEquals(expected = 0f, actual = pose.yawDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 25f, actual = pose.pitchDegrees, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = pose.rollDegrees, absoluteTolerance = 0.0001f)
     }
 
     @Test
