@@ -387,6 +387,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {
