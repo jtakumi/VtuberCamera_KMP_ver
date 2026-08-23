@@ -91,6 +91,13 @@ typedef NS_ENUM(NSInteger, VTCVrmExpressionChannel) {
 
 - (instancetype)init;
 
+/// Sets the color cleared behind the avatar. An alpha of zero keeps the native Metal layer
+/// transparent so the live camera remains visible.
+- (void)setClearColorWithRed:(float)red
+                       green:(float)green
+                        blue:(float)blue
+                       alpha:(float)alpha NS_SWIFT_NAME(setClearColor(red:green:blue:alpha:));
+
 /// Loads VRM/GLB bytes into the Filament scene, replacing any previously loaded avatar.
 /// `humanoidBones` drives head and body pose; pass an empty array to render without rigging.
 - (BOOL)loadAvatarWithData:(NSData *)data
