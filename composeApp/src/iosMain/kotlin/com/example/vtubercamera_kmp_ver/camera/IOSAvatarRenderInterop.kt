@@ -7,6 +7,7 @@ import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmHumanoidBoneBinding
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import platform.Foundation.NSLog
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -27,6 +28,8 @@ internal object IOSAvatarRenderInterop {
         "com.example.vtubercamera_kmp_ver.avatar.selectionDidClear"
     const val avatarRenderStateDidChangeNotification =
         "com.example.vtubercamera_kmp_ver.avatar.renderStateDidChange"
+    const val avatarBackgroundDidChangeNotification =
+        "com.example.vtubercamera_kmp_ver.avatar.backgroundDidChange"
 
     const val assetIdKey = "assetId"
     const val contentHashKey = "contentHash"
@@ -55,6 +58,7 @@ internal object IOSAvatarRenderInterop {
     const val avatarScaleKey = "avatarScale"
     const val trackingConfidenceKey = "trackingConfidence"
     const val isTrackingKey = "isTracking"
+    const val backgroundModeKey = "backgroundMode"
 
     const val specVersionVrm0 = "vrm0"
     const val specVersionVrm1 = "vrm1"
@@ -145,6 +149,16 @@ internal object IOSAvatarRenderInterop {
                 trackingConfidenceKey to avatarRenderState.trackingConfidence,
                 isTrackingKey to avatarRenderState.isTracking,
             ),
+        )
+    }
+
+    // UIKit interop views draw over sibling Compose content on iOS, so the native renderer must
+    // clear to the selected solid background instead of relying on the Compose layer behind it.
+    fun publishBackgroundMode(backgroundMode: CameraBackgroundMode) {
+        NSNotificationCenter.defaultCenter.postNotificationName(
+            avatarBackgroundDidChangeNotification,
+            null,
+            mapOf(backgroundModeKey to backgroundMode.name),
         )
     }
 
