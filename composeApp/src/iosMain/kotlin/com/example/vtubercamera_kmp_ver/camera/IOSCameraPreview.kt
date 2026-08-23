@@ -290,6 +290,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -318,6 +319,12 @@ actual fun AvatarBodyOverlay(
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
         )
+    }
+
+    // UIKitView は Compose の単色背景より前面に合成されるため、iOS の Filament 側でも
+    // 同じ背景色をクリア色として描画する。これにより透明レイヤーの合成差で白くなるのを防ぐ。
+    LaunchedEffect(backgroundMode) {
+        IOSAvatarRenderInterop.publishBackgroundMode(backgroundMode)
     }
 
     val hostView = remember { IOSAvatarRenderHost.makeHostView() }
