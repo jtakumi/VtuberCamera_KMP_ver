@@ -182,14 +182,17 @@ internal fun IOSHeadPoseDegrees.toNormalizedFaceFrame(
 // ARKit の transform 行列要素から head pose を度数へ変換する。
 internal fun iosHeadPoseDegreesFromRotationMatrix(
     matrix02: Float,
+    matrix10: Float,
+    matrix11: Float,
     matrix12: Float,
     matrix22: Float,
-    matrix01: Float,
-    matrix00: Float,
 ): IOSHeadPoseDegrees {
-    val pitchRadians = asin((-matrix02).coerceIn(-1f, 1f))
-    val rollRadians = atan2(matrix12, matrix22)
-    val yawRadians = atan2(matrix01, matrix00)
+    // Filament applies the head pose as Y (yaw) → X (pitch) → Z (roll). ARKit's
+    // simd_float4x4 is column-major, so using the transposed elements here mixes pitch into
+    // roll and makes a vertical head movement appear horizontal on the avatar.
+    val pitchRadians = asin((-matrix12).coerceIn(-1f, 1f))
+    val yawRadians = atan2(matrix02, matrix22)
+    val rollRadians = atan2(matrix10, matrix11)
     return IOSHeadPoseDegrees(
         yawDegrees = yawRadians.toDegrees(),
         pitchDegrees = pitchRadians.toDegrees(),
@@ -203,10 +206,10 @@ internal fun CValue<simd_float4x4>.toHeadPoseDegrees(): IOSHeadPoseDegrees {
         val values = columns.reinterpret<FloatVar>()
         iosHeadPoseDegreesFromRotationMatrix(
             matrix02 = values[8],
+            matrix10 = values[1],
+            matrix11 = values[5],
             matrix12 = values[9],
             matrix22 = values[10],
-            matrix01 = values[4],
-            matrix00 = values[0],
         )
     }
 }
