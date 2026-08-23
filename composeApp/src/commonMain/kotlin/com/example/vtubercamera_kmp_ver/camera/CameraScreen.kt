@@ -312,6 +312,7 @@ private fun CameraPreviewState(
             avatarPreview = avatarPreview,
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
+            backgroundMode = backgroundMode,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
@@ -438,6 +439,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -449,6 +451,7 @@ private fun BoxScope.CameraRendererLayer(
                 avatarPreview = avatarPreview,
                 avatarRenderState = avatarRenderState,
                 avatarScale = avatarScale,
+                backgroundMode = backgroundMode,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 // アバターの表示可能領域は画面全体。拡大しても操作 UI に隠されるだけで
                 // 画面外へ切り取られないよう、余白を持たせずに全面へ広げる。
@@ -482,6 +485,8 @@ data class RendererHostSlotState(
     val onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     /** CameraScreen 側で決めた renderer layer の配置。画面全体を占める layer を表す。 */
     val modifier: Modifier,
+    /** renderer layer の背面に描画する背景。iOS の native renderer へも渡す。 */
+    val backgroundMode: CameraBackgroundMode,
 )
 
 /**
@@ -513,6 +518,7 @@ private fun DefaultAvatarRendererHost(
         avatarSelection = state.avatarSelection,
         avatarRenderState = state.avatarRenderState,
         avatarScale = state.avatarScale,
+        backgroundMode = state.backgroundMode,
         onAvatarRenderLoadFailed = state.onAvatarRenderLoadFailed,
         modifier = state.modifier,
     )
