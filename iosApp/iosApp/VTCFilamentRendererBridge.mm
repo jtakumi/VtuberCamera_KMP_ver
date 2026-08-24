@@ -204,6 +204,13 @@ float clampFloat(float value, float lowerBound, float upperBound) {
     return std::min(std::max(value, lowerBound), upperBound);
 }
 
+// The shared tracking state is camera-facing. The avatar is displayed as a mirror image, so
+// every pose axis must be applied in the opposite direction. VRM 0.x and 1.0 both reach this
+// renderer in the normalized forward coordinate system established during asset loading.
+float mirroredTrackingAngle(float degrees) {
+    return -degrees;
+}
+
 // NaN or out-of-range scales would otherwise collapse or explode the camera distance.
 float sanitizeAvatarScale(float scale) {
     if (std::isnan(scale)) {
@@ -824,9 +831,12 @@ private:
                 continue;
             }
             const mat4f rotation = rotationMatrix(
-                mHeadYawDegrees * binding.rotationWeight + mBodySwayDegrees * binding.swayWeight,
-                mHeadPitchDegrees * binding.rotationWeight + mBodyLeanDegrees * binding.swayWeight,
-                mHeadRollDegrees * binding.rotationWeight - mBodySwayDegrees * binding.swayWeight * 0.35f);
+                mirroredTrackingAngle(mHeadYawDegrees) * binding.rotationWeight +
+                    mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight,
+                mirroredTrackingAngle(mHeadPitchDegrees) * binding.rotationWeight +
+                    mirroredTrackingAngle(mBodyLeanDegrees) * binding.swayWeight,
+                mirroredTrackingAngle(mHeadRollDegrees) * binding.rotationWeight -
+                    mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight * 0.35f);
             transformManager.setTransform(instance, binding.baseLocalTransform * rotation);
         }
     }
@@ -908,10 +918,14 @@ private:
             static_cast<double>(mJawOpen * kJawWeight + mMouthSmile * kSmileWeight +
                                 ((mLeftEyeBlink + mRightEyeBlink) * 0.5f) * kBlinkWeight),
             0.0, 1.0);
-        const double yawRadians =
-            toRadians(clampDouble(static_cast<double>(mHeadYawDegrees), -kMaxYawDegrees, kMaxYawDegrees));
-        const double pitchRadians =
-            toRadians(clampDouble(static_cast<double>(mHeadPitchDegrees), -kMaxPitchDegrees, kMaxPitchDegrees));
+        const double yawRadians = toRadians(clampDouble(
+            static_cast<double>(mirroredTrackingAngle(mHeadYawDegrees)),
+            -kMaxYawDegrees,
+            kMaxYawDegrees));
+        const double pitchRadians = toRadians(clampDouble(
+            static_cast<double>(mirroredTrackingAngle(mHeadPitchDegrees)),
+            -kMaxPitchDegrees,
+            kMaxPitchDegrees));
 
         mCamera->lookAt(
             double3{
