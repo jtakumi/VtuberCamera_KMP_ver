@@ -113,6 +113,20 @@ Windows:
 .\gradlew.bat :composeApp:assembleDebug
 ```
 
+### Android リリースビルド
+
+Release APK は debug keystore では署名しません。CI の Secret またはローカル環境変数から、同じ keystore を指定してビルドしてください。
+
+```shell
+export RELEASE_STORE_FILE=/secure/path/vtubercamera-release.jks
+export RELEASE_STORE_PASSWORD='のぞき見されない値'
+export RELEASE_KEY_ALIAS='vtubercamera'
+export RELEASE_KEY_PASSWORD='のぞき見されない値'
+./gradlew :composeApp:assembleRelease
+```
+
+生成物は `composeApp/build/outputs/apk/release/composeApp-release.apk` です。keystore はリポジトリへコミットせず、すべてのリリースで同じものを使用してください。
+
 ### README 同期チェック
 
 ```shell

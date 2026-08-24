@@ -561,6 +561,18 @@ public:
         }
     }
 
+    void setClearColor(float red, float green, float blue, float alpha) {
+        Renderer::ClearOptions clearOptions = mRenderer->getClearOptions();
+        clearOptions.clear = true;
+        clearOptions.clearColor = {
+            std::clamp(red, 0.0f, 1.0f),
+            std::clamp(green, 0.0f, 1.0f),
+            std::clamp(blue, 0.0f, 1.0f),
+            std::clamp(alpha, 0.0f, 1.0f),
+        };
+        mRenderer->setClearOptions(clearOptions);
+    }
+
 private:
     AvatarScene(Engine* engine, CAMetalLayer* layer) : mEngine(engine), mLayer(layer) {
         mRenderer = mEngine->createRenderer();
@@ -1007,6 +1019,17 @@ private:
     return _scene != nullptr && _scene->hasAvatar();
 #else
     return NO;
+#endif
+}
+
+- (void)setClearColorWithRed:(float)red
+                       green:(float)green
+                        blue:(float)blue
+                       alpha:(float)alpha {
+#if VTC_FILAMENT_HEADERS_AVAILABLE
+    if (_scene != nullptr) {
+        _scene->setClearColor(red, green, blue, alpha);
+    }
 #endif
 }
 

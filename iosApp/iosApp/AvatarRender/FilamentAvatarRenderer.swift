@@ -106,6 +106,19 @@ final class FilamentAvatarRenderer {
         }
     }
 
+    /// UIKit interop is composited above sibling Compose layers, so solid backgrounds must be
+    /// cleared directly by Filament instead of relying on the Compose box beneath this view.
+    func updateBackgroundMode(_ mode: IOSAvatarBackgroundMode) {
+        let background = mode.clearColor
+        bridge.setClearColor(
+            red: background.red,
+            green: background.green,
+            blue: background.blue,
+            alpha: background.alpha
+        )
+        previewBackgroundView.backgroundColor = background.uiColor
+    }
+
     /// Resolves the VRM expression presets onto the loaded asset's morph targets. An avatar with no
     /// resolvable expressions still renders and still follows head tracking.
     private func applyExpressionBindings(for rig: IOSVrmRuntimeRig) {
@@ -243,3 +256,36 @@ final class FilamentAvatarRenderer {
 }
 
 extension FilamentAvatarRenderer: IOSAvatarRenderStateApplying {}
+
+private extension IOSAvatarBackgroundMode {
+    struct ClearColor {
+        let red: Float
+        let green: Float
+        let blue: Float
+        let alpha: Float
+
+        var uiColor: UIColor {
+            UIColor(
+                red: CGFloat(red),
+                green: CGFloat(green),
+                blue: CGFloat(blue),
+                alpha: CGFloat(alpha)
+            )
+        }
+    }
+
+    var clearColor: ClearColor {
+        switch self {
+        case .camera:
+            ClearColor(red: 0, green: 0, blue: 0, alpha: 0)
+        case .black:
+            ClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+        case .white:
+            ClearColor(red: 1, green: 1, blue: 1, alpha: 1)
+        case .green:
+            ClearColor(red: 0, green: 177.0 / 255.0, blue: 64.0 / 255.0, alpha: 1)
+        case .blue:
+            ClearColor(red: 0, green: 71.0 / 255.0, blue: 187.0 / 255.0, alpha: 1)
+        }
+    }
+}

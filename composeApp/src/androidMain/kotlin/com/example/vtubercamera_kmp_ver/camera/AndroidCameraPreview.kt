@@ -60,6 +60,7 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AndroidFilamentAvatarHost
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.Flow
@@ -158,6 +159,7 @@ actual fun CameraPreviewHost(
     modifier: Modifier,
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
+    backgroundMode: CameraBackgroundMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
@@ -385,6 +387,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {

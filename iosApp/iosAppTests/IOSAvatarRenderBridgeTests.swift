@@ -107,6 +107,22 @@ struct IOSAvatarRenderBridgeTests {
     }
 
     @Test
+    func backgroundNotificationForwardsSelectedModeToRenderer() {
+        let renderer = SpyRenderStateRenderer()
+        let bridge = IOSAvatarRenderBridge(renderer: renderer)
+        bridge.connect()
+        defer { bridge.disconnect() }
+
+        NotificationCenter.default.post(
+            name: IOSAvatarRenderBridge.avatarBackgroundDidChangeNotification,
+            object: nil,
+            userInfo: [IOSAvatarRenderBridge.backgroundModeKey: "Green"]
+        )
+
+        #expect(renderer.latestBackgroundMode == .green)
+    }
+
+    @Test
     func filamentRendererBridgeStoresLatestAvatarStateCopy() {
         let bridge = VTCFilamentRendererBridge()
         let state = VTCAvatarRenderState()
@@ -139,6 +155,7 @@ struct IOSAvatarRenderBridgeTests {
 private final class SpyRenderStateRenderer: IOSAvatarRenderStateApplying {
     private(set) var latestState: VTCAvatarRenderState?
     private(set) var clearAvatarCallCount = 0
+    private(set) var latestBackgroundMode: IOSAvatarBackgroundMode?
 
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload) {}
 
@@ -148,5 +165,9 @@ private final class SpyRenderStateRenderer: IOSAvatarRenderStateApplying {
 
     func updateAvatarState(_ state: VTCAvatarRenderState) {
         latestState = state
+    }
+
+    func updateBackgroundMode(_ mode: IOSAvatarBackgroundMode) {
+        latestBackgroundMode = mode
     }
 }

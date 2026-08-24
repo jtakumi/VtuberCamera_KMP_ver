@@ -8,6 +8,25 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+val releaseStoreFilePath = providers.gradleProperty("releaseStoreFile")
+    .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
+    .orNull
+val releaseStorePassword = providers.gradleProperty("releaseStorePassword")
+    .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
+    .orNull
+val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias")
+    .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
+    .orNull
+val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword")
+    .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
+    .orNull
+val releaseSigningConfigured = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 kotlin {
     androidTarget {
         compilerOptions {
@@ -72,8 +91,18 @@ android {
         applicationId = "com.example.vtubercamera_kmp_ver"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+    signingConfigs {
+        if (releaseSigningConfigured) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
     packaging {
         resources {
@@ -86,7 +115,9 @@ android {
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     compileOptions {
@@ -97,4 +128,21 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
+    inputs.property("releaseSigningConfigured", releaseSigningConfigured)
+    doLast {
+        if (inputs.properties["releaseSigningConfigured"] != true) {
+            throw GradleException(
+                "Release signing is not configured. Set releaseStoreFile, " +
+                    "releaseStorePassword, releaseKeyAlias, and releaseKeyPassword " +
+                    "as Gradle properties or RELEASE_* environment variables.",
+            )
+        }
+    }
+}
+
+tasks.matching { it.name == "packageRelease" }.configureEach {
+    dependsOn(verifyReleaseSigning)
 }

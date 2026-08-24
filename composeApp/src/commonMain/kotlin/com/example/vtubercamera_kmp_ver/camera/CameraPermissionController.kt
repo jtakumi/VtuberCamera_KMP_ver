@@ -9,6 +9,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -117,6 +118,7 @@ expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
+    backgroundMode: CameraBackgroundMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 )
@@ -132,6 +134,7 @@ expect fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 )

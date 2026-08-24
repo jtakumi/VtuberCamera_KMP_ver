@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ObjCSignatureOverride
@@ -172,6 +173,7 @@ actual fun CameraPreviewHost(
     modifier: Modifier,
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
+    backgroundMode: CameraBackgroundMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
@@ -185,6 +187,10 @@ actual fun CameraPreviewHost(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
+            // UIKitView is composited above sibling Compose content on iOS. Hide just the native
+            // preview when a solid background is selected so CameraBackgroundLayer's Compose Box
+            // becomes visible while the AVCapture/ARKit session keeps face tracking active.
+            previewView.hidden = backgroundMode.hidesCameraImage
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = previewView)
             } else {
@@ -193,6 +199,7 @@ actual fun CameraPreviewHost(
             previewView
         },
         update = {
+            it.hidden = backgroundMode.hidesCameraImage
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = it)
             } else {
@@ -283,6 +290,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    backgroundMode: CameraBackgroundMode,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -311,6 +319,12 @@ actual fun AvatarBodyOverlay(
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
         )
+    }
+
+    // UIKitView は Compose の単色背景より前面に合成されるため、iOS の Filament 側でも
+    // 同じ背景色をクリア色として描画する。これにより透明レイヤーの合成差で白くなるのを防ぐ。
+    LaunchedEffect(backgroundMode) {
+        IOSAvatarRenderInterop.publishBackgroundMode(backgroundMode)
     }
 
     val hostView = remember { IOSAvatarRenderHost.makeHostView() }

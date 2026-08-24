@@ -5,6 +5,15 @@ protocol IOSAvatarRenderStateApplying: AnyObject {
     func applySelectedAvatar(_ payload: IOSVrmAssetPayload)
     func clearAvatar()
     func updateAvatarState(_ state: VTCAvatarRenderState)
+    func updateBackgroundMode(_ mode: IOSAvatarBackgroundMode)
+}
+
+enum IOSAvatarBackgroundMode: String {
+    case camera = "Camera"
+    case black = "Black"
+    case white = "White"
+    case green = "Green"
+    case blue = "Blue"
 }
 
 @MainActor
@@ -15,6 +24,8 @@ final class IOSAvatarRenderBridge {
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidClear")
     static let avatarRenderStateDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.renderStateDidChange")
+    static let avatarBackgroundDidChangeNotification =
+        Notification.Name("com.example.vtubercamera_kmp_ver.avatar.backgroundDidChange")
 
     static let assetIdKey = "assetId"
     static let contentHashKey = "contentHash"
@@ -43,6 +54,7 @@ final class IOSAvatarRenderBridge {
     static let avatarScaleKey = "avatarScale"
     static let trackingConfidenceKey = "trackingConfidence"
     static let isTrackingKey = "isTracking"
+    static let backgroundModeKey = "backgroundMode"
 
     static let specVersionVrm0 = "vrm0"
     static let specVersionVrm1 = "vrm1"
@@ -84,6 +96,13 @@ final class IOSAvatarRenderBridge {
                 queue: .main
             ) { [weak self] notification in
                 self?.handleAvatarRenderStateChanged(notification)
+            },
+            center.addObserver(
+                forName: Self.avatarBackgroundDidChangeNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                self?.handleBackgroundModeChanged(notification)
             }
         ]
     }
@@ -112,6 +131,14 @@ final class IOSAvatarRenderBridge {
     func handleAvatarRenderStateChanged(_ notification: Notification) {
         Self.applyRenderState(from: notification.userInfo, to: reusableRenderState)
         renderer?.updateAvatarState(reusableRenderState)
+    }
+
+    func handleBackgroundModeChanged(_ notification: Notification) {
+        let rawMode = notification.userInfo?[Self.backgroundModeKey] as? String
+        guard let mode = rawMode.flatMap(IOSAvatarBackgroundMode.init(rawValue:)) else {
+            return
+        }
+        renderer?.updateBackgroundMode(mode)
     }
 
     static func makeRenderState(from userInfo: [AnyHashable: Any]?) -> VTCAvatarRenderState {
