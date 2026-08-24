@@ -5,6 +5,10 @@
 xcuserdata
 !src/**/build/
 local.properties
+# Release signing material must never be committed
+keystore.properties
+*.jks
+*.keystore
 .idea
 .DS_Store
 captures
