@@ -1,5 +1,7 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.io.File
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -64,6 +66,32 @@ kotlin {
     }
 }
 
+// Release signing material is resolved from `keystore.properties` at the repository root,
+// or from environment variables when building on CI. Without it the release build falls back
+// to the local debug keystore, which differs per machine and produces APKs that cannot be
+// installed over an existing install signed by another machine.
+val keystorePropertiesFile = rootProject.layout.projectDirectory.file("keystore.properties")
+val keystoreProperties = Properties().apply {
+    providers.fileContents(keystorePropertiesFile).asText.orNull?.let { load(it.reader()) }
+}
+
+fun releaseSigningValue(propertyName: String, environmentName: String): String? =
+    (keystoreProperties.getProperty(propertyName)
+        ?: providers.environmentVariable(environmentName).orNull)
+        ?.takeIf { it.isNotBlank() }
+
+val releaseStorePath = releaseSigningValue("storeFile", "RELEASE_STORE_FILE")
+val releaseStorePassword = releaseSigningValue("storePassword", "RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = releaseSigningValue("keyAlias", "RELEASE_KEY_ALIAS")
+val releaseKeyPassword = releaseSigningValue("keyPassword", "RELEASE_KEY_PASSWORD")
+val releaseKeystore = releaseStorePath?.let { path ->
+    File(path).takeIf { it.isAbsolute } ?: rootProject.file(path)
+}
+val hasReleaseSigning = releaseKeystore != null &&
+    releaseStorePassword != null &&
+    releaseKeyAlias != null &&
+    releaseKeyPassword != null
+
 android {
     namespace = "com.example.vtubercamera_kmp_ver"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -72,8 +100,8 @@ android {
         applicationId = "com.example.vtubercamera_kmp_ver"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = providers.gradleProperty("appVersionCode").get().toInt()
+        versionName = providers.gradleProperty("appVersionName").get()
     }
     packaging {
         resources {
@@ -83,10 +111,32 @@ android {
             pickFirsts += "**/libc++_shared.so"
         }
     }
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                // minSdk 29 only needs APK Signature Scheme v2/v3; v1 (JAR) signing is not used.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "Release signing material was not found. Falling back to the debug keystore; " +
+                        "the resulting APK is for local verification only and must not be published."
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
     compileOptions {
