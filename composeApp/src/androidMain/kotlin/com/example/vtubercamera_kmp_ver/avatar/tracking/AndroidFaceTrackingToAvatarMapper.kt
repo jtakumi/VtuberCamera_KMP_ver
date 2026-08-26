@@ -3,13 +3,21 @@ package com.example.vtubercamera_kmp_ver.avatar.tracking
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 
 /**
  * Android renderer 向けに追跡値を軽く補正し、カメラオフセットや表情反映を見えやすくする。
  */
 internal class AndroidFaceTrackingToAvatarMapper {
+    /**
+     * 顔由来の姿勢・表情へ Android 向けのゲイン補正を掛ける。
+     *
+     * 信頼度が下がった `Lost` でも頭の向きは実測値なので、`Tracking` と同じ補正を掛ける。
+     * ここで補正を外すと信頼度がしきい値をまたぐたびに頭の振れ幅だけが変わってしまう。
+     * 顔が取れていない `NotTracked` は補正対象が無いため、そのまま返す。
+     */
     fun map(renderState: AvatarRenderState): AvatarRenderState {
-        if (!renderState.isTracking) {
+        if (renderState.trackingStatus == AvatarTrackingStatus.NotTracked) {
             return renderState
         }
 
