@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.avatar.mapping
 
+import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
@@ -24,7 +25,7 @@ class AvatarMotionSmootherTest {
     }
 
     @Test
-    fun lostTrackingDecaysBodyPoseAlongWithHead() {
+    fun notTrackedDecaysBodyPoseAlongWithHead() {
         val smoother = AvatarMotionSmoother(
             AvatarMotionSmoothingConfig(lostAlpha = 0.25f),
         )
@@ -35,11 +36,35 @@ class AvatarMotionSmootherTest {
 
         val result = smoother.smooth(
             previous,
-            AvatarRenderState(trackingStatus = AvatarTrackingStatus.Lost),
+            AvatarRenderState(trackingStatus = AvatarTrackingStatus.NotTracked),
         )
 
         assertTrue(result.rig.bodySwayDegrees == 6f)
         assertTrue(result.rig.bodyLeanDegrees == 3f)
+    }
+
+    @Test
+    fun lostTrackingFollowsMeasuredPoseAndDecaysOnlyExpressions() {
+        val smoother = AvatarMotionSmoother(
+            AvatarMotionSmoothingConfig(trackingAlpha = 1f, lostAlpha = 0.25f),
+        )
+        val previous = AvatarRenderState(
+            rig = AvatarRigState(headYawDegrees = 0f),
+            expressions = AvatarExpressionWeights(jawOpen = 0.8f),
+            trackingStatus = AvatarTrackingStatus.Tracking,
+        )
+
+        val result = smoother.smooth(
+            previous,
+            AvatarRenderState(
+                rig = AvatarRigState(headYawDegrees = 24f),
+                trackingStatus = AvatarTrackingStatus.Lost,
+                sourceTimestampMillis = 100L,
+            ),
+        )
+
+        assertTrue(result.rig.headYawDegrees == 24f)
+        assertTrue(result.expressions.jawOpen == 0.6f)
     }
 
     private fun trackingState(yaw: Float, timestamp: Long) = AvatarRenderState(
