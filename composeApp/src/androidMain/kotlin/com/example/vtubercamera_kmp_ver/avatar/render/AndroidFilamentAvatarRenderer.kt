@@ -263,10 +263,10 @@ internal class AndroidFilamentAvatarRenderer(
                 ((renderState.expressions.leftEyeBlink + renderState.expressions.rightEyeBlink) * 0.5f) * BLINK_WEIGHT
             ).coerceIn(0f, 1f).toDouble()
         val yawRadians = Math.toRadians(
-            renderState.rig.headYawDegrees.toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
+            (-renderState.rig.headYawDegrees).toDouble().coerceIn(-MAX_YAW_DEGREES, MAX_YAW_DEGREES),
         )
         val pitchRadians = Math.toRadians(
-            renderState.rig.headPitchDegrees.toDouble().coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
+            (-renderState.rig.headPitchDegrees).toDouble().coerceIn(-MAX_PITCH_DEGREES, MAX_PITCH_DEGREES),
         )
 
         camera.lookAt(

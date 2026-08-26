@@ -2,12 +2,35 @@ package com.example.vtubercamera_kmp_ver.avatar.state
 
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
+import com.example.vtubercamera_kmp_ver.avatar.model.mirroredForAvatarRenderer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class AvatarRenderStateTest {
+
+    @Test
+    fun mirroredForAvatarRenderer_reversesAllPoseAxes() {
+        val rig = AvatarRigState(
+            headYawDegrees = 10f,
+            headPitchDegrees = -5f,
+            headRollDegrees = 3f,
+            bodySwayDegrees = 4f,
+            bodyLeanDegrees = -2f,
+        )
+
+        assertEquals(
+            AvatarRigState(
+                headYawDegrees = -10f,
+                headPitchDegrees = 5f,
+                headRollDegrees = -3f,
+                bodySwayDegrees = -4f,
+                bodyLeanDegrees = 2f,
+            ),
+            rig.mirroredForAvatarRenderer(),
+        )
+    }
 
     @Test
     fun neutralStateStartsFromZeroAndNotTracked() {

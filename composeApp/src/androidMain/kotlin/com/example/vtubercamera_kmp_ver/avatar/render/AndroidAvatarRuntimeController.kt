@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.avatar.render
 import android.util.Log
 import com.example.vtubercamera_kmp_ver.avatar.mapping.AvatarExpressionId
 import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
+import com.example.vtubercamera_kmp_ver.avatar.model.mirroredForAvatarRenderer
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.google.android.filament.Engine
@@ -64,16 +65,21 @@ internal class AndroidAvatarRuntimeController private constructor(
     private fun applyHeadPose(renderState: AvatarRenderState) {
         if (poseBindings.isEmpty()) return
         val transformManager = engine.transformManager
+        // Face tracking angles describe the user's movement from the camera's point of view.
+        // The avatar is rendered as a mirror image, so the applied head pose must use the
+        // opposite direction. This is intentionally independent of VRM 0.x/1.0: the asset
+        // root has already normalized both specifications to the renderer's forward axis.
+        val mirroredRig = renderState.rig.mirroredForAvatarRenderer()
         // 描画ループ内のためイテレータを確保しない index ベースで回す。
         for (index in poseBindings.indices) {
             val binding = poseBindings[index]
             writeRotationMatrix(
-                yawDegrees = renderState.rig.headYawDegrees * binding.rotationWeight +
-                    renderState.rig.bodySwayDegrees * binding.swayWeight,
-                pitchDegrees = renderState.rig.headPitchDegrees * binding.rotationWeight +
-                    renderState.rig.bodyLeanDegrees * binding.swayWeight,
-                rollDegrees = renderState.rig.headRollDegrees * binding.rotationWeight -
-                    renderState.rig.bodySwayDegrees * binding.swayWeight * 0.35f,
+                yawDegrees = mirroredRig.headYawDegrees * binding.rotationWeight +
+                    mirroredRig.bodySwayDegrees * binding.swayWeight,
+                pitchDegrees = mirroredRig.headPitchDegrees * binding.rotationWeight +
+                    mirroredRig.bodyLeanDegrees * binding.swayWeight,
+                rollDegrees = mirroredRig.headRollDegrees * binding.rotationWeight -
+                    mirroredRig.bodySwayDegrees * binding.swayWeight * 0.35f,
                 destination = rotationScratch,
             )
             multiplyColumnMajor(
