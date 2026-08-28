@@ -204,19 +204,10 @@ float clampFloat(float value, float lowerBound, float upperBound) {
     return std::min(std::max(value, lowerBound), upperBound);
 }
 
-// The shared tracking state is camera-facing. VRM 0.x reverses the horizontal axis after its
-// root-basis normalization, while VRM 1.0 reverses the vertical axis in each humanoid bone's
-// local basis. Roll is mirrored for both specifications. These rules match
-// AvatarRigState.mirroredForAvatarRenderer on Android.
-float rendererYawAngle(float degrees, bool isVrm0) {
-    return isVrm0 ? -degrees : degrees;
-}
-
-float rendererPitchAngle(float degrees, bool isVrm0) {
-    return isVrm0 ? degrees : -degrees;
-}
-
-float rendererRollAngle(float degrees) {
+// The shared tracking state is camera-facing. The avatar is displayed as a mirror image, so
+// every pose axis must be applied in the opposite direction. VRM 0.x and 1.0 both reach this
+// renderer in the normalized forward coordinate system established during asset loading.
+float mirroredTrackingAngle(float degrees) {
     return -degrees;
 }
 
@@ -492,7 +483,6 @@ public:
         asset->releaseSourceData();
 
         mAsset = asset;
-        mIsVrm0 = isVrm0;
         configureRenderables();
         normalizeVrmForwardDirection(isVrm0);
         createPoseBindings(humanoidBones, isVrm0);
@@ -841,12 +831,12 @@ private:
                 continue;
             }
             const mat4f rotation = rotationMatrix(
-                rendererYawAngle(mHeadYawDegrees, mIsVrm0) * binding.rotationWeight +
-                    rendererYawAngle(mBodySwayDegrees, mIsVrm0) * binding.swayWeight,
-                rendererPitchAngle(mHeadPitchDegrees, mIsVrm0) * binding.rotationWeight +
-                    rendererPitchAngle(mBodyLeanDegrees, mIsVrm0) * binding.swayWeight,
-                rendererRollAngle(mHeadRollDegrees) * binding.rotationWeight -
-                    rendererYawAngle(mBodySwayDegrees, mIsVrm0) * binding.swayWeight * 0.35f);
+                mirroredTrackingAngle(mHeadYawDegrees) * binding.rotationWeight +
+                    mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight,
+                mirroredTrackingAngle(mHeadPitchDegrees) * binding.rotationWeight +
+                    mirroredTrackingAngle(mBodyLeanDegrees) * binding.swayWeight,
+                mirroredTrackingAngle(mHeadRollDegrees) * binding.rotationWeight -
+                    mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight * 0.35f);
             transformManager.setTransform(instance, binding.baseLocalTransform * rotation);
         }
     }
@@ -929,11 +919,11 @@ private:
                                 ((mLeftEyeBlink + mRightEyeBlink) * 0.5f) * kBlinkWeight),
             0.0, 1.0);
         const double yawRadians = toRadians(clampDouble(
-            static_cast<double>(rendererYawAngle(mHeadYawDegrees, mIsVrm0)),
+            static_cast<double>(mirroredTrackingAngle(mHeadYawDegrees)),
             -kMaxYawDegrees,
             kMaxYawDegrees));
         const double pitchRadians = toRadians(clampDouble(
-            static_cast<double>(rendererPitchAngle(mHeadPitchDegrees, mIsVrm0)),
+            static_cast<double>(mirroredTrackingAngle(mHeadPitchDegrees)),
             -kMaxPitchDegrees,
             kMaxPitchDegrees));
 
@@ -988,7 +978,6 @@ private:
     float mAvatarScale = VTCDefaultAvatarScale;
     float mTrackingConfidence = 0.0f;
     bool mIsTracking = false;
-    bool mIsVrm0 = false;
 };
 
 }  // namespace
