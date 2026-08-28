@@ -205,14 +205,14 @@ float clampFloat(float value, float lowerBound, float upperBound) {
 }
 
 // The shared tracking state is camera-facing. The avatar is displayed as a mirror image, so yaw
-// and roll use the opposite direction. ARKit pitch already matches the vertical direction used
-// by both VRM 0.x and 1.0 on iOS and must remain unchanged.
+// and roll use the opposite direction. ARKit pitch matches VRM 1.0 directly, while the VRM 0.x
+// root-basis normalization reverses its vertical direction.
 float mirroredTrackingAngle(float degrees) {
     return -degrees;
 }
 
-float rendererPitchAngle(float degrees) {
-    return degrees;
+float rendererPitchAngle(float degrees, bool isVrm0) {
+    return isVrm0 ? -degrees : degrees;
 }
 
 // NaN or out-of-range scales would otherwise collapse or explode the camera distance.
@@ -487,6 +487,7 @@ public:
         asset->releaseSourceData();
 
         mAsset = asset;
+        mIsVrm0 = isVrm0;
         configureRenderables();
         normalizeVrmForwardDirection(isVrm0);
         createPoseBindings(humanoidBones, isVrm0);
@@ -837,8 +838,8 @@ private:
             const mat4f rotation = rotationMatrix(
                 mirroredTrackingAngle(mHeadYawDegrees) * binding.rotationWeight +
                     mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight,
-                rendererPitchAngle(mHeadPitchDegrees) * binding.rotationWeight +
-                    rendererPitchAngle(mBodyLeanDegrees) * binding.swayWeight,
+                rendererPitchAngle(mHeadPitchDegrees, mIsVrm0) * binding.rotationWeight +
+                    rendererPitchAngle(mBodyLeanDegrees, mIsVrm0) * binding.swayWeight,
                 mirroredTrackingAngle(mHeadRollDegrees) * binding.rotationWeight -
                     mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight * 0.35f);
             transformManager.setTransform(instance, binding.baseLocalTransform * rotation);
@@ -927,7 +928,7 @@ private:
             -kMaxYawDegrees,
             kMaxYawDegrees));
         const double pitchRadians = toRadians(clampDouble(
-            static_cast<double>(rendererPitchAngle(mHeadPitchDegrees)),
+            static_cast<double>(rendererPitchAngle(mHeadPitchDegrees, mIsVrm0)),
             -kMaxPitchDegrees,
             kMaxPitchDegrees));
 
@@ -982,6 +983,7 @@ private:
     float mAvatarScale = VTCDefaultAvatarScale;
     float mTrackingConfidence = 0.0f;
     bool mIsTracking = false;
+    bool mIsVrm0 = false;
 };
 
 }  // namespace
