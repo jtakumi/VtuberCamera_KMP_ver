@@ -204,11 +204,15 @@ float clampFloat(float value, float lowerBound, float upperBound) {
     return std::min(std::max(value, lowerBound), upperBound);
 }
 
-// The shared tracking state is camera-facing. The avatar is displayed as a mirror image, so
-// every pose axis must be applied in the opposite direction. VRM 0.x and 1.0 both reach this
-// renderer in the normalized forward coordinate system established during asset loading.
+// The shared tracking state is camera-facing. The avatar is displayed as a mirror image, so yaw
+// and roll use the opposite direction. ARKit pitch already matches the vertical direction used
+// by both VRM 0.x and 1.0 on iOS and must remain unchanged.
 float mirroredTrackingAngle(float degrees) {
     return -degrees;
+}
+
+float rendererPitchAngle(float degrees) {
+    return degrees;
 }
 
 // NaN or out-of-range scales would otherwise collapse or explode the camera distance.
@@ -833,8 +837,8 @@ private:
             const mat4f rotation = rotationMatrix(
                 mirroredTrackingAngle(mHeadYawDegrees) * binding.rotationWeight +
                     mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight,
-                mirroredTrackingAngle(mHeadPitchDegrees) * binding.rotationWeight +
-                    mirroredTrackingAngle(mBodyLeanDegrees) * binding.swayWeight,
+                rendererPitchAngle(mHeadPitchDegrees) * binding.rotationWeight +
+                    rendererPitchAngle(mBodyLeanDegrees) * binding.swayWeight,
                 mirroredTrackingAngle(mHeadRollDegrees) * binding.rotationWeight -
                     mirroredTrackingAngle(mBodySwayDegrees) * binding.swayWeight * 0.35f);
             transformManager.setTransform(instance, binding.baseLocalTransform * rotation);
@@ -923,7 +927,7 @@ private:
             -kMaxYawDegrees,
             kMaxYawDegrees));
         const double pitchRadians = toRadians(clampDouble(
-            static_cast<double>(mirroredTrackingAngle(mHeadPitchDegrees)),
+            static_cast<double>(rendererPitchAngle(mHeadPitchDegrees)),
             -kMaxPitchDegrees,
             kMaxPitchDegrees));
 
