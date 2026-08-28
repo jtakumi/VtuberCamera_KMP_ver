@@ -29,8 +29,8 @@ class AvatarMotionSmoother(
     private val poseFilters = Array(5) { OneEuroFilter(config) }
 
     fun smooth(previous: AvatarRenderState, target: AvatarRenderState): AvatarRenderState {
-        // 顔が全く取れていないときだけ、姿勢も表情もニュートラルへ向けて減衰させる。
-        if (target.trackingStatus == AvatarTrackingStatus.NotTracked) {
+        // `Lost` と `NotTracked` では、姿勢・表情ともにニュートラルへ向けて減衰させる。
+        if (target.trackingStatus != AvatarTrackingStatus.Tracking) {
             lastTimestampMillis = null
             poseFilters.forEach(OneEuroFilter::reset)
             return target.copy(
@@ -39,9 +39,6 @@ class AvatarMotionSmoother(
             )
         }
 
-        // Lost は「顔は見えているが信頼度が低い」状態。頭の向きは実測値を追い続け、
-        // 信頼度低下の影響を受けやすい表情だけを lostAlpha でニュートラルへ寄せる。
-        val isLowConfidence = target.trackingStatus == AvatarTrackingStatus.Lost
         val timestamp = target.sourceTimestampMillis
         val dt = lastTimestampMillis?.let { last ->
             timestamp?.let { ((it - last).coerceAtLeast(1L) / 1000f).coerceAtMost(0.1f) }
@@ -52,11 +49,7 @@ class AvatarMotionSmoother(
         fun pose(index: Int, previousValue: Float, value: Float): Float =
             fixedAlpha?.let { lerp(previousValue, value, it) } ?: poseFilters[index].filter(value, dt)
 
-        val expressionAlpha = if (isLowConfidence) {
-            config.lostAlpha.coerceIn(0f, 1f)
-        } else {
-            fixedAlpha ?: DEFAULT_EXPRESSION_ALPHA
-        }
+        val expressionAlpha = fixedAlpha ?: DEFAULT_EXPRESSION_ALPHA
         return target.copy(
             rig = AvatarRigState(
                 headYawDegrees = pose(0, previous.rig.headYawDegrees, target.rig.headYawDegrees),
