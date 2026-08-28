@@ -107,15 +107,9 @@ class FaceToAvatarMapper(
         return (translationLean + poseContribution).clamp(-12f, 12f)
     }
 
-    /**
-     * 信頼度が閾値を下回ったフレームの目標状態を組み立てる。
-     *
-     * 顔が検出できている限り頭部姿勢は実測値をそのまま使う。角度を 0 に落とすと、
-     * 横向きや逆光で信頼度が下がるたびにアバターだけが正面へ戻り、顔の向きと食い違うため。
-     * 一方で表情は信頼度低下の影響を受けやすいので、ニュートラルへ減衰させる。
-     */
+    /** 信頼度が閾値を下回ったフレームでは、姿勢・表情ともにニュートラルへ戻す。 */
     private fun buildLostState(frame: NormalizedFaceFrame): AvatarRenderState = AvatarRenderState(
-        rig = frame.toRigState(),
+        rig = AvatarRigState(),
         expressions = AvatarExpressionWeights(),
         trackingStatus = AvatarTrackingStatus.Lost,
         trackingConfidence = frame.trackingConfidence.clamp(0f, 1f),
