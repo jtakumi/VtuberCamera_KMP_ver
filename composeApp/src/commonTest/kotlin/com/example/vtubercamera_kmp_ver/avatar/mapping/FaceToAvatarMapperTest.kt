@@ -52,7 +52,7 @@ class FaceToAvatarMapperTest {
     }
 
     @Test
-    fun lowConfidenceFrameKeepsMeasuredHeadPoseAndDecaysOnlyExpressions() {
+    fun lowConfidenceFrameReturnsAvatarTowardFront() {
         val mapper = FaceToAvatarMapper(
             FaceToAvatarMapperConfig(
                 trackingConfidenceThreshold = 0.7f,
@@ -95,12 +95,11 @@ class FaceToAvatarMapperTest {
         )
 
         assertEquals(AvatarTrackingStatus.Lost, mapped.trackingStatus)
-        // 信頼度が落ちても顔は見えているので、頭の向きは実測値のまま。正面へは戻さない。
-        assertEquals(15f, mapped.rig.headYawDegrees)
-        assertEquals(10f, mapped.rig.headPitchDegrees)
-        assertEquals(4f, mapped.rig.headRollDegrees)
-        assertEquals(7.5f, mapped.rig.bodySwayDegrees)
-        assertEquals(4f, mapped.rig.bodyLeanDegrees)
+        assertEquals(10f, mapped.rig.headYawDegrees)
+        assertEquals(-5f, mapped.rig.headPitchDegrees)
+        assertEquals(0f, mapped.rig.headRollDegrees)
+        assertEquals(0f, mapped.rig.bodySwayDegrees)
+        assertEquals(0f, mapped.rig.bodyLeanDegrees)
         assertEquals(0.3f, mapped.expressions.leftEyeBlink)
         assertEquals(0.1f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
