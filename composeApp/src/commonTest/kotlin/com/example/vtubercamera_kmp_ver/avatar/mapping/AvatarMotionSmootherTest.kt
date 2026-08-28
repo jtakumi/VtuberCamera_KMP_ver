@@ -44,12 +44,12 @@ class AvatarMotionSmootherTest {
     }
 
     @Test
-    fun lostTrackingFollowsMeasuredPoseAndDecaysOnlyExpressions() {
+    fun lostTrackingReturnsPoseAndExpressionsTowardNeutral() {
         val smoother = AvatarMotionSmoother(
             AvatarMotionSmoothingConfig(trackingAlpha = 1f, lostAlpha = 0.25f),
         )
         val previous = AvatarRenderState(
-            rig = AvatarRigState(headYawDegrees = 0f),
+            rig = AvatarRigState(headYawDegrees = 24f),
             expressions = AvatarExpressionWeights(jawOpen = 0.8f),
             trackingStatus = AvatarTrackingStatus.Tracking,
         )
@@ -57,13 +57,12 @@ class AvatarMotionSmootherTest {
         val result = smoother.smooth(
             previous,
             AvatarRenderState(
-                rig = AvatarRigState(headYawDegrees = 24f),
                 trackingStatus = AvatarTrackingStatus.Lost,
                 sourceTimestampMillis = 100L,
             ),
         )
 
-        assertTrue(result.rig.headYawDegrees == 24f)
+        assertTrue(result.rig.headYawDegrees == 18f)
         assertTrue(result.expressions.jawOpen == 0.6f)
     }
 
