@@ -45,7 +45,7 @@ class AvatarRenderStateTest {
     }
 
     @Test
-    fun lostTrackingStateCanKeepLastAvatarPoseForDecay() {
+    fun lostTrackingStateReportsInactiveTracking() {
         val state = AvatarRenderState(
             rig = AvatarRigState(
                 headYawDegrees = 10f,
