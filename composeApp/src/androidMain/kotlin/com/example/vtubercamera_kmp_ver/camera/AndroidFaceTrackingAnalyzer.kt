@@ -15,6 +15,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
 
+/** tracking id が継続している顔の信頼度。 */
+private const val TRACKED_FACE_CONFIDENCE = 1f
+
+/** 検出はできたが同一の顔として追跡できていないフレームの信頼度。共有側のしきい値は上回る。 */
+private const val UNSTABLE_FACE_CONFIDENCE = 0.75f
+
 @ExperimentalGetImage
 internal class AndroidFaceTrackingAnalyzer(
     private val lensFacing: CameraLensFacing,
@@ -171,16 +177,10 @@ internal fun AndroidDetectedFace.toNormalizedFrame(
     val rawRightBlink = 1f - (rightEyeOpenProbability ?: 1f)
     val rawJawOpen = estimateJawOpen()
     val rawSmile = (smilingProbability ?: 0f).coerceIn(0f, 1f)
-    val trackingConfidence = buildList {
-        leftEyeOpenProbability?.let { add(it.coerceIn(0f, 1f)) }
-        rightEyeOpenProbability?.let { add(it.coerceIn(0f, 1f)) }
-        smilingProbability?.let { add(it.coerceIn(0f, 1f)) }
-        if (trackingId != null) add(1f)
-    }.average().toFloat().takeIf { it.isFinite() } ?: 0.8f
 
     val currentFrame = NormalizedFaceFrame(
         timestampMillis = timestampMillis,
-        trackingConfidence = trackingConfidence,
+        trackingConfidence = detectionConfidence(),
         headYawDegrees = rawYaw,
         headPitchDegrees = rawPitch,
         headRollDegrees = rawRoll,
@@ -195,6 +195,19 @@ internal fun AndroidDetectedFace.toNormalizedFrame(
     return smoothFrame(previousFrame = previousFrame, currentFrame = currentFrame)
 }
 
+/**
+ * 顔検出そのものの確からしさを返す。
+ *
+ * ML Kit は検出スコアを公開しないため、tracking id が振られているか（=前フレームと同じ顔として
+ * 追跡できているか）だけを根拠にする。目の開き具合や笑顔の確率は「表情の値」であって検出の
+ * 確からしさではなく、横を向く・まばたきするだけで下がる。これを信頼度として扱うと共有マッパーが
+ * `Lost` へ落ち、顔が正面でないときほどアバターが正面へ戻ってしまう。
+ */
+private fun AndroidDetectedFace.detectionConfidence(): Float = when (trackingId) {
+    null -> UNSTABLE_FACE_CONFIDENCE
+    else -> TRACKED_FACE_CONFIDENCE
+}
+
 /** A relative position estimate based on the detected face rectangle. */
 internal data class HeadTranslation(
     val x: Float = 0f,
@@ -202,14 +215,25 @@ internal data class HeadTranslation(
 )
 
 /**
- * ML Kit face detection has no 3D translation output. The initial face position becomes neutral;
- * lateral movement and apparent face-size changes provide a stable body-motion approximation.
+ * ML Kit face detection has no 3D translation output. Lateral movement and apparent face-size
+ * changes provide a stable body-motion approximation instead.
+ *
+ * 横位置はフレーム中央を基準にする。初回検出位置を基準にすると、画面の端に寄って映り始めた
+ * ときにその位置が「中央」として扱われ、アバターだけが正面に立ったまま以降の動きだけを
+ * 追うことになるため。奥行きは絶対的な基準になる顔サイズが無いので、追跡中の顔ごとに
+ * 初回の顔サイズを基準として保持する。
  */
 internal class FaceTranslationEstimator {
     private var trackingId: Int? = null
-    private var neutralCenterX: Float? = null
-    private var neutralHeight: Float? = null
+    private var referenceHeight: Float? = null
 
+    /**
+     * 顔矩形から体の動きに使う相対位置を推定する。
+     *
+     * 追跡対象が変わった、またはまだ顔サイズの基準が無いフレームでは、そのフレームの顔サイズを
+     * 基準として記録する。横位置はフレーム中央基準なので、基準を記録した初回フレームでも
+     * 実際の立ち位置を返す。
+     */
     fun estimate(
         face: AndroidDetectedFace,
         frameWidthPixels: Int,
@@ -217,31 +241,30 @@ internal class FaceTranslationEstimator {
     ): HeadTranslation {
         val frameWidth = frameWidthPixels.coerceAtLeast(1).toFloat()
         val centerX = (face.boundingBoxCenterX / frameWidth).coerceIn(0f, 1f)
-        val height = face.boundingBoxHeight.coerceAtLeast(1f) / frameWidth
-        if (neutralCenterX == null || neutralHeight == null || trackingId != face.trackingId) {
+        // 除数として使うため、極端に小さな顔矩形でも下限を割らないところまで丸める。
+        val height = (face.boundingBoxHeight.coerceAtLeast(1f) / frameWidth).coerceAtLeast(MIN_FACE_HEIGHT_RATIO)
+        if (referenceHeight == null || trackingId != face.trackingId) {
             trackingId = face.trackingId
-            neutralCenterX = centerX
-            neutralHeight = height
-            return HeadTranslation()
+            referenceHeight = height
         }
 
-        val referenceHeight = neutralHeight!!.coerceAtLeast(MIN_REFERENCE_HEIGHT)
+        val depthReferenceHeight = referenceHeight ?: height
         return HeadTranslation(
-            x = (((centerX - neutralCenterX!!) / referenceHeight) * LATERAL_SCALE * lensFacing.translationDirection())
+            x = (((centerX - FRAME_CENTER_X) / depthReferenceHeight) * LATERAL_SCALE * lensFacing.translationDirection())
                 .coerceIn(-MAX_LATERAL_TRANSLATION, MAX_LATERAL_TRANSLATION),
-            z = ((height / referenceHeight - 1f) * DEPTH_SCALE)
+            z = ((height / depthReferenceHeight - 1f) * DEPTH_SCALE)
                 .coerceIn(-MAX_DEPTH_TRANSLATION, MAX_DEPTH_TRANSLATION),
         )
     }
 
     fun reset() {
         trackingId = null
-        neutralCenterX = null
-        neutralHeight = null
+        referenceHeight = null
     }
 
     private companion object {
-        const val MIN_REFERENCE_HEIGHT = 0.08f
+        const val FRAME_CENTER_X = 0.5f
+        const val MIN_FACE_HEIGHT_RATIO = 0.08f
         const val LATERAL_SCALE = 0.8f
         const val DEPTH_SCALE = 0.8f
         const val MAX_LATERAL_TRANSLATION = 1f

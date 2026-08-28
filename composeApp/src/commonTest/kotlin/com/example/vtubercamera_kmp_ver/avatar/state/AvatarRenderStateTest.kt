@@ -3,6 +3,7 @@ package com.example.vtubercamera_kmp_ver.avatar.state
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarExpressionWeights
 import com.example.vtubercamera_kmp_ver.avatar.model.AvatarRigState
 import com.example.vtubercamera_kmp_ver.avatar.model.mirroredForAvatarRenderer
+import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -11,7 +12,7 @@ import kotlin.test.assertTrue
 class AvatarRenderStateTest {
 
     @Test
-    fun mirroredForAvatarRenderer_reversesAllPoseAxes() {
+    fun mirroredForAvatarRenderer_correctsVrm0VerticalAxis() {
         val rig = AvatarRigState(
             headYawDegrees = 10f,
             headPitchDegrees = -5f,
@@ -23,12 +24,34 @@ class AvatarRenderStateTest {
         assertEquals(
             AvatarRigState(
                 headYawDegrees = -10f,
-                headPitchDegrees = 5f,
+                headPitchDegrees = -5f,
                 headRollDegrees = -3f,
                 bodySwayDegrees = -4f,
+                bodyLeanDegrees = -2f,
+            ),
+            rig.mirroredForAvatarRenderer(VrmSpecVersion.Vrm0),
+        )
+    }
+
+    @Test
+    fun mirroredForAvatarRenderer_correctsVrm1HorizontalAxis() {
+        val rig = AvatarRigState(
+            headYawDegrees = 10f,
+            headPitchDegrees = -5f,
+            headRollDegrees = 3f,
+            bodySwayDegrees = 4f,
+            bodyLeanDegrees = -2f,
+        )
+
+        assertEquals(
+            AvatarRigState(
+                headYawDegrees = 10f,
+                headPitchDegrees = 5f,
+                headRollDegrees = -3f,
+                bodySwayDegrees = 4f,
                 bodyLeanDegrees = 2f,
             ),
-            rig.mirroredForAvatarRenderer(),
+            rig.mirroredForAvatarRenderer(VrmSpecVersion.Vrm1),
         )
     }
 
@@ -45,7 +68,7 @@ class AvatarRenderStateTest {
     }
 
     @Test
-    fun lostTrackingStateCanKeepLastAvatarPoseForDecay() {
+    fun lostTrackingStateReportsInactiveTracking() {
         val state = AvatarRenderState(
             rig = AvatarRigState(
                 headYawDegrees = 10f,

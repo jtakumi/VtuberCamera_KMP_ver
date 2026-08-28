@@ -47,7 +47,25 @@ class AndroidFaceTrackingToAvatarMapperTest {
     }
 
     @Test
-    fun map_nonTrackingStatePassesThroughNeutralDecayUntouched() {
+    fun map_lostStatePassesThroughNeutralDecayUntouched() {
+        val state = AvatarRenderState(
+            rig = AvatarRigState(
+                headYawDegrees = 8f,
+                headPitchDegrees = -4f,
+                headRollDegrees = 3f,
+            ),
+            expressions = AvatarExpressionWeights(jawOpen = 0.4f),
+            trackingStatus = AvatarTrackingStatus.Lost,
+            trackingConfidence = 0.2f,
+            sourceTimestampMillis = 120L,
+        )
+        val mapped = AndroidFaceTrackingToAvatarMapper().map(state)
+
+        assertEquals(state, mapped)
+    }
+
+    @Test
+    fun map_notTrackedStatePassesThroughNeutralDecayUntouched() {
         val state = AvatarRenderState(
             rig = AvatarRigState(
                 headYawDegrees = 8f,
@@ -60,8 +78,8 @@ class AndroidFaceTrackingToAvatarMapperTest {
                 jawOpen = 0.4f,
                 mouthSmile = 0.5f,
             ),
-            trackingStatus = AvatarTrackingStatus.Lost,
-            trackingConfidence = 0.2f,
+            trackingStatus = AvatarTrackingStatus.NotTracked,
+            trackingConfidence = 0f,
             sourceTimestampMillis = 120L,
         )
 

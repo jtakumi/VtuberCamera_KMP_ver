@@ -130,7 +130,28 @@ class AndroidFaceTrackingAnalyzerTest {
         assertEquals(expected = 0.9f, actual = frontFrame.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0f, actual = frontFrame.jawOpen, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0f, actual = frontFrame.mouthSmile, absoluteTolerance = 0.0001f)
-        assertEquals(expected = 0.1f, actual = frontFrame.trackingConfidence, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0.75f, actual = frontFrame.trackingConfidence, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
+    fun toNormalizedFrame_keepsConfidenceHighWhileEyesAreClosedAndFaceIsTurned() {
+        val turnedAwayFace = face(
+            headEulerAngleY = 55f,
+            leftEyeOpenProbability = 0f,
+            rightEyeOpenProbability = 0f,
+            smilingProbability = 0f,
+            trackingId = 3,
+        )
+
+        val frame = turnedAwayFace.toNormalizedFrame(
+            timestampMillis = 42L,
+            lensFacing = CameraLensFacing.Back,
+            previousFrame = null,
+        )
+
+        // 表情の確率が落ちても検出は続いているため、共有マッパーの Lost しきい値を下回らない。
+        assertEquals(expected = 1f, actual = frame.trackingConfidence, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 55f, actual = frame.headYawDegrees, absoluteTolerance = 0.0001f)
     }
 
     @Test
@@ -169,15 +190,15 @@ class AndroidFaceTrackingAnalyzerTest {
         assertEquals(expected = 0.576f, actual = smoothedFrame.rightEyeBlink, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.5448889f, actual = smoothedFrame.jawOpen, absoluteTolerance = 0.0001f)
         assertEquals(expected = 0.345f, actual = smoothedFrame.mouthSmile, absoluteTolerance = 0.0001f)
-        assertEquals(expected = 0.6875f, actual = smoothedFrame.trackingConfidence, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 1f, actual = smoothedFrame.trackingConfidence, absoluteTolerance = 0.0001f)
     }
 
     @Test
-    fun faceTranslationEstimator_usesFacePositionAndSizeRelativeToInitialFace() {
+    fun faceTranslationEstimator_measuresLateralOffsetFromFrameCenter() {
         val estimator = FaceTranslationEstimator()
-        val neutral = face(boundingBoxCenterX = 200f, boundingBoxHeight = 100f)
+        val centered = face(boundingBoxCenterX = 200f, boundingBoxHeight = 100f)
 
-        assertEquals(HeadTranslation(), estimator.estimate(neutral, frameWidthPixels = 400))
+        assertEquals(HeadTranslation(), estimator.estimate(centered, frameWidthPixels = 400))
 
         val translated = estimator.estimate(
             face(boundingBoxCenterX = 250f, boundingBoxHeight = 125f),
@@ -189,16 +210,34 @@ class AndroidFaceTrackingAnalyzerTest {
     }
 
     @Test
-    fun faceTranslationEstimator_resetsWhenTrackingIdChanges() {
+    fun faceTranslationEstimator_reportsOffCenterStartInsteadOfZeroingIt() {
         val estimator = FaceTranslationEstimator()
-        estimator.estimate(face(boundingBoxCenterX = 200f, trackingId = 1), frameWidthPixels = 400)
 
-        val translation = estimator.estimate(
-            face(boundingBoxCenterX = 260f, trackingId = 2),
+        val firstTranslation = estimator.estimate(
+            face(boundingBoxCenterX = 100f, boundingBoxHeight = 100f),
             frameWidthPixels = 400,
         )
 
-        assertEquals(HeadTranslation(), translation)
+        // 端に寄って映り始めても、その位置を中央として扱わない。
+        assertEquals(expected = -0.8f, actual = firstTranslation.x, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = firstTranslation.z, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
+    fun faceTranslationEstimator_rebasesDepthReferenceWhenTrackingIdChanges() {
+        val estimator = FaceTranslationEstimator()
+        estimator.estimate(
+            face(boundingBoxCenterX = 200f, boundingBoxHeight = 100f, trackingId = 1),
+            frameWidthPixels = 400,
+        )
+
+        val translation = estimator.estimate(
+            face(boundingBoxCenterX = 200f, boundingBoxHeight = 160f, trackingId = 2),
+            frameWidthPixels = 400,
+        )
+
+        assertEquals(expected = 0f, actual = translation.x, absoluteTolerance = 0.0001f)
+        assertEquals(expected = 0f, actual = translation.z, absoluteTolerance = 0.0001f)
     }
 
     @Test

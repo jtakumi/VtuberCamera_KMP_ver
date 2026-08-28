@@ -52,7 +52,7 @@ class FaceToAvatarMapperTest {
     }
 
     @Test
-    fun lowConfidenceFrameMovesToLostAndDecaysTowardNeutral() {
+    fun lowConfidenceFrameReturnsAvatarTowardFront() {
         val mapper = FaceToAvatarMapper(
             FaceToAvatarMapperConfig(
                 trackingConfidenceThreshold = 0.7f,
@@ -97,6 +97,9 @@ class FaceToAvatarMapperTest {
         assertEquals(AvatarTrackingStatus.Lost, mapped.trackingStatus)
         assertEquals(10f, mapped.rig.headYawDegrees)
         assertEquals(-5f, mapped.rig.headPitchDegrees)
+        assertEquals(0f, mapped.rig.headRollDegrees)
+        assertEquals(0f, mapped.rig.bodySwayDegrees)
+        assertEquals(0f, mapped.rig.bodyLeanDegrees)
         assertEquals(0.3f, mapped.expressions.leftEyeBlink)
         assertEquals(0.1f, mapped.expressions.rightEyeBlink)
         assertEquals(0.4f, mapped.expressions.jawOpen)
@@ -131,6 +134,32 @@ class FaceToAvatarMapperTest {
 
         assertEquals(expected = 15f, actual = mapped.rig.bodySwayDegrees, absoluteTolerance = 0.0001f)
         assertEquals(expected = -8f, actual = mapped.rig.bodyLeanDegrees, absoluteTolerance = 0.0001f)
+    }
+
+    @Test
+    fun firstTrackedFrameFacesMeasuredDirectionInsteadOfFront() {
+        val mapper = FaceToAvatarMapper()
+
+        val mapped = mapper.map(
+            frame = NormalizedFaceFrame(
+                timestampMillis = 100L,
+                trackingConfidence = 1f,
+                headYawDegrees = 32f,
+                headPitchDegrees = -14f,
+                headRollDegrees = 9f,
+                leftEyeBlink = 0f,
+                rightEyeBlink = 0f,
+                jawOpen = 0f,
+                mouthSmile = 0f,
+            ),
+            previousState = AvatarRenderState.Neutral,
+        )
+
+        // 認識開始時にニュートラルを基準にせず、最初のフレームからその場の顔の向きを再現する。
+        assertEquals(AvatarTrackingStatus.Tracking, mapped.trackingStatus)
+        assertEquals(32f, mapped.rig.headYawDegrees)
+        assertEquals(-14f, mapped.rig.headPitchDegrees)
+        assertEquals(9f, mapped.rig.headRollDegrees)
     }
 
     @Test

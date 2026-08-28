@@ -29,6 +29,7 @@ class AvatarMotionSmoother(
     private val poseFilters = Array(5) { OneEuroFilter(config) }
 
     fun smooth(previous: AvatarRenderState, target: AvatarRenderState): AvatarRenderState {
+        // `Lost` と `NotTracked` では、姿勢・表情ともにニュートラルへ向けて減衰させる。
         if (target.trackingStatus != AvatarTrackingStatus.Tracking) {
             lastTimestampMillis = null
             poseFilters.forEach(OneEuroFilter::reset)
@@ -48,7 +49,7 @@ class AvatarMotionSmoother(
         fun pose(index: Int, previousValue: Float, value: Float): Float =
             fixedAlpha?.let { lerp(previousValue, value, it) } ?: poseFilters[index].filter(value, dt)
 
-        val expressionAlpha = fixedAlpha ?: 0.55f
+        val expressionAlpha = fixedAlpha ?: DEFAULT_EXPRESSION_ALPHA
         return target.copy(
             rig = AvatarRigState(
                 headYawDegrees = pose(0, previous.rig.headYawDegrees, target.rig.headYawDegrees),
@@ -101,6 +102,10 @@ class AvatarMotionSmoother(
             val tau = 1f / (2f * PI.toFloat() * cutoff.coerceAtLeast(0.001f))
             return 1f / (1f + tau / dt)
         }
+    }
+
+    private companion object {
+        const val DEFAULT_EXPRESSION_ALPHA = 0.55f
     }
 }
 

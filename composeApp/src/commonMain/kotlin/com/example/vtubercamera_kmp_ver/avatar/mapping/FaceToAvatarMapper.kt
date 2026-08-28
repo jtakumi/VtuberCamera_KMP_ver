@@ -41,13 +41,9 @@ class FaceToAvatarMapper(
         previousState: AvatarRenderState = AvatarRenderState.Neutral,
     ): AvatarRenderState {
         val target = when {
-            frame == null -> buildDecayState(previousState, AvatarTrackingStatus.NotTracked)
+            frame == null -> buildNotTrackedState(previousState)
             frame.trackingConfidence >= config.trackingConfidenceThreshold -> buildTrackingState(frame)
-            else -> buildDecayState(
-                previousState = previousState,
-                status = AvatarTrackingStatus.Lost,
-                frame = frame,
-            )
+            else -> buildLostState(frame)
         }
 
         return motionSmoother.smooth(
@@ -57,22 +53,7 @@ class FaceToAvatarMapper(
     }
 
     private fun buildTrackingState(frame: NormalizedFaceFrame): AvatarRenderState = AvatarRenderState(
-        rig = AvatarRigState(
-            headYawDegrees = frame.headYawDegrees.clamp(
-                minValue = config.clamp.yawRangeDegrees.start,
-                maxValue = config.clamp.yawRangeDegrees.endInclusive,
-            ),
-            headPitchDegrees = frame.headPitchDegrees.clamp(
-                minValue = config.clamp.pitchRangeDegrees.start,
-                maxValue = config.clamp.pitchRangeDegrees.endInclusive,
-            ),
-            headRollDegrees = frame.headRollDegrees.clamp(
-                minValue = config.clamp.rollRangeDegrees.start,
-                maxValue = config.clamp.rollRangeDegrees.endInclusive,
-            ),
-            bodySwayDegrees = bodySwayDegrees(frame),
-            bodyLeanDegrees = bodyLeanDegrees(frame),
-        ),
+        rig = frame.toRigState(),
         expressions = AvatarExpressionWeights(
             leftEyeBlink = frame.leftEyeBlink.clamp(
                 minValue = config.clamp.expressionRange.start,
@@ -96,6 +77,24 @@ class FaceToAvatarMapper(
         sourceTimestampMillis = frame.timestampMillis,
     )
 
+    // 計測した頭部姿勢を、リグが破綻しない範囲へ丸めた rig 状態へ変換する。
+    private fun NormalizedFaceFrame.toRigState(): AvatarRigState = AvatarRigState(
+        headYawDegrees = headYawDegrees.clamp(
+            minValue = config.clamp.yawRangeDegrees.start,
+            maxValue = config.clamp.yawRangeDegrees.endInclusive,
+        ),
+        headPitchDegrees = headPitchDegrees.clamp(
+            minValue = config.clamp.pitchRangeDegrees.start,
+            maxValue = config.clamp.pitchRangeDegrees.endInclusive,
+        ),
+        headRollDegrees = headRollDegrees.clamp(
+            minValue = config.clamp.rollRangeDegrees.start,
+            maxValue = config.clamp.rollRangeDegrees.endInclusive,
+        ),
+        bodySwayDegrees = bodySwayDegrees(this),
+        bodyLeanDegrees = bodyLeanDegrees(this),
+    )
+
     private fun bodySwayDegrees(frame: NormalizedFaceFrame): Float {
         val translationSway = frame.headTranslationX * config.bodySwayGain
         val poseContribution = frame.headYawDegrees * config.bodySwayFromYawGain
@@ -108,15 +107,26 @@ class FaceToAvatarMapper(
         return (translationLean + poseContribution).clamp(-12f, 12f)
     }
 
-    private fun buildDecayState(
-        previousState: AvatarRenderState,
-        status: AvatarTrackingStatus,
-        frame: NormalizedFaceFrame? = null,
-    ): AvatarRenderState = AvatarRenderState(
+    /** 信頼度が閾値を下回ったフレームでは、姿勢・表情ともにニュートラルへ戻す。 */
+    private fun buildLostState(frame: NormalizedFaceFrame): AvatarRenderState = AvatarRenderState(
         rig = AvatarRigState(),
         expressions = AvatarExpressionWeights(),
-        trackingStatus = status,
-        trackingConfidence = frame?.trackingConfidence?.clamp(0f, 1f) ?: 0f,
-        sourceTimestampMillis = frame?.timestampMillis ?: previousState.sourceTimestampMillis,
+        trackingStatus = AvatarTrackingStatus.Lost,
+        trackingConfidence = frame.trackingConfidence.clamp(0f, 1f),
+        sourceTimestampMillis = frame.timestampMillis,
+    )
+
+    /**
+     * 顔フレームが届かなくなったときの目標状態を組み立てる。
+     *
+     * 参照できる顔の向きが無いため、姿勢・表情ともにニュートラルへ戻す。
+     * 直前の姿勢からの減衰は [AvatarMotionSmoother] が担当する。
+     */
+    private fun buildNotTrackedState(previousState: AvatarRenderState): AvatarRenderState = AvatarRenderState(
+        rig = AvatarRigState(),
+        expressions = AvatarExpressionWeights(),
+        trackingStatus = AvatarTrackingStatus.NotTracked,
+        trackingConfidence = 0f,
+        sourceTimestampMillis = previousState.sourceTimestampMillis,
     )
 }
