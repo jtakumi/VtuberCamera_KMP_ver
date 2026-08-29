@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -577,7 +579,12 @@ private fun BoxScope.CameraUiLayer(
             .fillMaxWidth()
             .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
             .navigationBarsPadding()
-            .padding(MaterialTheme.spacing.lg),
+            // navigationBarsPadding() で OS の操作領域を避けるため、ここでは下余白を加えない。
+            .padding(
+                start = MaterialTheme.spacing.lg,
+                top = MaterialTheme.spacing.lg,
+                end = MaterialTheme.spacing.lg,
+            ),
     )
 }
 
@@ -626,7 +633,14 @@ private fun PinchTargetToggleChip(
 
     Surface(
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .sizeIn(
+                minWidth = TOGGLE_CHIP_MINIMUM_TOUCH_TARGET,
+                minHeight = TOGGLE_CHIP_MINIMUM_TOUCH_TARGET,
+            )
             .semantics { contentDescription = toggleContentDescription },
         shape = RoundedCornerShape(MaterialTheme.spacing.md),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
@@ -727,7 +741,14 @@ private fun CameraBackgroundToggleChip(
 
     Surface(
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clickable(
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .sizeIn(
+                minWidth = TOGGLE_CHIP_MINIMUM_TOUCH_TARGET,
+                minHeight = TOGGLE_CHIP_MINIMUM_TOUCH_TARGET,
+            )
             .semantics { contentDescription = toggleContentDescription },
         shape = RoundedCornerShape(MaterialTheme.spacing.md),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
@@ -774,7 +795,12 @@ private fun BottomCaptureControls(
             tonalElevation = MaterialTheme.spacing.xs,
         ) {
             Column(
-                modifier = Modifier.padding(MaterialTheme.spacing.md),
+                // 下端は navigationBarsPadding() が守るため、ボタンの下に余白を設けない。
+                modifier = Modifier.padding(
+                    start = MaterialTheme.spacing.md,
+                    top = MaterialTheme.spacing.md,
+                    end = MaterialTheme.spacing.md,
+                ),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
             ) {
                 Row(
@@ -883,6 +909,7 @@ private fun CompactAvatarChip(
 
 private val CAPTURE_CONTROL_BUTTON_HEIGHT = 64.dp
 private val CAPTURE_PROGRESS_SIZE = 20.dp
+private val TOGGLE_CHIP_MINIMUM_TOUCH_TARGET = 48.dp
 
 @Composable
 private fun CameraMessageBanner(
