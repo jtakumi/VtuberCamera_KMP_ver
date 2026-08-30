@@ -27,4 +27,13 @@ object AppColors {
     val LightSecondaryContainer = Color(0xFFD8EEFF)
     val LightOnSecondaryContainer = Color(0xFF003654)
     val LightScrim = Color(0xFF16181D)
+
+    // カメラ画面のオーバーレイ UI 用。背景がカメラ映像や単色プリセットになり、テーマ色では
+    // コントラストを保てないため、ライト / ダークどちらでも同じ暗色 + 白系前景で固定する。
+    val CameraOverlayScrim = Color(0x99000000)
+    val CameraOverlayButton = Color(0x33FFFFFF)
+    val CameraOverlaySelected = Color(0x40FFFFFF)
+    val CameraOverlayBorder = Color(0x99FFFFFF)
+    val CameraOverlayOnScrim = Color(0xFFFFFFFF)
+    val CameraOverlayOnScrimVariant = Color(0xB3FFFFFF)
 }

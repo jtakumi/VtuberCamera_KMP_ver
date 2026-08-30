@@ -1,45 +1,33 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -48,34 +36,19 @@ import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
+import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.theme.spacing
-import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_confirm
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_error_dialog_title
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_black
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_blue
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_camera
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_green
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_white
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_toggle_content_description
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_message
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_negative
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_positive
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_granted_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_avatar_scale
-import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_camera_zoom
-import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_toggle_content_description
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -237,10 +210,12 @@ fun CameraScreen(
                 message = message,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    // 操作バーの真上に出す。バーの高さが変わっても重ならないよう実寸から余白を決める。
                     .padding(
                         start = MaterialTheme.spacing.lg,
                         end = MaterialTheme.spacing.lg,
-                        bottom = MaterialTheme.spacing.xl * 4,
+                        bottom = CAMERA_CAPTURE_BAR_HEIGHT + MaterialTheme.spacing.md,
                     ),
             )
         }
@@ -332,7 +307,6 @@ private fun CameraPreviewState(
                 },
         )
         CameraUiLayer(
-            avatarPreview = avatarPreview,
             zoomScale = zoomScale,
             avatarScale = avatarScale,
             pinchTarget = pinchTarget,
@@ -406,16 +380,6 @@ private val CameraBackgroundMode.overlayColor: Color?
         CameraBackgroundMode.White -> BACKGROUND_WHITE
         CameraBackgroundMode.Green -> BACKGROUND_CHROMA_GREEN
         CameraBackgroundMode.Blue -> BACKGROUND_CHROMA_BLUE
-    }
-
-/** 背景モードに対応するチップ表示用のラベル。 */
-private val CameraBackgroundMode.labelRes: StringResource
-    get() = when (this) {
-        CameraBackgroundMode.Camera -> Res.string.camera_background_mode_camera
-        CameraBackgroundMode.Black -> Res.string.camera_background_mode_black
-        CameraBackgroundMode.White -> Res.string.camera_background_mode_white
-        CameraBackgroundMode.Green -> Res.string.camera_background_mode_green
-        CameraBackgroundMode.Blue -> Res.string.camera_background_mode_blue
     }
 
 private val BACKGROUND_BLACK = Color(0xFF000000)
@@ -525,14 +489,13 @@ private fun DefaultAvatarRendererHost(
 }
 
 /**
- * カメラ操作ボタンと avatar preview overlay を前景 UI として重ねる。
+ * カメラ操作 UI を前景レイヤーとして重ねる。
  *
  * アバターが画面全体まで拡大してもボタン類が隠れないよう、この layer は他のどの layer よりも
  * 大きい [CAMERA_CONTROLS_LAYER_Z_INDEX] を持つ。
  */
 @Composable
 private fun BoxScope.CameraUiLayer(
-    avatarPreview: AvatarPreviewData?,
     zoomScale: Float,
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
@@ -548,7 +511,7 @@ private fun BoxScope.CameraUiLayer(
     canDeletePhoto: Boolean,
     isDeletingPhoto: Boolean,
 ) {
-    TopStatusOverlay(
+    CameraTopBar(
         zoomScale = zoomScale,
         avatarScale = avatarScale,
         pinchTarget = pinchTarget,
@@ -561,10 +524,10 @@ private fun BoxScope.CameraUiLayer(
             .fillMaxWidth()
             .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
             .statusBarsPadding()
-            .padding(MaterialTheme.spacing.lg),
+            // チップ 3 つを 1 行に収めるため、上部バーだけ画面端の余白を狭める。
+            .padding(MaterialTheme.spacing.md),
     )
-    BottomCaptureControls(
-        avatarPreview = avatarPreview,
+    CameraCaptureBar(
         onOpenFilePicker = onOpenFilePicker,
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
@@ -577,312 +540,14 @@ private fun BoxScope.CameraUiLayer(
             .fillMaxWidth()
             .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
             .navigationBarsPadding()
-            .padding(MaterialTheme.spacing.lg),
+            // navigationBarsPadding() で OS の操作領域を避けるため、ここでは下余白を加えない。
+            .padding(
+                start = MaterialTheme.spacing.lg,
+                top = MaterialTheme.spacing.lg,
+                end = MaterialTheme.spacing.lg,
+            ),
     )
 }
-
-/**
- * ピンチ操作の対象に対応する倍率を表示するインジケーター。
- *
- * [ratio] にはカメラズーム倍率とアバター表示倍率のどちらかが渡る。
- */
-@Composable
-private fun ScaleRatioIndicator(
-    ratio: Float,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Text(
-            text = ratio.toRatioLabel(),
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.md,
-                vertical = MaterialTheme.spacing.xs,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/**
- * ピンチ操作の対象をカメラズームとアバター拡縮で切り替えるチップ。
- *
- * 表示ラベルは現在の対象を示し、押下で [onClick] を通じてもう一方へ切り替える。
- */
-@Composable
-private fun PinchTargetToggleChip(
-    pinchTarget: PinchGestureTarget,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val toggleContentDescription = stringResource(
-        Res.string.pinch_target_toggle_content_description,
-    )
-
-    Surface(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = toggleContentDescription },
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Text(
-            text = stringResource(pinchTarget.labelRes),
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.md,
-                vertical = MaterialTheme.spacing.xs,
-            ),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-private val PinchGestureTarget.labelRes: StringResource
-    get() = when (this) {
-        PinchGestureTarget.CameraZoom -> Res.string.pinch_target_camera_zoom
-        PinchGestureTarget.AvatarScale -> Res.string.pinch_target_avatar_scale
-    }
-
-private fun Float.toRatioLabel(): String{
-    val roundedTenths = (this * RATIO_LABEL_SCALE).roundToInt()
-    val whole = roundedTenths /RATIO_LABEL_SCALE
-    val decimal = roundedTenths % RATIO_LABEL_SCALE
-
-    return "${whole}.${decimal}x"
-}
-
-private const val RATIO_LABEL_SCALE = 10
-
-@Composable
-private fun TopStatusOverlay(
-    zoomScale: Float,
-    avatarScale: Float,
-    pinchTarget: PinchGestureTarget,
-    canTogglePinchTarget: Boolean,
-    onTogglePinchTarget: () -> Unit,
-    backgroundMode: CameraBackgroundMode,
-    onToggleBackgroundMode: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(
-                space = MaterialTheme.spacing.sm,
-                alignment = Alignment.End,
-            ),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
-            if (canTogglePinchTarget) {
-                PinchTargetToggleChip(
-                    pinchTarget = pinchTarget,
-                    onClick = onTogglePinchTarget,
-                )
-            }
-            ScaleRatioIndicator(
-                ratio = when (pinchTarget) {
-                    PinchGestureTarget.CameraZoom -> zoomScale
-                    PinchGestureTarget.AvatarScale -> avatarScale
-                },
-            )
-        }
-        // 背景切り替えは次の行の右端へ置く。
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            CameraBackgroundToggleChip(
-                backgroundMode = backgroundMode,
-                onClick = onToggleBackgroundMode,
-            )
-        }
-    }
-}
-
-/**
- * カメラ映像を覆う背景プリセットを順番に切り替えるチップ。
- *
- * 表示ラベルは現在の背景モードを示し、押下で [onClick] を通じて次のプリセットへ進む。
- */
-@Composable
-private fun CameraBackgroundToggleChip(
-    backgroundMode: CameraBackgroundMode,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val toggleContentDescription = stringResource(
-        Res.string.camera_background_toggle_content_description,
-    )
-
-    Surface(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = toggleContentDescription },
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Text(
-            text = stringResource(backgroundMode.labelRes),
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.md,
-                vertical = MaterialTheme.spacing.xs,
-            ),
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-@Composable
-private fun BottomCaptureControls(
-    avatarPreview: AvatarPreviewData?,
-    onOpenFilePicker: () -> Unit,
-    onLensFacingToggle: () -> Unit,
-    onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
-    isCapturingPhoto: Boolean,
-    canDeletePhoto: Boolean,
-    isDeletingPhoto: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        avatarPreview?.let {
-            CompactAvatarChip(avatarPreview = it)
-        }
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(MaterialTheme.spacing.lg),
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
-            tonalElevation = MaterialTheme.spacing.xs,
-        ) {
-            Column(
-                modifier = Modifier.padding(MaterialTheme.spacing.md),
-                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Button(
-                        onClick = onOpenFilePicker,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
-                    ) {
-                        Text(stringResource(Res.string.file_picker_open_button))
-                    }
-                    Button(
-                        onClick = onCapturePhoto,
-                        enabled = !isCapturingPhoto,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
-                    ) {
-                        if (isCapturingPhoto) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
-                            )
-                        } else {
-                            Text(stringResource(Res.string.camera_capture_button))
-                        }
-                    }
-                    Button(
-                        onClick = onLensFacingToggle,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(CAPTURE_CONTROL_BUTTON_HEIGHT),
-                    ) {
-                        Text(stringResource(Res.string.camera_switch_button))
-                    }
-                }
-                // 撮影済み画像があるときだけ削除導線を表示する。
-                if (canDeletePhoto || isDeletingPhoto) {
-                    OutlinedButton(
-                        onClick = { showDeleteConfirm = true },
-                        enabled = canDeletePhoto,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        if (isDeletingPhoto) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(CAPTURE_PROGRESS_SIZE),
-                            )
-                        } else {
-                            Text(stringResource(Res.string.camera_delete_button))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // 削除対象が無くなった場合はダイアログ表示条件からも外し、開いたままにならないようにする。
-    if (showDeleteConfirm && canDeletePhoto) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(Res.string.camera_delete_confirm_title)) },
-            text = { Text(stringResource(Res.string.camera_delete_confirm_message)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirm = false
-                        onDeletePhoto()
-                    },
-                ) {
-                    Text(stringResource(Res.string.camera_delete_confirm_positive))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(Res.string.camera_delete_confirm_negative))
-                }
-            },
-        )
-    }
-}
-
-@Composable
-private fun CompactAvatarChip(
-    avatarPreview: AvatarPreviewData,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
-        tonalElevation = MaterialTheme.spacing.xs,
-    ) {
-        Text(
-            text = avatarPreview.avatarName,
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.md,
-                vertical = MaterialTheme.spacing.xs,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-private val CAPTURE_CONTROL_BUTTON_HEIGHT = 64.dp
-private val CAPTURE_PROGRESS_SIZE = 20.dp
 
 @Composable
 private fun CameraMessageBanner(
