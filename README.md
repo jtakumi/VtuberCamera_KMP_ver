@@ -2,7 +2,7 @@
 
 VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、Compose Multiplatform の共有 camera 画面、platform camera preview、face tracking、VRM / GLB avatar 表示基盤を段階的に統合しています。
 
-現時点では、カメラ権限、リアルタイムプレビュー、フロント / バックカメラ切り替え、ピンチズーム、ピンチ操作によるアバター表示倍率調整、face tracking、VRM / GLB ファイル選択、avatar render state 連携、ライト / ダーク / システムテーマ切り替えまでを実装しています。
+現時点では、カメラ権限、リアルタイムプレビュー、フロント / バックカメラ切り替え、ピンチズーム、ピンチ操作によるアバター表示倍率調整、face tracking、VRM / GLB ファイル選択、avatar render state 連携、Liquid Glass 表現のカメラ操作 UI、ライト / ダーク / システムテーマ切り替えまでを実装しています。
 
 <!-- BEGIN AUTO-GENERATED README STATUS -->
 
