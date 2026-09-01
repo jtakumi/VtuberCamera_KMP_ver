@@ -18,6 +18,8 @@
 - VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
 - face tracking → アバター表情・ボーン状態へのマッピング (`FaceToAvatarMapper` / `AvatarMotionSmoother`)
 - アバターアセット管理 (`AvatarAssetStore`)
+- カメラ操作 UI の Liquid Glass 表現 (`LiquidGlassStyle` / `LiquidGlassSurface`)。透過 tint、上端の specular highlight、縁のリムライト、落ち影を重ねた面として上部バーと操作バーを描く
+- 背景プリセットの明るさに追従する Liquid Glass の明暗切り替え (`LiquidGlassTone` / `CameraBackgroundMode.overlayGlassTone`)。White プリセットだけ明るいガラス + 暗い前景へ移行し、切り替えは補間してアニメーションする
 
 ### 1.2 Android (`composeApp/src/androidMain`)
 
@@ -60,6 +62,7 @@
 - shared は UI と状態遷移の土台を担当する。
 - camera デバイス制御やネイティブ API の接続は platform 実装が担当する。
 - 現状は Android / iOS で実装の深さに差があるため、同一実装とは扱わない。
+- Liquid Glass は Compose の共有 UI 側だけで表現する。カメラ映像とアバターは platform view としてCompose の外で描画されるため、背後の映像をぼかす backdrop blur は使わず、透過 tint とリムライトの重ねで表現している。
 - `FaceTrackingPresenter` は platform から受け取った `NormalizedFaceFrame` を `FaceToAvatarMapper` へ渡し、UI 表示用 `FaceTrackingUiState` と renderer 用 `AvatarRenderState` を同時に更新する。
 - 顔未検出または tracking confidence 低下時は `AvatarRenderState` を `NotTracked` / `Lost` へ遷移させ、前回姿勢から neutral へ平滑に戻す。
 - Android renderer は共有 state に Android 向けの軽い gain / emphasis を適用してから、head bone transform と VRM expression morph weights へ反映する。
