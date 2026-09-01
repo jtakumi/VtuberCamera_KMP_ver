@@ -28,12 +28,30 @@ object AppColors {
     val LightOnSecondaryContainer = Color(0xFF003654)
     val LightScrim = Color(0xFF16181D)
 
-    // カメラ画面のオーバーレイ UI 用。背景がカメラ映像や単色プリセットになり、テーマ色では
-    // コントラストを保てないため、ライト / ダークどちらでも同じ暗色 + 白系前景で固定する。
-    val CameraOverlayScrim = Color(0x99000000)
-    val CameraOverlayButton = Color(0x33FFFFFF)
-    val CameraOverlaySelected = Color(0x40FFFFFF)
-    val CameraOverlayBorder = Color(0x99FFFFFF)
-    val CameraOverlayOnScrim = Color(0xFFFFFFFF)
-    val CameraOverlayOnScrimVariant = Color(0xB3FFFFFF)
+    // カメラ画面のオーバーレイ UI 用の Liquid Glass トークン。背景がカメラ映像や単色プリセットに
+    // 変わるため、システムのライト / ダークではなく「背後が暗いか明るいか」で 2 系統を切り替える。
+    // Dark は映像や暗色プリセットの上に置く暗いガラス、Light は白系プリセットの上に置く明るいガラス。
+    val LiquidGlassDarkTintTop = Color(0x662A2E35)
+    val LiquidGlassDarkTintBottom = Color(0x8C0A0C0F)
+    val LiquidGlassDarkSpecular = Color(0x40FFFFFF)
+    val LiquidGlassDarkRimTop = Color(0x8CFFFFFF)
+    val LiquidGlassDarkRimBottom = Color(0x1AFFFFFF)
+    val LiquidGlassDarkShadow = Color(0xB3000000)
+    val LiquidGlassDarkContent = Color(0xFFFFFFFF)
+    val LiquidGlassDarkContentVariant = Color(0xB3FFFFFF)
+    val LiquidGlassDarkInnerFill = Color(0x33FFFFFF)
+    val LiquidGlassDarkInnerSelectedFill = Color(0x59FFFFFF)
+    val LiquidGlassDarkInnerRim = Color(0x33FFFFFF)
+
+    val LiquidGlassLightTintTop = Color(0x8CFFFFFF)
+    val LiquidGlassLightTintBottom = Color(0xA6EDEFF4)
+    val LiquidGlassLightSpecular = Color(0x99FFFFFF)
+    val LiquidGlassLightRimTop = Color(0xB3FFFFFF)
+    val LiquidGlassLightRimBottom = Color(0x26000000)
+    val LiquidGlassLightShadow = Color(0x59000000)
+    val LiquidGlassLightContent = Color(0xFF171A20)
+    val LiquidGlassLightContentVariant = Color(0xA6171A20)
+    val LiquidGlassLightInnerFill = Color(0x1F000000)
+    val LiquidGlassLightInnerSelectedFill = Color(0x3D000000)
+    val LiquidGlassLightInnerRim = Color(0x1F000000)
 }
