@@ -8,32 +8,20 @@ import kotlin.test.assertEquals
 class CameraOverlayGlassToneTest {
 
     @Test
-    fun overlayGlassTone_usesLightGlassOnWhiteBackground() {
-        assertEquals(LiquidGlassTone.Light, CameraBackgroundMode.White.overlayGlassTone)
-    }
-
-    @Test
-    fun overlayGlassTone_usesDarkGlassOnCameraImage() {
-        assertEquals(LiquidGlassTone.Dark, CameraBackgroundMode.Camera.overlayGlassTone)
-    }
-
-    @Test
-    fun overlayGlassTone_usesDarkGlassOnRemainingPresets() {
-        val darkGlassModes = listOf(
-            CameraBackgroundMode.Black,
-            CameraBackgroundMode.Green,
-            CameraBackgroundMode.Blue,
+    fun overlayGlassTone_usesLightGlassOnlyForTheWhitePreset() {
+        val expectedTones = mapOf(
+            CameraBackgroundMode.Camera to LiquidGlassTone.Dark,
+            CameraBackgroundMode.Black to LiquidGlassTone.Dark,
+            CameraBackgroundMode.White to LiquidGlassTone.Light,
+            CameraBackgroundMode.Green to LiquidGlassTone.Dark,
+            CameraBackgroundMode.Blue to LiquidGlassTone.Dark,
         )
 
-        for (mode in darkGlassModes) {
-            assertEquals(LiquidGlassTone.Dark, mode.overlayGlassTone, "unexpected tone for $mode")
+        // 背景プリセットが増えたときに期待表の更新漏れへ気付けるよう、網羅も同時に確認する。
+        assertEquals(CameraBackgroundMode.entries.toSet(), expectedTones.keys)
+
+        for ((mode, expectedTone) in expectedTones) {
+            assertEquals(expectedTone, mode.overlayGlassTone, "unexpected tone for $mode")
         }
-    }
-
-    @Test
-    fun overlayGlassTone_coversEveryBackgroundMode() {
-        val tones = CameraBackgroundMode.entries.map { it.overlayGlassTone }
-
-        assertEquals(CameraBackgroundMode.entries.size, tones.size)
     }
 }
