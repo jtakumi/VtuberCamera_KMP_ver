@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp as lerpColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -165,6 +168,10 @@ fun rememberLiquidGlassStyle(tone: LiquidGlassTone): LiquidGlassStyle {
  * 透過塗り、上端の specular highlight、縁のリムライト、落ち影を重ねることで、
  * カメラ映像や単色プリセットのどちらが背後に来ても面の輪郭と前景を判別できるようにする。
  * 押下処理やサイズ指定は呼び出し側が [modifier] で与える。
+ *
+ * Material の `Surface` と同じく、面の背後にあるレイヤーへタッチを通さず、読み上げ時は
+ * 1 つのまとまりとして扱う。全画面のジェスチャーレイヤーへ重ねても、面の上の操作が
+ * 背後のジェスチャーへ二重に伝わらない。
  */
 @Composable
 fun LiquidGlassSurface(
@@ -199,7 +206,11 @@ fun LiquidGlassSurface(
                 width = rimWidth,
                 brush = Brush.verticalGradient(listOf(style.rimTopColor, style.rimBottomColor)),
                 shape = shape,
-            ),
+            )
+            .semantics(mergeDescendants = false) { isTraversalGroup = true }
+            // 面の背後へタッチを通さない。カメラ画面では全画面のピンチ検出レイヤーの上に
+            // この面が乗るため、これが無いと操作 UI 上のピンチがズームにも伝わってしまう。
+            .pointerInput(Unit) {},
         propagateMinConstraints = true,
         content = content,
     )
@@ -211,8 +222,13 @@ val LIQUID_GLASS_ELEVATION = 10.dp
 /** ガラス面の縁に走らせるリムライトの太さ。 */
 val LIQUID_GLASS_RIM_WIDTH = 1.dp
 
-/** specular highlight が面の上端から消えるまでの高さ比率。 */
-private const val SPECULAR_HIGHLIGHT_END_FRACTION = 0.55f
+/**
+ * specular highlight が面の上端から消えるまでの高さ比率。
+ *
+ * 面の高さの一部だけを光らせる。広く取ると中央のテキストへ白がかぶってコントラストが落ちるため、
+ * 上端のふちに近い範囲に留める。
+ */
+private const val SPECULAR_HIGHLIGHT_END_FRACTION = 0.18f
 
 /** ガラスの明暗を切り替えるときのアニメーション時間（ミリ秒）。 */
 private const val TONE_TRANSITION_MILLIS = 320
