@@ -1,7 +1,10 @@
 package com.example.vtubercamera_kmp_ver.camera.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.heightIn
@@ -9,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,7 +24,9 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
-import com.example.vtubercamera_kmp_ver.theme.AppColors
+import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassStyle
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassSurface
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.StringResource
@@ -44,6 +48,9 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_toggle_c
  * カメラ画面上部の状態バー。左に現在のピンチ対象の倍率、中央にピンチ対象の切り替え、
  * 右に背景プリセットの切り替えを 1 行で並べる。
  *
+ * チップは [glassStyle] の Liquid Glass で描くため、背景プリセットの明暗が変わっても
+ * 前景の文字が読める色構成のまま追従する。
+ *
  * [canTogglePinchTarget] が false のときは中央の切り替えを出さないが、左右は
  * [Arrangement.SpaceBetween] で画面端に固定されるため表示位置は変わらない。
  */
@@ -56,6 +63,7 @@ internal fun CameraTopBar(
     onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -67,17 +75,20 @@ internal fun CameraTopBar(
             pinchTarget = pinchTarget,
             zoomScale = zoomScale,
             avatarScale = avatarScale,
+            glassStyle = glassStyle,
         )
         // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
         if (canTogglePinchTarget) {
             PinchTargetToggleChip(
                 pinchTarget = pinchTarget,
                 onClick = onTogglePinchTarget,
+                glassStyle = glassStyle,
             )
         }
         CameraBackgroundToggleChip(
             backgroundMode = backgroundMode,
             onClick = onToggleBackgroundMode,
+            glassStyle = glassStyle,
         )
     }
 }
@@ -93,6 +104,7 @@ private fun ScaleRatioIndicator(
     pinchTarget: PinchGestureTarget,
     zoomScale: Float,
     avatarScale: Float,
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
 ) {
     val ratio = when (pinchTarget) {
@@ -100,10 +112,13 @@ private fun ScaleRatioIndicator(
         PinchGestureTarget.AvatarScale -> avatarScale
     }
 
-    OverlayChip(modifier = modifier) {
+    OverlayGlassChip(
+        glassStyle = glassStyle,
+        modifier = modifier,
+    ) {
         Text(
             text = stringResource(pinchTarget.ratioLabelRes, ratio.toRatioLabel()),
-            color = AppColors.CameraOverlayOnScrim,
+            color = glassStyle.contentColor,
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -119,6 +134,7 @@ private fun ScaleRatioIndicator(
 private fun PinchTargetToggleChip(
     pinchTarget: PinchGestureTarget,
     onClick: () -> Unit,
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
 ) {
     val toggleContentDescription = stringResource(
@@ -126,7 +142,9 @@ private fun PinchTargetToggleChip(
     )
     val selectedLabel = stringResource(pinchTarget.segmentLabelRes)
 
-    Surface(
+    LiquidGlassSurface(
+        style = glassStyle,
+        shape = CircleShape,
         modifier = modifier
             .heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET)
             .clickable(
@@ -138,8 +156,6 @@ private fun PinchTargetToggleChip(
                 contentDescription = toggleContentDescription
                 stateDescription = selectedLabel
             },
-        shape = CircleShape,
-        color = AppColors.CameraOverlayScrim,
     ) {
         Row(
             modifier = Modifier.padding(PINCH_TARGET_SEGMENT_GAP),
@@ -150,23 +166,32 @@ private fun PinchTargetToggleChip(
                 PinchTargetSegment(
                     target = target,
                     isSelected = target == pinchTarget,
+                    glassStyle = glassStyle,
                 )
             }
         }
     }
 }
 
-/** ピンチ対象チップ内の 1 セグメント。選択中は塗りと文字色を強めて現在地を示す。 */
+/** ピンチ対象チップ内の 1 セグメント。選択中はガラス内側の塗りと縁を出して現在地を示す。 */
 @Composable
 private fun PinchTargetSegment(
     target: PinchGestureTarget,
     isSelected: Boolean,
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = if (isSelected) AppColors.CameraOverlaySelected else Color.Transparent,
+    Box(
+        modifier = modifier
+            .background(
+                color = if (isSelected) glassStyle.innerSelectedFillColor else Color.Transparent,
+                shape = CircleShape,
+            )
+            .border(
+                width = LIQUID_GLASS_RIM_WIDTH,
+                color = if (isSelected) glassStyle.innerRimColor else Color.Transparent,
+                shape = CircleShape,
+            ),
     ) {
         Text(
             text = stringResource(target.segmentLabelRes),
@@ -175,9 +200,9 @@ private fun PinchTargetSegment(
                 vertical = MaterialTheme.spacing.xs,
             ),
             color = if (isSelected) {
-                AppColors.CameraOverlayOnScrim
+                glassStyle.contentColor
             } else {
-                AppColors.CameraOverlayOnScrimVariant
+                glassStyle.contentVariantColor
             },
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
@@ -194,6 +219,7 @@ private fun PinchTargetSegment(
 private fun CameraBackgroundToggleChip(
     backgroundMode: CameraBackgroundMode,
     onClick: () -> Unit,
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
 ) {
     val toggleContentDescription = stringResource(
@@ -201,7 +227,8 @@ private fun CameraBackgroundToggleChip(
     )
     val modeLabel = stringResource(backgroundMode.labelRes)
 
-    OverlayChip(
+    OverlayGlassChip(
+        glassStyle = glassStyle,
         modifier = modifier
             .clickable(
                 role = Role.Button,
@@ -215,7 +242,7 @@ private fun CameraBackgroundToggleChip(
     ) {
         Text(
             text = modeLabel,
-            color = AppColors.CameraOverlayOnScrim,
+            color = glassStyle.contentColor,
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -225,17 +252,18 @@ private fun CameraBackgroundToggleChip(
 /**
  * 上部バーで共通に使う丸型チップの器。
  *
- * カメラ映像や単色背景の上でも読めるよう、テーマ色ではなく固定の暗色 + 白文字で描画する。
+ * カメラ映像や単色背景の上でも輪郭と文字が判別できるよう、Liquid Glass の面として描く。
  */
 @Composable
-private fun OverlayChip(
+private fun OverlayGlassChip(
+    glassStyle: LiquidGlassStyle,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
-    Surface(
-        modifier = modifier.heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET),
+    LiquidGlassSurface(
+        style = glassStyle,
         shape = CircleShape,
-        color = AppColors.CameraOverlayScrim,
+        modifier = modifier.heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET),
     ) {
         Row(
             modifier = Modifier.padding(

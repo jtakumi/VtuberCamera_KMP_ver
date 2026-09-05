@@ -39,6 +39,8 @@ import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
+import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
+import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassStyle
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -493,6 +495,9 @@ private fun DefaultAvatarRendererHost(
  *
  * アバターが画面全体まで拡大してもボタン類が隠れないよう、この layer は他のどの layer よりも
  * 大きい [CAMERA_CONTROLS_LAYER_Z_INDEX] を持つ。
+ *
+ * 操作 UI は Liquid Glass の面として描く。背後に来るのはカメラ映像か背景プリセットなので、
+ * ガラスの明暗は [backgroundMode] から決めて上部バーと操作バーで同じ 1 枚として揃える。
  */
 @Composable
 private fun BoxScope.CameraUiLayer(
@@ -511,6 +516,8 @@ private fun BoxScope.CameraUiLayer(
     canDeletePhoto: Boolean,
     isDeletingPhoto: Boolean,
 ) {
+    val glassStyle = rememberLiquidGlassStyle(backgroundMode.overlayGlassTone)
+
     CameraTopBar(
         zoomScale = zoomScale,
         avatarScale = avatarScale,
@@ -519,6 +526,7 @@ private fun BoxScope.CameraUiLayer(
         onTogglePinchTarget = onTogglePinchTarget,
         backgroundMode = backgroundMode,
         onToggleBackgroundMode = onToggleBackgroundMode,
+        glassStyle = glassStyle,
         modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
@@ -535,6 +543,7 @@ private fun BoxScope.CameraUiLayer(
         isCapturingPhoto = isCapturingPhoto,
         canDeletePhoto = canDeletePhoto,
         isDeletingPhoto = isDeletingPhoto,
+        glassStyle = glassStyle,
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()

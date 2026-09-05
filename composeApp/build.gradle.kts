@@ -68,6 +68,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
+            implementation(libs.compose.animation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
             implementation(libs.compose.components.resources)
@@ -126,23 +127,14 @@ android {
     }
 }
 
-dependencies {
-    debugImplementation(libs.compose.uiTooling)
-}
-
-val verifyReleaseSigning = tasks.register("verifyReleaseSigning") {
-    inputs.property("releaseSigningConfigured", releaseSigningConfigured)
-    doLast {
-        if (inputs.properties["releaseSigningConfigured"] != true) {
-            throw GradleException(
-                "Release signing is not configured. Set releaseStoreFile, " +
-                    "releaseStorePassword, releaseKeyAlias, and releaseKeyPassword " +
-                    "as Gradle properties or RELEASE_* environment variables.",
-            )
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variantBuilder ->
+        if (!releaseSigningConfigured) {
+            variantBuilder.enable = false
         }
     }
 }
 
-tasks.matching { it.name == "packageRelease" }.configureEach {
-    dependsOn(verifyReleaseSigning)
+dependencies {
+    debugImplementation(libs.compose.uiTooling)
 }
