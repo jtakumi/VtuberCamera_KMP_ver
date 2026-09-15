@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassCornerStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassSurface
 import org.jetbrains.compose.resources.DrawableResource
@@ -67,14 +69,14 @@ internal fun CameraCaptureBar(
     isCapturingPhoto: Boolean,
     canDeletePhoto: Boolean,
     isDeletingPhoto: Boolean,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LiquidGlassSurface(
-        style = glassStyle,
-        shape = RoundedCornerShape(CAPTURE_BAR_CORNER_RADIUS),
+        appearance = glass,
+        cornerStyle = LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_CORNER_RADIUS),
         modifier = modifier,
     ) {
         Row(
@@ -86,13 +88,13 @@ internal fun CameraCaptureBar(
                 iconRes = Res.drawable.ic_photo_picker,
                 contentDescriptionRes = Res.string.file_picker_open_button,
                 onClick = onOpenFilePicker,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
             )
             CaptureBarIconButton(
                 iconRes = Res.drawable.ic_camera_capture,
                 contentDescriptionRes = Res.string.camera_capture_button,
                 onClick = onCapturePhoto,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
                 buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
                 iconSize = CAPTURE_SHUTTER_ICON_SIZE,
                 isEmphasized = true,
@@ -102,7 +104,7 @@ internal fun CameraCaptureBar(
                 iconRes = Res.drawable.ic_camera_switch,
                 contentDescriptionRes = Res.string.camera_switch_button,
                 onClick = onLensFacingToggle,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
             )
             // 撮影済み画像があるときだけ削除導線を表示する。削除中もボタンを残して進行を示す。
             if (canDeletePhoto || isDeletingPhoto) {
@@ -110,7 +112,7 @@ internal fun CameraCaptureBar(
                     iconRes = Res.drawable.ic_photo_delete,
                     contentDescriptionRes = Res.string.camera_delete_button,
                     onClick = { showDeleteConfirm = true },
-                    glassStyle = glassStyle,
+                    glassStyle = glass.style,
                     isEnabled = canDeletePhoto,
                     isBusy = isDeletingPhoto,
                 )
