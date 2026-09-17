@@ -40,7 +40,7 @@ import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
-import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassStyle
+import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
@@ -516,7 +516,7 @@ private fun BoxScope.CameraUiLayer(
     canDeletePhoto: Boolean,
     isDeletingPhoto: Boolean,
 ) {
-    val glassStyle = rememberLiquidGlassStyle(backgroundMode.overlayGlassTone)
+    val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
 
     CameraTopBar(
         zoomScale = zoomScale,
@@ -526,7 +526,7 @@ private fun BoxScope.CameraUiLayer(
         onTogglePinchTarget = onTogglePinchTarget,
         backgroundMode = backgroundMode,
         onToggleBackgroundMode = onToggleBackgroundMode,
-        glassStyle = glassStyle,
+        glass = glass,
         modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
@@ -543,7 +543,7 @@ private fun BoxScope.CameraUiLayer(
         isCapturingPhoto = isCapturingPhoto,
         canDeletePhoto = canDeletePhoto,
         isDeletingPhoto = isDeletingPhoto,
-        glassStyle = glassStyle,
+        glass = glass,
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()

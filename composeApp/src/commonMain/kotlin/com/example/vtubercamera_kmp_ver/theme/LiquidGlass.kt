@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -21,6 +23,7 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 
 /**
  * Liquid Glass のオーバーレイ UI が前提とする、背後のコンテンツの明るさ。
@@ -35,6 +38,28 @@ enum class LiquidGlassTone {
 
     /** 白系の明るいプリセットの上に重ねる、明るいガラス。 */
     Light,
+}
+
+/**
+ * ガラス面の角の丸め方。
+ *
+ * 面は Compose だけでなく OS 製のガラス（iOS 26 の UIGlassEffect など）でも描くため、Compose
+ * 専用の [Shape] ではなく丸め方そのものを受け渡す。OS 側は [Shape] を解釈できないが、半径と
+ * 「高さに追従するか」だけなら同じ形を再現できる。
+ */
+sealed interface LiquidGlassCornerStyle {
+
+    /** 高さの半分を半径にして両端を半円にする。チップのように高さが内容で決まる面に使う。 */
+    data object Capsule : LiquidGlassCornerStyle
+
+    /** 四隅を [radius] で丸める。 */
+    data class Rounded(val radius: Dp) : LiquidGlassCornerStyle
+}
+
+/** 角の丸め方に対応する Compose の [Shape] を返す。 */
+fun LiquidGlassCornerStyle.toShape(): Shape = when (this) {
+    LiquidGlassCornerStyle.Capsule -> CircleShape
+    is LiquidGlassCornerStyle.Rounded -> RoundedCornerShape(radius)
 }
 
 /**
@@ -144,30 +169,52 @@ fun lerp(
 }
 
 /**
- * [tone] に対応する色構成を返し、tone が変わったときは色を補間しながら切り替える。
+ * ガラス面 1 枚の見た目。
+ *
+ * OS 製のガラスは tint を色構成ではなく明暗そのもので受け取るため、補間済みの [style] と
+ * 補間前の [tone] を組にして持ち回る。
+ */
+@Immutable
+data class LiquidGlassAppearance(
+    /** 面が目標とする明暗。OS 製のガラスへ渡す tint を決める。 */
+    val tone: LiquidGlassTone,
+    /** 面と前景に使う色構成。tone の切り替え中は 2 つの tone を補間した値になる。 */
+    val style: LiquidGlassStyle,
+)
+
+/**
+ * [tone] に対応する見た目を返し、tone が変わったときは色を補間しながら切り替える。
  *
  * 背景プリセットを切り替えた瞬間にガラスの明暗が反転すると別 UI に見えてしまうため、
  * 明暗の移行だけをアニメーションさせて 1 枚のガラスが性質を変えたように見せる。
  */
 @Composable
-fun rememberLiquidGlassStyle(tone: LiquidGlassTone): LiquidGlassStyle {
+fun rememberLiquidGlassAppearance(tone: LiquidGlassTone): LiquidGlassAppearance {
     val lightFraction by animateFloatAsState(
         targetValue = if (tone == LiquidGlassTone.Light) 1f else 0f,
         animationSpec = tween(durationMillis = TONE_TRANSITION_MILLIS),
         label = "liquidGlassTone",
     )
 
-    return remember(lightFraction) {
+    val style = remember(lightFraction) {
         lerp(DarkLiquidGlassStyle, LightLiquidGlassStyle, lightFraction)
+    }
+
+    return remember(tone, style) {
+        LiquidGlassAppearance(tone = tone, style = style)
     }
 }
 
 /**
  * Liquid Glass 風に浮かせたオーバーレイ面を描く器。
  *
- * 透過塗り、上端の specular highlight、縁のリムライト、落ち影を重ねることで、
- * カメラ映像や単色プリセットのどちらが背後に来ても面の輪郭と前景を判別できるようにする。
- * 押下処理やサイズ指定は呼び出し側が [modifier] で与える。
+ * OS が Liquid Glass を提供する端末（iOS 26 以降）では、背後の映像をぼかして屈折させる OS 製の
+ * ガラスを面の背面へ敷く。提供しない端末では Compose だけでガラスを近似し、透過塗り、上端の
+ * specular highlight、縁のリムライト、落ち影を重ねる。どちらでも前景色は [appearance] の色構成に
+ * 揃えるため、カメラ映像と単色プリセットのどちらが背後に来ても面の輪郭と前景を判別できる。
+ *
+ * 押下処理やサイズ指定は呼び出し側が [modifier] で与える。[elevation] と [rimWidth] は Compose で
+ * 描くときだけ使う。OS 製のガラスは影と縁を自前で持つため、二重に描かない。
  *
  * Material の `Surface` と同じく、面の背後にあるレイヤーへタッチを通さず、読み上げ時は
  * 1 つのまとまりとして扱う。全画面のジェスチャーレイヤーへ重ねても、面の上の操作が
@@ -175,46 +222,95 @@ fun rememberLiquidGlassStyle(tone: LiquidGlassTone): LiquidGlassStyle {
  */
 @Composable
 fun LiquidGlassSurface(
-    style: LiquidGlassStyle,
-    shape: Shape,
+    appearance: LiquidGlassAppearance,
+    cornerStyle: LiquidGlassCornerStyle,
     modifier: Modifier = Modifier,
     elevation: Dp = LIQUID_GLASS_ELEVATION,
     rimWidth: Dp = LIQUID_GLASS_RIM_WIDTH,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val shape = remember(cornerStyle) { cornerStyle.toShape() }
+    // OS 製のガラスを使えるかは実行中の端末で決まり、画面の途中で変わらない。composition ごとに
+    // 問い合わせず 1 度だけ解決する。
+    val usesPlatformGlass = remember { isPlatformLiquidGlassAvailable() }
+    val style = appearance.style
+
     Box(
         modifier = modifier
-            .shadow(
-                elevation = elevation,
-                shape = shape,
-                ambientColor = style.shadowColor,
-                spotColor = style.shadowColor,
-            )
-            .background(
-                brush = Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)),
-                shape = shape,
-            )
-            // 上端だけに光を残すことで、平らな半透明板ではなくガラスの厚みとして見せる。
-            .background(
-                brush = Brush.verticalGradient(
-                    0f to style.specularColor,
-                    SPECULAR_HIGHLIGHT_END_FRACTION to Color.Transparent,
-                ),
-                shape = shape,
-            )
-            .border(
-                width = rimWidth,
-                brush = Brush.verticalGradient(listOf(style.rimTopColor, style.rimBottomColor)),
-                shape = shape,
+            .then(
+                if (usesPlatformGlass) {
+                    // OS 製のガラスの上へ Compose の塗りを重ねると、ぼかしと屈折が濁って
+                    // ただの半透明板に見えるため、面の描画は OS 側へ任せる。
+                    Modifier
+                } else {
+                    Modifier.composeLiquidGlass(
+                        style = style,
+                        shape = shape,
+                        elevation = elevation,
+                        rimWidth = rimWidth,
+                    )
+                },
             )
             .semantics(mergeDescendants = false) { isTraversalGroup = true }
             // 面の背後へタッチを通さない。カメラ画面では全画面のピンチ検出レイヤーの上に
             // この面が乗るため、これが無いと操作 UI 上のピンチがズームにも伝わってしまう。
             .pointerInput(Unit) {},
         propagateMinConstraints = true,
-        content = content,
-    )
+    ) {
+        if (usesPlatformGlass) {
+            PlatformLiquidGlassBackdrop(
+                tone = appearance.tone,
+                cornerStyle = cornerStyle,
+                modifier = Modifier
+                    .matchParentSize()
+                    .zIndex(PLATFORM_BACKDROP_Z_INDEX),
+            )
+        }
+        // OS 製のガラスは interop view として Compose の兄弟要素より前面に合成されるため、
+        // 前景は明示的に上の layer へ置く。これが無いと文字とアイコンがガラスに隠れる。
+        Box(
+            modifier = Modifier.zIndex(CONTENT_Z_INDEX),
+            propagateMinConstraints = true,
+            content = content,
+        )
+    }
 }
+
+/**
+ * Compose だけでガラス面を描く。
+ *
+ * 透過塗りの上に上端だけの specular highlight を重ね、縁のリムライトと落ち影で背景から浮かせる。
+ * OS 製のガラスを使えない端末向けの近似であり、背後のぼかしは行わない。
+ */
+private fun Modifier.composeLiquidGlass(
+    style: LiquidGlassStyle,
+    shape: Shape,
+    elevation: Dp,
+    rimWidth: Dp,
+): Modifier = this
+    .shadow(
+        elevation = elevation,
+        shape = shape,
+        ambientColor = style.shadowColor,
+        spotColor = style.shadowColor,
+    )
+    .background(
+        brush = Brush.verticalGradient(listOf(style.tintTop, style.tintBottom)),
+        shape = shape,
+    )
+    // 上端だけに光を残すことで、平らな半透明板ではなくガラスの厚みとして見せる。
+    .background(
+        brush = Brush.verticalGradient(
+            0f to style.specularColor,
+            SPECULAR_HIGHLIGHT_END_FRACTION to Color.Transparent,
+        ),
+        shape = shape,
+    )
+    .border(
+        width = rimWidth,
+        brush = Brush.verticalGradient(listOf(style.rimTopColor, style.rimBottomColor)),
+        shape = shape,
+    )
 
 /** 浮かせたガラス面が落とす影の強さ。 */
 val LIQUID_GLASS_ELEVATION = 10.dp
@@ -230,5 +326,19 @@ val LIQUID_GLASS_RIM_WIDTH = 1.dp
  */
 private const val SPECULAR_HIGHLIGHT_END_FRACTION = 0.18f
 
+/** OS 製のガラス面を置く layer。前景より後ろへ回すために [CONTENT_Z_INDEX] より小さくする。 */
+private const val PLATFORM_BACKDROP_Z_INDEX = 0f
+
+/** 面の上に載せる前景の layer。 */
+private const val CONTENT_Z_INDEX = 1f
+
 /** ガラスの明暗を切り替えるときのアニメーション時間（ミリ秒）。 */
 private const val TONE_TRANSITION_MILLIS = 320
+
+/**
+ * ガラスの明暗を切り替えるときのアニメーション時間（秒）。
+ *
+ * OS 製のガラスは UIKit 側で tint を差し替えてアニメーションさせるため、共有実装と同じ時間を
+ * 秒で渡して、ガラスと前景色の切り替わりを揃える。
+ */
+internal const val LIQUID_GLASS_TONE_TRANSITION_SECONDS = TONE_TRANSITION_MILLIS / 1000.0

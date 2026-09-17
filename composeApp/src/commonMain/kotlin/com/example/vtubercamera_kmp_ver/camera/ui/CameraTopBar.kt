@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassCornerStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassSurface
 import com.example.vtubercamera_kmp_ver.theme.spacing
@@ -48,7 +50,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.pinch_target_toggle_c
  * カメラ画面上部の状態バー。左に現在のピンチ対象の倍率、中央にピンチ対象の切り替え、
  * 右に背景プリセットの切り替えを 1 行で並べる。
  *
- * チップは [glassStyle] の Liquid Glass で描くため、背景プリセットの明暗が変わっても
+ * チップは [glass] の Liquid Glass で描くため、背景プリセットの明暗が変わっても
  * 前景の文字が読める色構成のまま追従する。
  *
  * [canTogglePinchTarget] が false のときは中央の切り替えを出さないが、左右は
@@ -63,7 +65,7 @@ internal fun CameraTopBar(
     onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -75,20 +77,20 @@ internal fun CameraTopBar(
             pinchTarget = pinchTarget,
             zoomScale = zoomScale,
             avatarScale = avatarScale,
-            glassStyle = glassStyle,
+            glass = glass,
         )
         // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
         if (canTogglePinchTarget) {
             PinchTargetToggleChip(
                 pinchTarget = pinchTarget,
                 onClick = onTogglePinchTarget,
-                glassStyle = glassStyle,
+                glass = glass,
             )
         }
         CameraBackgroundToggleChip(
             backgroundMode = backgroundMode,
             onClick = onToggleBackgroundMode,
-            glassStyle = glassStyle,
+            glass = glass,
         )
     }
 }
@@ -104,7 +106,7 @@ private fun ScaleRatioIndicator(
     pinchTarget: PinchGestureTarget,
     zoomScale: Float,
     avatarScale: Float,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
     val ratio = when (pinchTarget) {
@@ -113,12 +115,12 @@ private fun ScaleRatioIndicator(
     }
 
     OverlayGlassChip(
-        glassStyle = glassStyle,
+        glass = glass,
         modifier = modifier,
     ) {
         Text(
             text = stringResource(pinchTarget.ratioLabelRes, ratio.toRatioLabel()),
-            color = glassStyle.contentColor,
+            color = glass.style.contentColor,
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -134,7 +136,7 @@ private fun ScaleRatioIndicator(
 private fun PinchTargetToggleChip(
     pinchTarget: PinchGestureTarget,
     onClick: () -> Unit,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
     val toggleContentDescription = stringResource(
@@ -143,8 +145,8 @@ private fun PinchTargetToggleChip(
     val selectedLabel = stringResource(pinchTarget.segmentLabelRes)
 
     LiquidGlassSurface(
-        style = glassStyle,
-        shape = CircleShape,
+        appearance = glass,
+        cornerStyle = LiquidGlassCornerStyle.Capsule,
         modifier = modifier
             .heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET)
             .clickable(
@@ -166,7 +168,7 @@ private fun PinchTargetToggleChip(
                 PinchTargetSegment(
                     target = target,
                     isSelected = target == pinchTarget,
-                    glassStyle = glassStyle,
+                    glassStyle = glass.style,
                 )
             }
         }
@@ -219,7 +221,7 @@ private fun PinchTargetSegment(
 private fun CameraBackgroundToggleChip(
     backgroundMode: CameraBackgroundMode,
     onClick: () -> Unit,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
     val toggleContentDescription = stringResource(
@@ -228,7 +230,7 @@ private fun CameraBackgroundToggleChip(
     val modeLabel = stringResource(backgroundMode.labelRes)
 
     OverlayGlassChip(
-        glassStyle = glassStyle,
+        glass = glass,
         modifier = modifier
             .clickable(
                 role = Role.Button,
@@ -242,7 +244,7 @@ private fun CameraBackgroundToggleChip(
     ) {
         Text(
             text = modeLabel,
-            color = glassStyle.contentColor,
+            color = glass.style.contentColor,
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -256,13 +258,13 @@ private fun CameraBackgroundToggleChip(
  */
 @Composable
 private fun OverlayGlassChip(
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
     content: @Composable RowScope.() -> Unit,
 ) {
     LiquidGlassSurface(
-        style = glassStyle,
-        shape = CircleShape,
+        appearance = glass,
+        cornerStyle = LiquidGlassCornerStyle.Capsule,
         modifier = modifier.heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET),
     ) {
         Row(

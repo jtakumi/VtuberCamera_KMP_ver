@@ -103,5 +103,6 @@ workflows:
 
 meta:
   bitrise.io:
-    stack: osx-xcode-16.4.x
+    # UIGlassEffect (iOS 26 SDK) を参照するため、Xcode 26 系のスタックでビルドする。
+    stack: osx-xcode-26.4.x
     machine_type_id: g2-m1.4core
