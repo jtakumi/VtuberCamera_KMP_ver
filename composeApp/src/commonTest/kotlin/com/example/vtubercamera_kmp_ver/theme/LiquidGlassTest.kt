@@ -1,6 +1,9 @@
 package com.example.vtubercamera_kmp_ver.theme
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -25,6 +28,19 @@ class LiquidGlassTest {
         assertEquals(AppColors.LiquidGlassLightTintTop, style.tintTop)
         assertEquals(AppColors.LiquidGlassLightContent, style.contentColor)
         assertEquals(AppColors.LiquidGlassLightInnerSelectedFill, style.innerSelectedFillColor)
+    }
+
+    @Test
+    fun toShape_capsuleRoundsBothEndsIntoSemicircles() {
+        assertEquals(CircleShape, LiquidGlassCornerStyle.Capsule.toShape())
+    }
+
+    @Test
+    fun toShape_roundedKeepsTheRequestedRadius() {
+        assertEquals(
+            RoundedCornerShape(CAPTURE_BAR_LIKE_CORNER_RADIUS),
+            LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_LIKE_CORNER_RADIUS).toShape(),
+        )
     }
 
     @Test
@@ -120,3 +136,6 @@ class LiquidGlassTest {
  * light は全項目でどこか 1 チャンネルが 0.34 以上離れているため、この値なら取り違えは必ず落ちる。
  */
 private const val CHANNEL_TOLERANCE = 0.02f
+
+/** 角丸の確認に使う半径。操作バーと同じ大きさを取り、丸めが落ちていないかを見る。 */
+private val CAPTURE_BAR_LIKE_CORNER_RADIUS = 28.dp

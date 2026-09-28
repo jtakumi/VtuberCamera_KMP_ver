@@ -59,4 +59,10 @@ object AppColors {
     val LiquidGlassLightInnerFill = Color(0x1F000000)
     val LiquidGlassLightInnerSelectedFill = Color(0x3D000000)
     val LiquidGlassLightInnerRim = Color(0x29000000)
+
+    // OS 製のガラス（iOS 26 の UIGlassEffect など）へ渡す tint。OS 側が背後のぼかしと艶を
+    // 自前で描くため、Compose 実装の tint をそのまま渡すとガラスが濁って屈折が見えなくなる。
+    // 前景が読める範囲で最も薄い値を選び、明暗の方向だけを OS のガラスへ伝える。
+    val LiquidGlassDarkPlatformTint = Color(0x40000000)
+    val LiquidGlassLightPlatformTint = Color(0x4DFFFFFF)
 }
