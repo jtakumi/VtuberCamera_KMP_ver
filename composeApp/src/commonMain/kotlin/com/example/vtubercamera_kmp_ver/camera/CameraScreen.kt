@@ -21,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -42,6 +45,7 @@ import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
 import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -157,6 +161,18 @@ fun CameraScreen(
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val previewError = session.previewState as? PreviewState.Error
+    val cameraMessage = photoDeletion.toCameraMessage()
+        ?: photoCapture.toCameraMessage()
+        ?: session.message
+    var visibleCameraMessage by remember { mutableStateOf<CameraMessage?>(null) }
+
+    LaunchedEffect(cameraMessage) {
+        visibleCameraMessage = cameraMessage
+        if (cameraMessage != null) {
+            delay(CAMERA_MESSAGE_DURATION_MILLIS)
+            visibleCameraMessage = null
+        }
+    }
 
     Box(
         modifier = modifier
@@ -203,11 +219,7 @@ fun CameraScreen(
             else -> LoadingState()
         }
 
-        (
-            photoDeletion.toCameraMessage()
-                ?: photoCapture.toCameraMessage()
-                ?: session.message
-        )?.let { message ->
+        visibleCameraMessage?.let { message ->
             CameraMessageBanner(
                 message = message,
                 modifier = Modifier
@@ -236,6 +248,8 @@ fun CameraScreen(
         }
     }
 }
+
+private const val CAMERA_MESSAGE_DURATION_MILLIS = 3_000L
 
 // カメラ画面のレイヤー重ね順。数値が大きいほど手前に描画される。アバターは画面全体を使えるため、
 // 操作 UI が常にアバターより手前になるようにここで順序を固定する。
