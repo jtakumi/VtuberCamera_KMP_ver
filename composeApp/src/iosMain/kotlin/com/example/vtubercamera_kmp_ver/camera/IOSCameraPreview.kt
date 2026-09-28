@@ -59,6 +59,7 @@ import platform.AVFoundation.AVCaptureVideoPreviewLayer
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
 import platform.AVFoundation.authorizationStatusForMediaType
+import platform.AVFoundation.fileDataRepresentation
 import platform.AVFoundation.maxAvailableVideoZoomFactor
 import platform.AVFoundation.minAvailableVideoZoomFactor
 import platform.AVFoundation.requestAccessForMediaType
