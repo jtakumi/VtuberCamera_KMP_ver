@@ -67,9 +67,12 @@ import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
+import platform.Foundation.NSUUID
 import platform.Foundation.NSURL
+import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.create
 import platform.Foundation.getBytes
+import platform.Foundation.writeToFile
 import platform.SceneKit.SCNScene
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
@@ -609,7 +612,19 @@ private class IOSPhotoCaptureDelegate(
             onComplete(null, IllegalStateException(error.localizedDescription))
             return
         }
-        onComplete(null, null)
+        val imageData = didFinishProcessingPhoto.fileDataRepresentation()
+        if (imageData == null) {
+            onComplete(null, IllegalStateException("Captured photo data is unavailable"))
+            return
+        }
+
+        val filePath = NSTemporaryDirectory() + "vtuber-camera-${NSUUID().UUIDString}.jpg"
+        if (!imageData.writeToFile(filePath, atomically = true)) {
+            onComplete(null, IllegalStateException("Failed to save captured photo"))
+            return
+        }
+        val photoUri = NSURL.fileURLWithPath(filePath).absoluteString
+        onComplete(photoUri, null)
     }
 }
 
