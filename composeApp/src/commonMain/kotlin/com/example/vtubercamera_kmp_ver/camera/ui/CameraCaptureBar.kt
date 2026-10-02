@@ -9,17 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,16 +32,10 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_message
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_negative
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_positive
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_photo_delete
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_photo_picker
 
 /**
@@ -65,15 +52,10 @@ internal fun CameraCaptureBar(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
-    canDeletePhoto: Boolean,
-    isDeletingPhoto: Boolean,
     glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
     LiquidGlassSurface(
         appearance = glass,
         cornerStyle = LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_CORNER_RADIUS),
@@ -106,42 +88,7 @@ internal fun CameraCaptureBar(
                 onClick = onLensFacingToggle,
                 glassStyle = glass.style,
             )
-            // 撮影済み画像があるときだけ削除導線を表示する。削除中もボタンを残して進行を示す。
-            if (canDeletePhoto || isDeletingPhoto) {
-                CaptureBarIconButton(
-                    iconRes = Res.drawable.ic_photo_delete,
-                    contentDescriptionRes = Res.string.camera_delete_button,
-                    onClick = { showDeleteConfirm = true },
-                    glassStyle = glass.style,
-                    isEnabled = canDeletePhoto,
-                    isBusy = isDeletingPhoto,
-                )
-            }
         }
-    }
-
-    // 削除対象が無くなった場合はダイアログ表示条件からも外し、開いたままにならないようにする。
-    if (showDeleteConfirm && canDeletePhoto) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(Res.string.camera_delete_confirm_title)) },
-            text = { Text(stringResource(Res.string.camera_delete_confirm_message)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirm = false
-                        onDeletePhoto()
-                    },
-                ) {
-                    Text(stringResource(Res.string.camera_delete_confirm_positive))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(Res.string.camera_delete_confirm_negative))
-                }
-            },
-        )
     }
 }
 

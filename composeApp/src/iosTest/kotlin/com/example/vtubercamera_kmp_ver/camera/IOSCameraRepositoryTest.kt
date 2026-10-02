@@ -59,6 +59,25 @@ class IOSCameraRepositoryTest {
     }
 
     @Test
+    fun capturePhoto_doesNotInvokeCapturerUntilPreviewIsShowing() = runTest {
+        var captureInvoked = false
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPhotoCapturerReady(
+            IOSPhotoCapturer { captureInvoked = true },
+        )
+
+        val result = repository.capturePhoto()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.PhotoCaptureFailed, exception.error)
+        assertFalse(captureInvoked)
+        assertEquals(
+            PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed),
+            repository.observePhotoCaptureState().first(),
+        )
+    }
+
+    @Test
     fun onPlatformPreviewStarted_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front))
 

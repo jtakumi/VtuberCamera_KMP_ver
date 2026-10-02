@@ -21,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -42,6 +45,7 @@ import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
 import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
@@ -93,7 +97,6 @@ fun CameraRoute(
         zoom = uiState.zoom,
         photoCapture = uiState.photoCapture,
         photoDeletion = uiState.photoDeletion,
-        capturedPhotoUri = uiState.capturedPhotoUri,
         avatarRender = uiState.avatarRender,
         avatarSelection = uiState.avatarSelection.avatarSelection,
         filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
@@ -114,7 +117,6 @@ fun CameraRoute(
         onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
         onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
-        onDeletePhoto = cameraViewModel::onDeletePhoto,
     )
 }
 
@@ -132,7 +134,6 @@ fun CameraScreen(
     zoom: CameraZoomUiState,
     photoCapture: PhotoCaptureState,
     photoDeletion: PhotoDeletionState,
-    capturedPhotoUri: String?,
     avatarRender: AvatarRenderState,
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
@@ -152,11 +153,22 @@ fun CameraScreen(
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val previewError = session.previewState as? PreviewState.Error
+    val cameraMessage = photoDeletion.toCameraMessage()
+        ?: photoCapture.toCameraMessage()
+        ?: session.message
+    var visibleCameraMessage by remember { mutableStateOf<CameraMessage?>(null) }
+
+    LaunchedEffect(cameraMessage) {
+        visibleCameraMessage = cameraMessage
+        if (cameraMessage != null) {
+            delay(CAMERA_MESSAGE_DURATION_MILLIS)
+            visibleCameraMessage = null
+        }
+    }
 
     Box(
         modifier = modifier
@@ -184,8 +196,6 @@ fun CameraScreen(
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
                 photoCapture = photoCapture,
-                photoDeletion = photoDeletion,
-                capturedPhotoUri = capturedPhotoUri,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -197,17 +207,12 @@ fun CameraScreen(
                 onTogglePinchTarget = onTogglePinchTarget,
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onCapturePhoto = onCapturePhoto,
-                onDeletePhoto = onDeletePhoto,
             )
 
             else -> LoadingState()
         }
 
-        (
-            photoDeletion.toCameraMessage()
-                ?: photoCapture.toCameraMessage()
-                ?: session.message
-        )?.let { message ->
+        visibleCameraMessage?.let { message ->
             CameraMessageBanner(
                 message = message,
                 modifier = Modifier
@@ -237,6 +242,8 @@ fun CameraScreen(
     }
 }
 
+private const val CAMERA_MESSAGE_DURATION_MILLIS = 3_000L
+
 // カメラ画面のレイヤー重ね順。数値が大きいほど手前に描画される。アバターは画面全体を使えるため、
 // 操作 UI が常にアバターより手前になるようにここで順序を固定する。
 private const val CAMERA_BACKGROUND_LAYER_Z_INDEX = 0f
@@ -255,8 +262,6 @@ private fun CameraPreviewState(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     photoCapture: PhotoCaptureState,
-    photoDeletion: PhotoDeletionState,
-    capturedPhotoUri: String?,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -268,7 +273,6 @@ private fun CameraPreviewState(
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
 
@@ -319,10 +323,7 @@ private fun CameraPreviewState(
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
-            onDeletePhoto = onDeletePhoto,
             isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
-            canDeletePhoto = capturedPhotoUri != null && photoDeletion != PhotoDeletionState.Deleting,
-            isDeletingPhoto = photoDeletion == PhotoDeletionState.Deleting,
         )
     }
 }
@@ -511,10 +512,7 @@ private fun BoxScope.CameraUiLayer(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
-    canDeletePhoto: Boolean,
-    isDeletingPhoto: Boolean,
 ) {
     val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
 
@@ -539,10 +537,7 @@ private fun BoxScope.CameraUiLayer(
         onOpenFilePicker = onOpenFilePicker,
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
-        onDeletePhoto = onDeletePhoto,
         isCapturingPhoto = isCapturingPhoto,
-        canDeletePhoto = canDeletePhoto,
-        isDeletingPhoto = isDeletingPhoto,
         glass = glass,
         modifier = Modifier
             .align(Alignment.BottomCenter)
