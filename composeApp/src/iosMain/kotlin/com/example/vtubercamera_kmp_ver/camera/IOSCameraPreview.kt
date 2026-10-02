@@ -194,9 +194,10 @@ actual fun CameraPreviewHost(
         factory = {
             previewView.backgroundColor = UIColor.blackColor
             // UIKitView is composited above sibling Compose content on iOS. Hide just the native
-            // preview when a solid background is selected so CameraBackgroundLayer's Compose Box
-            // becomes visible while the AVCapture/ARKit session keeps face tracking active.
-            previewView.hidden = backgroundMode.hidesCameraImage
+            // camera image with transparency when a solid background is selected. Keeping the
+            // ARSCNView unhidden lets its renderer continue delivering face-anchor updates.
+            previewView.hidden = false
+            previewView.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = previewView)
             } else {
@@ -205,7 +206,8 @@ actual fun CameraPreviewHost(
             previewView
         },
         update = {
-            it.hidden = backgroundMode.hidesCameraImage
+            it.hidden = false
+            it.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = it)
             } else {
