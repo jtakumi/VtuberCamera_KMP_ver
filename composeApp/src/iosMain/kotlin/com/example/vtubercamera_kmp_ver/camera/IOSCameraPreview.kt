@@ -41,8 +41,8 @@ import platform.ARKit.ARBlendShapeLocationMouthSmileRight
 import platform.ARKit.ARFaceAnchor
 import platform.ARKit.ARFaceTrackingConfiguration
 import platform.ARKit.ARSCNView
+import platform.ARKit.ARSCNViewDelegateProtocol
 import platform.ARKit.ARSession
-import platform.ARKit.ARSessionDelegateProtocol
 import platform.ARKit.ARTrackingState
 import platform.AVFoundation.AVAuthorizationStatusAuthorized
 import platform.AVFoundation.AVAuthorizationStatusNotDetermined
@@ -75,6 +75,8 @@ import platform.Foundation.create
 import platform.Foundation.getBytes
 import platform.Foundation.writeToFile
 import platform.SceneKit.SCNScene
+import platform.SceneKit.SCNNode
+import platform.SceneKit.SCNSceneRendererProtocol
 import platform.UIKit.UIApplication
 import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
@@ -573,12 +575,25 @@ private class IOSCameraSessionManager {
     }
 
     fun photoCapturer(): IOSPhotoCapturer {
-        return AVCapturePhotoOutputCapturer(photoOutput)
+        return AVCapturePhotoOutputCapturer(
+            photoOutput = photoOutput,
+            dispatchToSessionQueue = { capture ->
+                dispatch_async(sessionQueue) {
+                    capture()
+                }
+            },
+            isVideoConnectionReady = {
+                val connection = photoOutput.connectionWithMediaType(AVMediaTypeVideo)
+                session.running && connection?.active == true && connection.enabled
+            },
+        )
     }
 }
 
 private class AVCapturePhotoOutputCapturer(
     private val photoOutput: AVCapturePhotoOutput,
+    private val dispatchToSessionQueue: ((() -> Unit) -> Unit),
+    private val isVideoConnectionReady: () -> Boolean,
 ) : IOSPhotoCapturer {
     override fun capturePhoto(onComplete: (uri: String?, error: Throwable?) -> Unit) {
         val delegate = IOSPhotoCaptureDelegate { uri, error ->
@@ -586,10 +601,22 @@ private class AVCapturePhotoOutputCapturer(
             onComplete(uri, error)
         }
         retainedPhotoDelegates += delegate
-        photoOutput.capturePhotoWithSettings(
-            settings = AVCapturePhotoSettings.photoSettings(),
-            delegate = delegate,
-        )
+        dispatchToSessionQueue {
+            // start/stop and lens changes share this queue, so a validated connection cannot be
+            // invalidated between this check and capturePhotoWithSettings below.
+            if (!isVideoConnectionReady()) {
+                retainedPhotoDelegates.remove(delegate)
+                onComplete(
+                    null,
+                    IllegalStateException("Photo capture video connection is not ready"),
+                )
+                return@dispatchToSessionQueue
+            }
+            photoOutput.capturePhotoWithSettings(
+                settings = AVCapturePhotoSettings.photoSettings(),
+                delegate = delegate,
+            )
+        }
     }
 
     companion object {
@@ -667,7 +694,9 @@ private class IOSFaceTrackingSessionManager {
     private val sessionDelegate = IOSFaceTrackingSessionDelegate()
 
     init {
-        previewView.session.delegate = sessionDelegate
+        // ARSCNView owns display of ARFrame camera images. Receive only anchor updates through
+        // its delegate so our tracking code never retains ARFrame instances from ARSession.
+        previewView.delegate = sessionDelegate
     }
 
     // ARKit preview view を表示用コンテナへ接続する。
@@ -767,8 +796,8 @@ private fun cameraDevice(position: platform.AVFoundation.AVCaptureDevicePosition
         .firstOrNull { it.position == position }
 }
 
-// ARKit delegate から shared face-tracking frame へ変換して Compose 側へ流す。
-private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProtocol {
+// ARSCNView delegate から shared face-tracking frame へ変換して Compose 側へ流す。
+private class IOSFaceTrackingSessionDelegate : NSObject(), ARSCNViewDelegateProtocol {
     var onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit = {}
     private val delegateCore = IOSFaceTrackingDelegateCore<ARFaceAnchor>(
         firstFaceAnchor = { anchors -> anchors.firstNotNullOfOrNull { it as? ARFaceAnchor } },
@@ -786,22 +815,34 @@ private class IOSFaceTrackingSessionDelegate : NSObject(), ARSessionDelegateProt
         },
     )
 
-    // 追加・更新された face anchor を shared frame として通知する。
+    // 追加された face anchor を shared frame として通知する。
     @ObjCSignatureOverride
-    override fun session(session: ARSession, didAddAnchors: List<*>) {
-        delegateCore.didAddAnchors(didAddAnchors)
+    override fun renderer(
+        renderer: SCNSceneRendererProtocol,
+        didAddNode: SCNNode,
+        forAnchor: platform.ARKit.ARAnchor,
+    ) {
+        delegateCore.didAddAnchors(listOf(forAnchor))
     }
 
     // 継続中の face anchor 更新を shared frame として通知する。
     @ObjCSignatureOverride
-    override fun session(session: ARSession, didUpdateAnchors: List<*>) {
-        delegateCore.didUpdateAnchors(didUpdateAnchors)
+    override fun renderer(
+        renderer: SCNSceneRendererProtocol,
+        didUpdateNode: SCNNode,
+        forAnchor: platform.ARKit.ARAnchor,
+    ) {
+        delegateCore.didUpdateAnchors(listOf(forAnchor))
     }
 
     // face anchor が消えたときに tracking state を初期化する。
     @ObjCSignatureOverride
-    override fun session(session: ARSession, didRemoveAnchors: List<*>) {
-        delegateCore.didRemoveAnchors(didRemoveAnchors)
+    override fun renderer(
+        renderer: SCNSceneRendererProtocol,
+        didRemoveNode: SCNNode,
+        forAnchor: platform.ARKit.ARAnchor,
+    ) {
+        delegateCore.didRemoveAnchors(listOf(forAnchor))
     }
 
     // ARKit tracking が不安定になったときは shared face state を破棄する。
