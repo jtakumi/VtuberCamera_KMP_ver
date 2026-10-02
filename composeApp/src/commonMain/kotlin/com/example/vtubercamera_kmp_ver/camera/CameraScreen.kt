@@ -97,7 +97,6 @@ fun CameraRoute(
         zoom = uiState.zoom,
         photoCapture = uiState.photoCapture,
         photoDeletion = uiState.photoDeletion,
-        capturedPhotoUri = uiState.capturedPhotoUri,
         avatarRender = uiState.avatarRender,
         avatarSelection = uiState.avatarSelection.avatarSelection,
         filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
@@ -118,7 +117,6 @@ fun CameraRoute(
         onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
         onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
-        onDeletePhoto = cameraViewModel::onDeletePhoto,
     )
 }
 
@@ -136,7 +134,6 @@ fun CameraScreen(
     zoom: CameraZoomUiState,
     photoCapture: PhotoCaptureState,
     photoDeletion: PhotoDeletionState,
-    capturedPhotoUri: String?,
     avatarRender: AvatarRenderState,
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
@@ -156,7 +153,6 @@ fun CameraScreen(
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -200,8 +196,6 @@ fun CameraScreen(
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
                 photoCapture = photoCapture,
-                photoDeletion = photoDeletion,
-                capturedPhotoUri = capturedPhotoUri,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -213,7 +207,6 @@ fun CameraScreen(
                 onTogglePinchTarget = onTogglePinchTarget,
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onCapturePhoto = onCapturePhoto,
-                onDeletePhoto = onDeletePhoto,
             )
 
             else -> LoadingState()
@@ -269,8 +262,6 @@ private fun CameraPreviewState(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     photoCapture: PhotoCaptureState,
-    photoDeletion: PhotoDeletionState,
-    capturedPhotoUri: String?,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -282,7 +273,6 @@ private fun CameraPreviewState(
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
 
@@ -333,10 +323,7 @@ private fun CameraPreviewState(
             onOpenFilePicker = onOpenFilePicker,
             onLensFacingToggle = onLensFacingToggle,
             onCapturePhoto = onCapturePhoto,
-            onDeletePhoto = onDeletePhoto,
             isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
-            canDeletePhoto = capturedPhotoUri != null && photoDeletion != PhotoDeletionState.Deleting,
-            isDeletingPhoto = photoDeletion == PhotoDeletionState.Deleting,
         )
     }
 }
@@ -525,10 +512,7 @@ private fun BoxScope.CameraUiLayer(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
-    canDeletePhoto: Boolean,
-    isDeletingPhoto: Boolean,
 ) {
     val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
 
@@ -553,10 +537,7 @@ private fun BoxScope.CameraUiLayer(
         onOpenFilePicker = onOpenFilePicker,
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
-        onDeletePhoto = onDeletePhoto,
         isCapturingPhoto = isCapturingPhoto,
-        canDeletePhoto = canDeletePhoto,
-        isDeletingPhoto = isDeletingPhoto,
         glass = glass,
         modifier = Modifier
             .align(Alignment.BottomCenter)
