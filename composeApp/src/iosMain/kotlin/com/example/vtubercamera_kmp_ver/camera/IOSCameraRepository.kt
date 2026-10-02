@@ -46,11 +46,13 @@ internal class IOSCameraRepository(
     // プレビュー停止に合わせて内部状態を初期化する。
     override suspend fun stopPreview() {
         pendingLensFacing = null
+        photoCapturer = null
         previewState.value = PreviewState.Preparing
     }
 
     // 現在と反対側のレンズへ切り替え可能か確認して反映する。
     override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
+        photoCapturer = null
         previewState.value = PreviewState.Preparing
         val targetLens = current.toggled()
         if (!hasLens(targetLens)) {
@@ -74,6 +76,13 @@ internal class IOSCameraRepository(
     override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = photoCaptureState
 
     override suspend fun capturePhoto(): Result<String?> {
+        if (previewState.value !is PreviewState.Showing) {
+            return Result.failure<String?>(
+                CameraRepositoryException(CameraError.PhotoCaptureFailed),
+            ).also {
+                photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+            }
+        }
         val capturer = photoCapturer
             ?: return Result.failure<String?>(
                 CameraRepositoryException(CameraError.PhotoCaptureFailed),
