@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +31,11 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -42,6 +48,7 @@ import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
 import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.spacing
@@ -55,6 +62,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_gra
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_request_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_ui_show_action
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -103,6 +111,7 @@ fun CameraRoute(
         avatarScale = uiState.avatarScale.currentAvatarScale,
         backgroundMode = uiState.background.mode,
         pinchTarget = uiState.effectivePinchTarget,
+        isUiHidden = uiState.uiVisibility.isHidden,
         rendererHost = rendererHost,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
@@ -116,12 +125,17 @@ fun CameraRoute(
         onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
         onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
         onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
+        onHideUi = cameraViewModel::onHideUi,
+        onShowUi = cameraViewModel::onShowUi,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
     )
 }
 
 /**
  * 共有 camera screen を描画し、必要に応じて renderer layer へ custom renderer host を注入する。
+ *
+ * [isUiHidden] が true のあいだは UI 非表示モードとして操作 UI を描かない。このとき画面のどこを
+ * タップしても [onShowUi] が呼ばれて操作 UI へ戻れる。[onHideUi] は操作 UI 上の非表示ボタンから呼ばれる。
  *
  * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
  * 現在の overlay ベースの avatar body 表示を維持する。
@@ -140,6 +154,7 @@ fun CameraScreen(
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
     pinchTarget: PinchGestureTarget,
+    isUiHidden: Boolean,
     onRequestPermission: () -> Unit,
     onRetryPreview: () -> Unit,
     onOpenFilePicker: () -> Unit,
@@ -152,6 +167,8 @@ fun CameraScreen(
     onAvatarScaleChanged: (Float) -> Unit,
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
+    onHideUi: () -> Unit,
+    onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
@@ -196,6 +213,7 @@ fun CameraScreen(
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
                 photoCapture = photoCapture,
+                isUiHidden = isUiHidden,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -206,6 +224,8 @@ fun CameraScreen(
                 onAvatarScaleChanged = onAvatarScaleChanged,
                 onTogglePinchTarget = onTogglePinchTarget,
                 onToggleBackgroundMode = onToggleBackgroundMode,
+                onHideUi = onHideUi,
+                onShowUi = onShowUi,
                 onCapturePhoto = onCapturePhoto,
             )
 
@@ -262,6 +282,7 @@ private fun CameraPreviewState(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     photoCapture: PhotoCaptureState,
+    isUiHidden: Boolean,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -272,9 +293,12 @@ private fun CameraPreviewState(
     onAvatarScaleChanged: (Float) -> Unit,
     onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
+    onHideUi: () -> Unit,
+    onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
+    val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
 
     // レイヤーは背景 → アバター → ジェスチャー → 操作 UI の順で重ねる。アバターを拡大しても
     // ボタン類が隠れないよう、z 順を zIndex で明示して操作 UI を常に最前面に置く。
@@ -299,10 +323,19 @@ private fun CameraPreviewState(
         )
         // ピンチジェスチャーを検出する透明オーバーレイ。ボタンより下に配置して操作を妨げない。
         // 切り替えボタンで選んだ対象へジェスチャーを振り分けるため、対象が変わったら検出を貼り直す。
+        // UI 非表示モード中はボタンが無いので、タップで操作 UI へ戻れるようにする。操作 UI を隠してもピンチは
+        // 効かせ続けたいため、タップ検出は別レイヤーにせずこの層へ足す。
         Box(
             modifier = Modifier
                 .matchParentSize()
                 .zIndex(PINCH_GESTURE_LAYER_Z_INDEX)
+                .then(
+                    if (isUiHidden) {
+                        Modifier.revealUiOnTap(label = showUiActionLabel, onShowUi = onShowUi)
+                    } else {
+                        Modifier
+                    },
+                )
                 .pointerInput(pinchTarget) {
                     detectTransformGestures { _, _, zoomChange, _ ->
                         when (pinchTarget) {
@@ -312,21 +345,50 @@ private fun CameraPreviewState(
                     }
                 },
         )
-        CameraUiLayer(
-            zoomScale = zoomScale,
-            avatarScale = avatarScale,
-            pinchTarget = pinchTarget,
-            canTogglePinchTarget = avatarSelection != null,
-            onTogglePinchTarget = onTogglePinchTarget,
-            backgroundMode = backgroundMode,
-            onToggleBackgroundMode = onToggleBackgroundMode,
-            onOpenFilePicker = onOpenFilePicker,
-            onLensFacingToggle = onLensFacingToggle,
-            onCapturePhoto = onCapturePhoto,
-            isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
-        )
+        // UI 非表示モード中は操作 UI を composition から外す。透明にするだけだと、見えないボタンが
+        // 押せてしまううえ、iOS では OS 製ガラスの interop view が画面に残るおそれがある。
+        if (!isUiHidden) {
+            CameraUiLayer(
+                zoomScale = zoomScale,
+                avatarScale = avatarScale,
+                pinchTarget = pinchTarget,
+                canTogglePinchTarget = avatarSelection != null,
+                onTogglePinchTarget = onTogglePinchTarget,
+                backgroundMode = backgroundMode,
+                onToggleBackgroundMode = onToggleBackgroundMode,
+                onHideUi = onHideUi,
+                onOpenFilePicker = onOpenFilePicker,
+                onLensFacingToggle = onLensFacingToggle,
+                onCapturePhoto = onCapturePhoto,
+                isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
+            )
+        }
     }
 }
+
+/**
+ * UI 非表示モード中に、画面のどこをタップしても [onShowUi] を呼べるようにする。
+ *
+ * ピンチ検出より外側（先に付けた側）へ置くこと。pointer event は内側の modifier から先に届くため、
+ * ピンチやドラッグで消費された操作はタップとして扱われず、ピンチ操作の途中で操作 UI が再表示されない。
+ * 画面全体が 1 つのボタンとして読み上げられるよう、[label] を semantics の名前と click の操作名に設定する。
+ * これによりスクリーンリーダーの click 操作でも再表示へ戻れる。
+ */
+private fun Modifier.revealUiOnTap(
+    label: String,
+    onShowUi: () -> Unit,
+): Modifier = this
+    .pointerInput(onShowUi) {
+        detectTapGestures(onTap = { onShowUi() })
+    }
+    .semantics {
+        role = Role.Button
+        contentDescription = label
+        onClick(label = label) {
+            onShowUi()
+            true
+        }
+    }
 
 /**
  * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
@@ -499,6 +561,8 @@ private fun DefaultAvatarRendererHost(
  *
  * 操作 UI は Liquid Glass の面として描く。背後に来るのはカメラ映像か背景プリセットなので、
  * ガラスの明暗は [backgroundMode] から決めて上部バーと操作バーで同じ 1 枚として揃える。
+ *
+ * UI 非表示モードに入るボタン [onHideUi] は、チップ 3 つで幅が埋まる上部バーの下、右端に置く。
  */
 @Composable
 private fun BoxScope.CameraUiLayer(
@@ -509,6 +573,7 @@ private fun BoxScope.CameraUiLayer(
     onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
+    onHideUi: () -> Unit,
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
@@ -516,15 +581,7 @@ private fun BoxScope.CameraUiLayer(
 ) {
     val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
 
-    CameraTopBar(
-        zoomScale = zoomScale,
-        avatarScale = avatarScale,
-        pinchTarget = pinchTarget,
-        canTogglePinchTarget = canTogglePinchTarget,
-        onTogglePinchTarget = onTogglePinchTarget,
-        backgroundMode = backgroundMode,
-        onToggleBackgroundMode = onToggleBackgroundMode,
-        glass = glass,
+    Column(
         modifier = Modifier
             .align(Alignment.TopStart)
             .fillMaxWidth()
@@ -532,7 +589,25 @@ private fun BoxScope.CameraUiLayer(
             .statusBarsPadding()
             // チップ 3 つを 1 行に収めるため、上部バーだけ画面端の余白を狭める。
             .padding(MaterialTheme.spacing.md),
-    )
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+    ) {
+        CameraTopBar(
+            zoomScale = zoomScale,
+            avatarScale = avatarScale,
+            pinchTarget = pinchTarget,
+            canTogglePinchTarget = canTogglePinchTarget,
+            onTogglePinchTarget = onTogglePinchTarget,
+            backgroundMode = backgroundMode,
+            onToggleBackgroundMode = onToggleBackgroundMode,
+            glass = glass,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        CameraUiHideButton(
+            onClick = onHideUi,
+            glass = glass,
+            modifier = Modifier.align(Alignment.End),
+        )
+    }
     CameraCaptureBar(
         onOpenFilePicker = onOpenFilePicker,
         onLensFacingToggle = onLensFacingToggle,

@@ -31,15 +31,15 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.ic_avatar_picker
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_photo_picker
 
 /**
- * カメラ画面下部の操作バー。ファイル選択・撮影・レンズ切り替えをアイコンで並べ、
+ * カメラ画面下部の操作バー。アバター選択・撮影・レンズ切り替えをアイコンで並べ、
  * 撮影済みの写真があるときだけ削除アイコンを追加する。
  *
  * バー自体を Liquid Glass の面として浮かせ、各ボタンはその内側の層として描くことで、
@@ -66,9 +66,10 @@ internal fun CameraCaptureBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 選ぶ対象がアバターだと一目で分かるよう、ファイルや写真ではなく人型のアイコンを使う。
             CaptureBarIconButton(
-                iconRes = Res.drawable.ic_photo_picker,
-                contentDescriptionRes = Res.string.file_picker_open_button,
+                iconRes = Res.drawable.ic_avatar_picker,
+                contentDescriptionRes = Res.string.avatar_picker_open_button,
                 onClick = onOpenFilePicker,
                 glassStyle = glass.style,
             )

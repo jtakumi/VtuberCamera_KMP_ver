@@ -7,6 +7,7 @@ import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundUiStat
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
+import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityUiState
 
 // カメラ画面で描画する共有 UI 状態を、ドメインごとの sub-state を束ねて保持する。
 data class CameraUiState(
@@ -22,6 +23,7 @@ data class CameraUiState(
     val avatarScale: AvatarScaleUiState = AvatarScaleUiState(),
     val background: CameraBackgroundUiState = CameraBackgroundUiState(),
     val pinchTarget: PinchGestureTarget = PinchGestureTarget.CameraZoom,
+    val uiVisibility: CameraUiVisibilityUiState = CameraUiVisibilityUiState(),
 ) {
     val isPermissionGranted: Boolean
         get() = permission.permissionState == PermissionState.Granted

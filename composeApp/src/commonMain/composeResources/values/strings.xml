@@ -26,7 +26,9 @@
     <string name="camera_error_photo_delete_failed">写真の削除に失敗しました。</string>
     <string name="camera_error_unknown">不明なカメラエラーが発生しました。</string>
     <string name="camera_photo_delete_succeeded">写真を削除しました。</string>
-    <string name="file_picker_open_button">ファイルを開く</string>
+    <string name="avatar_picker_open_button">アバターを選択</string>
+    <string name="camera_ui_hide_button">UIを非表示</string>
+    <string name="camera_ui_show_action">UIを再表示</string>
     <string name="file_picker_open_failed">ファイルを開けませんでした。</string>
     <string name="file_picker_read_failed">ファイルの読み込みに失敗しました。</string>
     <string name="avatar_error_dialog_title">ファイルエラー</string>

@@ -11,6 +11,7 @@ import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
 import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
+import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -908,6 +909,45 @@ class CameraViewModelTest {
 
         assertEquals(CameraBackgroundMode.Blue, viewModel.uiState.value.background.mode)
         assertEquals(true, viewModel.uiState.value.background.hidesCameraImage)
+    }
+
+    // ---------------------------------------------------------------------------
+    // onHideUi() / onShowUi()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onHideUi_publishesHiddenUiStateAndOnShowUiRestoresIt() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.uiVisibility.isHidden)
+
+        viewModel.onHideUi()
+        advanceUntilIdle()
+        assertEquals(true, viewModel.uiState.value.uiVisibility.isHidden)
+
+        viewModel.onShowUi()
+        advanceUntilIdle()
+        assertEquals(false, viewModel.uiState.value.uiVisibility.isHidden)
+    }
+
+    @Test
+    fun onHideUi_doesNotChangeOtherCameraState() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        val before = viewModel.uiState.value
+
+        viewModel.onHideUi()
+        advanceUntilIdle()
+
+        // 操作 UI を隠すだけで、背景・ピンチ対象・ズームなどの状態は動かさない。
+        val expected = before.copy(uiVisibility = CameraUiVisibilityUiState(isHidden = true))
+        assertEquals(expected, viewModel.uiState.value)
     }
 
     // ---------------------------------------------------------------------------
