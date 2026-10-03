@@ -85,26 +85,44 @@ internal class AndroidCameraRepository(
         photoCaptureState.value = PhotoCaptureState.Capturing
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
-                val outputFile = File.createTempFile("vtuber-camera-", ".jpg")
+                val outputFile = runCatching { File.createTempFile("vtuber-camera-", ".jpg") }
+                    .getOrElse {
+                        photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                        continuation.resume(
+                            Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+                        )
+                        return@suspendCancellableCoroutine
+                    }
                 val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
-                capture.takePicture(
-                    outputOptions,
-                    Runnable::run,
-                    object : ImageCapture.OnImageSavedCallback {
-                        override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                            val uri = outputFileResults.savedUri?.toString() ?: outputFile.toURI().toString()
-                            photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
-                            continuation.resume(Result.success(uri))
-                        }
+                runCatching {
+                    capture.takePicture(
+                        outputOptions,
+                        Runnable::run,
+                        object : ImageCapture.OnImageSavedCallback {
+                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                val uri = outputFileResults.savedUri?.toString() ?: outputFile.toURI().toString()
+                                photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
+                                continuation.resume(Result.success(uri))
+                            }
 
-                        override fun onError(exception: ImageCaptureException) {
-                            photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
-                            continuation.resume(
-                                Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
-                            )
-                        }
-                    },
-                )
+                            override fun onError(exception: ImageCaptureException) {
+                                outputFile.delete()
+                                photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                                continuation.resume(
+                                    Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+                                )
+                            }
+                        },
+                    )
+                }.onFailure {
+                    outputFile.delete()
+                    photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                    if (continuation.isActive) {
+                        continuation.resume(
+                            Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+                        )
+                    }
+                }
             }
         }
     }

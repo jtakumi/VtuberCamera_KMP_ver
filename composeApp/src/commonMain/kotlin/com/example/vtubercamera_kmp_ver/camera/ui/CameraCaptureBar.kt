@@ -9,17 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +22,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassCornerStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassStyle
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassSurface
 import org.jetbrains.compose.resources.DrawableResource
@@ -36,21 +31,15 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
+import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_message
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_negative
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_positive
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_delete_confirm_title
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_open_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.ic_avatar_picker
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_photo_delete
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_photo_picker
 
 /**
- * カメラ画面下部の操作バー。ファイル選択・撮影・レンズ切り替えをアイコンで並べ、
+ * カメラ画面下部の操作バー。アバター選択・撮影・レンズ切り替えをアイコンで並べ、
  * 撮影済みの写真があるときだけ削除アイコンを追加する。
  *
  * バー自体を Liquid Glass の面として浮かせ、各ボタンはその内側の層として描くことで、
@@ -63,18 +52,13 @@ internal fun CameraCaptureBar(
     onOpenFilePicker: () -> Unit,
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
-    onDeletePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
-    canDeletePhoto: Boolean,
-    isDeletingPhoto: Boolean,
-    glassStyle: LiquidGlassStyle,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-
     LiquidGlassSurface(
-        style = glassStyle,
-        shape = RoundedCornerShape(CAPTURE_BAR_CORNER_RADIUS),
+        appearance = glass,
+        cornerStyle = LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_CORNER_RADIUS),
         modifier = modifier,
     ) {
         Row(
@@ -82,17 +66,18 @@ internal fun CameraCaptureBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // 選ぶ対象がアバターだと一目で分かるよう、ファイルや写真ではなく人型のアイコンを使う。
             CaptureBarIconButton(
-                iconRes = Res.drawable.ic_photo_picker,
-                contentDescriptionRes = Res.string.file_picker_open_button,
+                iconRes = Res.drawable.ic_avatar_picker,
+                contentDescriptionRes = Res.string.avatar_picker_open_button,
                 onClick = onOpenFilePicker,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
             )
             CaptureBarIconButton(
                 iconRes = Res.drawable.ic_camera_capture,
                 contentDescriptionRes = Res.string.camera_capture_button,
                 onClick = onCapturePhoto,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
                 buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
                 iconSize = CAPTURE_SHUTTER_ICON_SIZE,
                 isEmphasized = true,
@@ -102,44 +87,9 @@ internal fun CameraCaptureBar(
                 iconRes = Res.drawable.ic_camera_switch,
                 contentDescriptionRes = Res.string.camera_switch_button,
                 onClick = onLensFacingToggle,
-                glassStyle = glassStyle,
+                glassStyle = glass.style,
             )
-            // 撮影済み画像があるときだけ削除導線を表示する。削除中もボタンを残して進行を示す。
-            if (canDeletePhoto || isDeletingPhoto) {
-                CaptureBarIconButton(
-                    iconRes = Res.drawable.ic_photo_delete,
-                    contentDescriptionRes = Res.string.camera_delete_button,
-                    onClick = { showDeleteConfirm = true },
-                    glassStyle = glassStyle,
-                    isEnabled = canDeletePhoto,
-                    isBusy = isDeletingPhoto,
-                )
-            }
         }
-    }
-
-    // 削除対象が無くなった場合はダイアログ表示条件からも外し、開いたままにならないようにする。
-    if (showDeleteConfirm && canDeletePhoto) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(Res.string.camera_delete_confirm_title)) },
-            text = { Text(stringResource(Res.string.camera_delete_confirm_message)) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showDeleteConfirm = false
-                        onDeletePhoto()
-                    },
-                ) {
-                    Text(stringResource(Res.string.camera_delete_confirm_positive))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(Res.string.camera_delete_confirm_negative))
-                }
-            },
-        )
     }
 }
 

@@ -13,13 +13,15 @@
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
 - ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
 - アバター表示倍率管理 (`AvatarScaleUiState` / `AvatarScaleController`) とピンチ操作対象の切り替え (`PinchGestureTarget` / `PinchGestureController`)
-- ファイルピッカー結果を反映する avatar preview UI
+- ファイルピッカー結果を反映する avatar preview UI。操作バーのアバター選択ボタンは人型アイコン (`ic_avatar_picker`) で表す
+- 操作 UI を隠す UI 非表示モード (`CameraUiVisibilityUiState` / `CameraUiVisibilityController`)。ON の間は上部バーと操作バーを composition から外し、全画面のピンチ検出レイヤーに足したタップ検出で再表示する
 - GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
 - VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
 - face tracking → アバター表情・ボーン状態へのマッピング (`FaceToAvatarMapper` / `AvatarMotionSmoother`)
 - アバターアセット管理 (`AvatarAssetStore`)
 - カメラ操作 UI の Liquid Glass 表現 (`LiquidGlassStyle` / `LiquidGlassSurface`)。透過 tint、上端の specular highlight、縁のリムライト、落ち影を重ねた面として上部バーと操作バーを描く
 - 背景プリセットの明るさに追従する Liquid Glass の明暗切り替え (`LiquidGlassTone` / `CameraBackgroundMode.overlayGlassTone`)。White プリセットだけ明るいガラス + 暗い前景へ移行し、切り替えは補間してアニメーションする
+- OS 製 Liquid Glass への切り替え口 (`isPlatformLiquidGlassAvailable` / `PlatformLiquidGlassBackdrop`)。OS がガラスを提供する場合は面の描画を OS 側へ委ね、提供しない場合は Compose 実装のガラスを描く。角丸は `LiquidGlassCornerStyle` として両方へ渡し、tint は `liquidGlassPlatformTintArgb` で ARGB へ畳んで受け渡す
 
 ### 1.2 Android (`composeApp/src/androidMain`)
 
@@ -43,6 +45,7 @@
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
 - avatar render state を Filament ブリッジへ伝達 (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`)
 - アバター表示倍率を render state 通知へ載せて native へ伝達し、static preview へ適用（Filament renderer への適用は未実装）
+- iOS 26 以降で OS 製 Liquid Glass (`UIGlassEffect`) をカメラ操作 UI の背面へ差し込む (`IOSLiquidGlassBackdropHost` / `GlassEffectBackdropViewProvider.swift`)。iOS 26 未満は Compose 実装のガラスへフォールバックする
 - `iosApp` は Compose のホストアプリ（`MainViewController` 起動）
 - Android は ML Kit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、Filament renderer の head bone / expression morph へ適用する。
 - iOS は ARKit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、native bridge へ通知する。
@@ -62,7 +65,9 @@
 - shared は UI と状態遷移の土台を担当する。
 - camera デバイス制御やネイティブ API の接続は platform 実装が担当する。
 - 現状は Android / iOS で実装の深さに差があるため、同一実装とは扱わない。
-- Liquid Glass は Compose の共有 UI 側だけで表現する。カメラ映像とアバターは platform view としてCompose の外で描画されるため、背後の映像をぼかす backdrop blur は使わず、透過 tint とリムライトの重ねで表現している。
+- Liquid Glass は 2 系統を持つ。OS がガラスを提供する iOS 26 以降では、`UIVisualEffectView` + `UIGlassEffect` を interop view として操作 UI の背面へ敷き、背後のぼかしと屈折を OS に任せる。カメラ映像とアバターは platform view として Compose の外で描画されるため、Compose の塗りではぼかせないが、UIKit の view として重ねれば OS 側からは同じ window の背景として扱える。
+- OS がガラスを提供しない Android と iOS 26 未満では、Compose だけで近似する。backdrop blur は使わず、透過 tint、上端の specular highlight、縁のリムライト、落ち影の重ねで面を表す。どちらの系統でも前景色は共有の `LiquidGlassStyle` を使うため、文字とアイコンのコントラストは揃う。
+- OS 側のガラスは shared から直接は作らない。`UIGlassEffect` を参照すると iOS 26 SDK が必要になるため、`iosApp` が `LiquidGlassBackdropViewProvider` として view を供給し、shared は `UIView` として位置と重ね順だけを決める。Filament renderer host view と同じ構成にしている。
 - `FaceTrackingPresenter` は platform から受け取った `NormalizedFaceFrame` を `FaceToAvatarMapper` へ渡し、UI 表示用 `FaceTrackingUiState` と renderer 用 `AvatarRenderState` を同時に更新する。
 - 顔未検出または tracking confidence 低下時は `AvatarRenderState` を `NotTracked` / `Lost` へ遷移させ、前回姿勢から neutral へ平滑に戻す。
 - Android renderer は共有 state に Android 向けの軽い gain / emphasis を適用してから、head bone transform と VRM expression morph weights へ反映する。
@@ -77,8 +82,9 @@
 - **CameraZoomController** (`camera/zoom`): ズーム倍率の計算・反映と `observeZoomState()` を担う。依存は `CameraRepository`。
 - **FaceTrackingPresenter** (`camera/facetracking`): `NormalizedFaceFrame` から `FaceTrackingUiState` と `AvatarRenderState` への変換を担う。`FaceToAvatarMapper` への委譲もここに寄せている。
 - **AvatarSelectionController** (`camera/avatar`): ファイル選択結果の反映、`AvatarAssetStore` 上のアセット寿命管理、読み込み失敗時の選択解除を担う。
+- **CameraUiVisibilityController** (`camera/uivisibility`): 操作 UI を隠す UI 非表示モードの ON / OFF（`onHideUi` / `onShowUi`）を担う。
 
-`CameraUiState` はこれらに対応する sub-state（`session` / `permission` / `zoom` / `faceTracking` / `avatarRender` / `avatarSelection`）を束ねる composite として再構成している。各 controller は自前の `StateFlow` を持ち、`CameraViewModel` がそれらを `uiState` へ同期合成する。ドメイン横断の唯一の結線点は「権限が Granted へ遷移した際に session のプレビュー開始を起動する」箇所で、`CameraViewModel.applyPermissionChange()` に集約している。
+`CameraUiState` はこれらに対応する sub-state（`session` / `permission` / `zoom` / `faceTracking` / `avatarRender` / `avatarSelection` / `uiVisibility`）を束ねる composite として再構成している。各 controller は自前の `StateFlow` を持ち、`CameraViewModel` がそれらを `uiState` へ同期合成する。ドメイン横断の唯一の結線点は「権限が Granted へ遷移した際に session のプレビュー開始を起動する」箇所で、`CameraViewModel.applyPermissionChange()` に集約している。
 
 ## 4. ドキュメント更新ルール
 

@@ -10,7 +10,6 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_photo_de
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_preview_initialization_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unavailable
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_capture_succeeded
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_delete_succeeded
 
 // 画面から参照する共有のカメラ権限状態。
@@ -95,10 +94,7 @@ fun PhotoCaptureState.toCameraMessage(): CameraMessage? = when (this) {
     PhotoCaptureState.Idle,
     PhotoCaptureState.Capturing,
     -> null
-    is PhotoCaptureState.Succeeded -> CameraMessage(
-        type = CameraMessageType.Guide,
-        messageRes = Res.string.camera_photo_capture_succeeded,
-    )
+    is PhotoCaptureState.Succeeded -> null
     is PhotoCaptureState.Failed -> error.toCameraMessage()
 }
 

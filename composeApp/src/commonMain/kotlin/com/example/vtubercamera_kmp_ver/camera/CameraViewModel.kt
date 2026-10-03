@@ -12,6 +12,7 @@ import com.example.vtubercamera_kmp_ver.camera.permission.PermissionChange
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoDeletionController
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionController
+import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityController
 import com.example.vtubercamera_kmp_ver.camera.zoom.CameraZoomController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -55,6 +56,7 @@ class CameraViewModel(
     private val avatarScaleController = AvatarScaleController()
     private val backgroundController = CameraBackgroundController()
     private val pinchGestureController = PinchGestureController()
+    private val uiVisibilityController = CameraUiVisibilityController()
 
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
@@ -147,6 +149,11 @@ class CameraViewModel(
                 _uiState.update { it.copy(pinchTarget = pinchTarget) }
             }
         }
+        mirrorScope.launch {
+            uiVisibilityController.state.collect { uiVisibility ->
+                _uiState.update { it.copy(uiVisibility = uiVisibility) }
+            }
+        }
     }
 
     fun initialize() {
@@ -205,6 +212,16 @@ class CameraViewModel(
     // カメラ映像を覆う背景モードを次のプリセットへ切り替える。
     fun onToggleBackgroundMode() {
         backgroundController.onToggleBackgroundMode()
+    }
+
+    // 操作 UI を隠す UI 非表示モードを ON にする。
+    fun onHideUi() {
+        uiVisibilityController.onHideUi()
+    }
+
+    // UI 非表示モードを OFF にして、隠していた操作 UI を再表示する。
+    fun onShowUi() {
+        uiVisibilityController.onShowUi()
     }
 
     fun onCapturePhoto() {
