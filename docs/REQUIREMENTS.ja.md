@@ -56,7 +56,8 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
   - `PhotoCaptureController` (`camera/photo`): 写真撮影状態の管理
   - `FaceTrackingPresenter` (`camera/facetracking`): face tracking 結果の UI / レンダラー向け変換
   - `AvatarSelectionController` (`camera/avatar`): アバターファイル選択結果とアセット寿命の管理
-- `CameraUiState` は `session` / `permission` / `zoom` / `photoCapture` / `faceTracking` / `avatarRender` / `avatarSelection` の sub-state を束ねた composite とし、`CameraViewModel` が単一の `StateFlow<CameraUiState>` として公開する。
+  - `CameraUiVisibilityController` (`camera/uivisibility`): 操作 UI を隠す UI 非表示モードの ON / OFF
+- `CameraUiState` は `session` / `permission` / `zoom` / `photoCapture` / `faceTracking` / `avatarRender` / `avatarSelection` / `uiVisibility` の sub-state を束ねた composite とし、`CameraViewModel` が単一の `StateFlow<CameraUiState>` として公開する。
 - プラットフォーム差分は `CameraRepository` / `PermissionRepository` インターフェース（共有定義）の platform 実装で吸収する。
 
 ### 3.2 モジュール構成
@@ -141,6 +142,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | 概要 | 端末内の VRM / GLB ファイルを選択してアバターとして読み込む |
 
 - Android は Storage Access Framework の `OpenDocument`、iOS は `UIDocumentPickerViewController` でファイルを選択する。
+- 選択を開く操作バーのボタンは、選ぶ対象がアバターだと一目で分かるよう人型のアイコン（`ic_avatar_picker`）で表し、読み上げ名は「アバターを選択」とする。
 - 選択した VRM / GLB の raw bytes は `AvatarAssetStore` に保持し、共有 state には軽量 handle と metadata のみを保持する。
 - 読み込み失敗時は選択を解除する。
 
@@ -223,6 +225,21 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - Android: 倍率に応じて Filament カメラの距離を `cameraDistance / avatarScale` へ寄せ、3D シーン内で拡大縮小する。
 - iOS: 倍率を `IOSAvatarRenderInterop` の render state 通知へ載せ、`VTCAvatarRenderState.avatarScale` として native 側へ伝達する。native 側は現状の static preview に倍率を適用する（Filament renderer への適用は FR-10 と同じく未実装）。
 - 拡大時もアバターは画面全体まで広がるだけで、操作 UI より前面には出ない（FR-10 のレイヤー順参照）。
+
+### FR-14 UI 非表示モード
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象 | 共通 |
+| 概要 | 操作 UI を画面から消し、カメラ映像とアバターだけを表示する |
+
+- モードの状態は共有の `CameraUiVisibilityUiState`（`isHidden`）で管理し、既定は OFF（操作 UI を表示）とする。
+- ON にする操作は、上部バーの下、画面右端にある丸型の非表示ボタン（読み上げ名「UIを非表示」）で行う。
+- ON の間は上部バーと操作バー（非表示ボタンを含む）を composition から外す。透明化では見えないボタンが押せてしまうため行わない。
+- 再表示の経路: ON の間は、画面のどこをタップしても OFF に戻り、操作 UI が再表示される。ピンチ検出と同じ全画面レイヤーにタップ検出を足しているため、ピンチやドラッグはタップとして扱われず、モード中もピンチ操作（カメラズーム / アバター拡縮）は効き続ける。
+- アクセシビリティ: ON の間、全画面レイヤーは「UIを再表示」という名前のボタンとして読み上げられ、スクリーンリーダーの click 操作でも再表示できる。
+- 状態は端末内の画面状態であり永続化しない。アプリの再起動後は常に OFF から始まる。
+- カメラ画面の通知バナーは、失敗を見逃さないよう UI 非表示モード中も表示する。
 
 ## 5. 将来要件（未実装・計画中）
 
