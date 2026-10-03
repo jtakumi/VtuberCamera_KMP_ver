@@ -13,7 +13,8 @@
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
 - ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
 - アバター表示倍率管理 (`AvatarScaleUiState` / `AvatarScaleController`) とピンチ操作対象の切り替え (`PinchGestureTarget` / `PinchGestureController`)
-- ファイルピッカー結果を反映する avatar preview UI
+- ファイルピッカー結果を反映する avatar preview UI。操作バーのアバター選択ボタンは人型アイコン (`ic_avatar_picker`) で表す
+- 操作 UI を隠す UI 非表示モード (`CameraUiVisibilityUiState` / `CameraUiVisibilityController`)。ON の間は上部バーと操作バーを composition から外し、全画面のピンチ検出レイヤーに足したタップ検出で再表示する
 - GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
 - VRM モーフターゲット・エクスプレッション定義の正規化 (`VrmSpecNormalizer` / `VrmExpressionMap`)
 - face tracking → アバター表情・ボーン状態へのマッピング (`FaceToAvatarMapper` / `AvatarMotionSmoother`)
@@ -81,8 +82,9 @@
 - **CameraZoomController** (`camera/zoom`): ズーム倍率の計算・反映と `observeZoomState()` を担う。依存は `CameraRepository`。
 - **FaceTrackingPresenter** (`camera/facetracking`): `NormalizedFaceFrame` から `FaceTrackingUiState` と `AvatarRenderState` への変換を担う。`FaceToAvatarMapper` への委譲もここに寄せている。
 - **AvatarSelectionController** (`camera/avatar`): ファイル選択結果の反映、`AvatarAssetStore` 上のアセット寿命管理、読み込み失敗時の選択解除を担う。
+- **CameraUiVisibilityController** (`camera/uivisibility`): 操作 UI を隠す UI 非表示モードの ON / OFF（`onHideUi` / `onShowUi`）を担う。
 
-`CameraUiState` はこれらに対応する sub-state（`session` / `permission` / `zoom` / `faceTracking` / `avatarRender` / `avatarSelection`）を束ねる composite として再構成している。各 controller は自前の `StateFlow` を持ち、`CameraViewModel` がそれらを `uiState` へ同期合成する。ドメイン横断の唯一の結線点は「権限が Granted へ遷移した際に session のプレビュー開始を起動する」箇所で、`CameraViewModel.applyPermissionChange()` に集約している。
+`CameraUiState` はこれらに対応する sub-state（`session` / `permission` / `zoom` / `faceTracking` / `avatarRender` / `avatarSelection` / `uiVisibility`）を束ねる composite として再構成している。各 controller は自前の `StateFlow` を持ち、`CameraViewModel` がそれらを `uiState` へ同期合成する。ドメイン横断の唯一の結線点は「権限が Granted へ遷移した際に session のプレビュー開始を起動する」箇所で、`CameraViewModel.applyPermissionChange()` に集約している。
 
 ## 4. ドキュメント更新ルール
 
