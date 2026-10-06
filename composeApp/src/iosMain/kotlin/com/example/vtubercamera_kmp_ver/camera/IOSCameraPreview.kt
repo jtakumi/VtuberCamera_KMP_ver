@@ -51,16 +51,12 @@ import platform.AVFoundation.AVCaptureDevice
 import platform.AVFoundation.AVCaptureDeviceInput
 import platform.AVFoundation.AVCaptureDevicePositionBack
 import platform.AVFoundation.AVCaptureDevicePositionFront
-import platform.AVFoundation.AVCaptureFileOutput
-import platform.AVFoundation.AVCaptureFileOutputRecordingDelegateProtocol
-import platform.AVFoundation.AVCaptureMovieFileOutput
 import platform.AVFoundation.AVCaptureSession
 import platform.AVFoundation.AVCapturePhoto
 import platform.AVFoundation.AVCapturePhotoCaptureDelegateProtocol
 import platform.AVFoundation.AVCapturePhotoOutput
 import platform.AVFoundation.AVCapturePhotoSettings
 import platform.AVFoundation.AVCaptureVideoPreviewLayer
-import platform.AVFoundation.AVErrorRecordingSuccessfullyFinishedKey
 import platform.AVFoundation.AVMediaTypeVideo
 import platform.AVFoundation.position
 import platform.AVFoundation.authorizationStatusForMediaType
@@ -185,7 +181,7 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
-    // iOS は写真 / 動画の出力を常にセッションへ接続しているため、撮影モードでは構成を変えない。
+    // iOS の画面録画は撮影モードに依らず使え、マイク権限は ReplayKit が録画開始時に要求するため参照しない。
     captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -237,14 +233,10 @@ actual fun CameraPreviewHost(
                     (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
                         sessionManager.photoCapturer(),
                     )
-                    (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(
-                        sessionManager.videoRecorder(),
-                    )
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
                 } else {
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
                     (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(null)
-                    (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(null)
                     cameraRepository.onPlatformPreviewError(
                         lensFacing = resolvedLens,
                         error = CameraError.PreviewInitializationFailed,
@@ -260,9 +252,6 @@ actual fun CameraPreviewHost(
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(null)
                     (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
                         faceTrackingSessionManager.photoCapturer(),
-                    )
-                    (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(
-                        faceTrackingSessionManager.videoRecorder(),
                     )
                     faceTrackingSessionManager.startPreview(
                         onFaceTrackingFrameChanged = { frame ->
@@ -286,8 +275,16 @@ actual fun CameraPreviewHost(
             faceTrackingSessionManager.stopPreview()
             sessionManager.stopPreview()
             (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(null)
-            (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(null)
             currentOnFaceTrackingFrameChanged.value(null)
+        }
+    }
+
+    // 画面録画はカメラセッションや face tracking と独立した ReplayKit なので、プレビュー構成を
+    // 切り替えても使い続けられるよう、画面が存在する間だけ 1 度登録する。
+    DisposableEffect(cameraRepository) {
+        (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(IOSScreenVideoRecorder())
+        onDispose {
+            (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(null)
         }
     }
 }
@@ -509,7 +506,6 @@ private class IOSCameraSessionManager {
     private val session = AVCaptureSession()
     private val previewLayer = AVCaptureVideoPreviewLayer(session = session)
     private val photoOutput = AVCapturePhotoOutput()
-    private val movieOutput = AVCaptureMovieFileOutput()
     // Serialize capture-session work off the main thread to avoid UI stalls.
     private val sessionQueue = dispatch_queue_create("com.example.vtubercamera.camera.session", null)
     private var currentInput: AVCaptureDeviceInput? = null
@@ -544,9 +540,6 @@ private class IOSCameraSessionManager {
             previousInput?.let { session.removeInput(it) }
             if (!session.outputs.contains(photoOutput) && session.canAddOutput(photoOutput)) {
                 session.addOutput(photoOutput)
-            }
-            if (!session.outputs.contains(movieOutput) && session.canAddOutput(movieOutput)) {
-                session.addOutput(movieOutput)
             }
             if (!session.canAddInput(input)) {
                 previousInput?.takeIf { session.canAddInput(it) }?.let { restoredInput ->
@@ -605,17 +598,6 @@ private class IOSCameraSessionManager {
             },
             isVideoConnectionReady = {
                 val connection = photoOutput.connectionWithMediaType(AVMediaTypeVideo)
-                session.running && connection?.active == true && connection.enabled
-            },
-        )
-    }
-
-    // 動画録画の開始口を返す。録画の開始 / 停止は呼び出し元（main）から直接 AVCaptureMovieFileOutput へ依頼する。
-    fun videoRecorder(): IOSVideoRecorder {
-        return AVCaptureMovieFileOutputRecorder(
-            movieOutput = movieOutput,
-            isVideoConnectionReady = {
-                val connection = movieOutput.connectionWithMediaType(AVMediaTypeVideo)
                 session.running && connection?.active == true && connection.enabled
             },
         )
@@ -686,68 +668,6 @@ private class IOSPhotoCaptureDelegate(
         val photoUri = NSURL.fileURLWithPath(filePath).absoluteString
         onComplete(photoUri, null)
     }
-}
-
-// AVCaptureMovieFileOutput へ録画の開始 / 停止を依頼し、書き出し完了を main queue へ戻して通知する。
-private class AVCaptureMovieFileOutputRecorder(
-    private val movieOutput: AVCaptureMovieFileOutput,
-    private val isVideoConnectionReady: () -> Boolean,
-) : IOSVideoRecorder {
-    override fun startRecording(
-        onFinalized: (uri: String?, error: Throwable?) -> Unit,
-    ): IOSVideoRecording {
-        // Objective-C の例外は Kotlin で捕捉できずアプリが落ちるため、投げられうる条件を先に検査する。
-        check(isVideoConnectionReady()) { "Video recording connection is not ready" }
-        check(!movieOutput.recording) { "Video recording is already in progress" }
-
-        val filePath = NSTemporaryDirectory() + "vtuber-camera-${NSUUID().UUIDString}.mov"
-        val delegate = IOSVideoRecordingDelegate { uri, error ->
-            retainedRecordingDelegates.removeAll { it.didComplete }
-            onFinalized(uri, error)
-        }
-        retainedRecordingDelegates += delegate
-        movieOutput.startRecordingToOutputFileURL(
-            outputFileURL = NSURL.fileURLWithPath(filePath),
-            recordingDelegate = delegate,
-        )
-        return IOSVideoRecording { movieOutput.stopRecording() }
-    }
-
-    companion object {
-        // delegate は AVFoundation から弱参照されるため、書き出し完了まで強参照で保持する。
-        private val retainedRecordingDelegates = mutableListOf<IOSVideoRecordingDelegate>()
-    }
-}
-
-private class IOSVideoRecordingDelegate(
-    private val onComplete: (uri: String?, error: Throwable?) -> Unit,
-) : NSObject(), AVCaptureFileOutputRecordingDelegateProtocol {
-    var didComplete: Boolean = false
-        private set
-
-    override fun captureOutput(
-        output: AVCaptureFileOutput,
-        didFinishRecordingToOutputFileAtURL: NSURL,
-        fromConnections: List<*>,
-        error: NSError?,
-    ) {
-        didComplete = true
-        val uri = didFinishRecordingToOutputFileAtURL.absoluteString
-        // 最大録画時間やディスク残量で止まった場合も、録画自体は成功として書き出されることがある。
-        val failure = error
-            ?.takeUnless { it.isRecordingSuccessfullyFinished() }
-            ?.let { IllegalStateException(it.localizedDescription) }
-        // AVFoundation は任意のキューで delegate を呼ぶため、状態の更新は main へ戻して行う。
-        dispatch_async(dispatch_get_main_queue()) {
-            onComplete(uri, failure)
-        }
-    }
-}
-
-// AVFoundation が録画エラー付きで終了を通知しても、ファイルが正常に書き出されていたかを返す。
-private fun NSError.isRecordingSuccessfullyFinished(): Boolean {
-    val value = userInfo[AVErrorRecordingSuccessfullyFinishedKey]
-    return (value as? NSNumber)?.boolValue ?: (value as? Boolean) ?: false
 }
 
 private class AVCaptureDeviceCameraControl(
@@ -831,13 +751,6 @@ private class IOSFaceTrackingSessionManager {
     fun photoCapturer(): IOSPhotoCapturer {
         return IOSPhotoCapturer { onComplete ->
             onComplete(null, IllegalStateException("Photo capture is unavailable during face tracking"))
-        }
-    }
-
-    // ARKit の face tracking 中は AVCaptureSession を使えず録画できないため、開始を常に失敗させる。
-    fun videoRecorder(): IOSVideoRecorder {
-        return IOSVideoRecorder {
-            throw IllegalStateException("Video recording is unavailable during face tracking")
         }
     }
 }
