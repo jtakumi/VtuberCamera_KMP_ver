@@ -35,9 +35,8 @@ internal class AndroidCameraRepository(
     private var imageCapture: ImageCapture? = null
     private var videoRecorder: AndroidVideoRecorder? = null
 
-    // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と CameraX の callback が main）。
+    // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と recorder の完了通知が main）。
     private var activeRecording: AndroidVideoRecording? = null
-    private var activeRecordingFile: File? = null
     private var pendingStopResult: CompletableDeferred<Result<String?>>? = null
 
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
@@ -137,28 +136,22 @@ internal class AndroidCameraRepository(
 
     override fun observeVideoRecordingState(): Flow<VideoRecordingState> = videoRecordingState
 
-    // 一時ファイルへ録画を開始する。録画中、recorder が未準備（写真モードなど）、ファイル作成や開始に失敗したときは
+    // アプリ画面の録画を開始する。録画中、recorder が未準備、開始に失敗したときは
     // [CameraError.VideoRecordFailed] で失敗する。すでに録画中の呼び出しは状態を変えずに失敗だけ返す。
     override suspend fun startVideoRecording(): Result<Unit> {
         if (activeRecording != null) {
             return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
         }
         val recorder = videoRecorder ?: return failVideoRecordingStart()
-        val outputFile = runCatching { File.createTempFile("vtuber-camera-", ".mp4") }
+        val recording = runCatching { recorder.startRecording(::onVideoRecordingFinalized) }
             .getOrElse { return failVideoRecordingStart() }
-        val recording = runCatching { recorder.startRecording(outputFile, ::onVideoRecordingFinalized) }
-            .getOrElse {
-                outputFile.delete()
-                return failVideoRecordingStart()
-            }
         activeRecording = recording
-        activeRecordingFile = outputFile
         videoRecordingState.value = VideoRecordingState.Recording
         return Result.success(Unit)
     }
 
-    // 録画の停止を要求し、書き出しが完了するまで待つ。録画中でなければ状態を変えずに失敗だけ返す。
-    // 書き出しに失敗したときは出力ファイルを削除し、[VideoRecordingState.Failed] へ遷移する。
+    // 録画の停止を要求し、ギャラリーへの保存が完了するまで待つ。録画中でなければ状態を変えずに失敗だけ返す。
+    // 保存に失敗したときは [VideoRecordingState.Failed] へ遷移する（出力の片付けは recorder が行う）。
     override suspend fun stopVideoRecording(): Result<String?> {
         val recording = activeRecording
         if (recording == null || pendingStopResult != null) {
@@ -168,7 +161,7 @@ internal class AndroidCameraRepository(
         pendingStopResult = stopResult
         videoRecordingState.value = VideoRecordingState.Finalizing
         runCatching { recording.stop() }
-            .onFailure { onVideoRecordingFinalized(error = it) }
+            .onFailure { onVideoRecordingFinalized(uri = null, error = it) }
         return stopResult.await()
     }
 
@@ -178,18 +171,14 @@ internal class AndroidCameraRepository(
         return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
     }
 
-    // 録画の書き出し完了を受けて状態を確定する。停止要求への応答だけでなく、unbind やストレージ不足など
+    // 録画の終了を受けて状態を確定する。停止要求への応答だけでなく、ウィンドウの破棄など
     // 録画側から終了した場合も同じ経路で失敗として扱う。
-    private fun onVideoRecordingFinalized(error: Throwable?) {
-        val outputFile = activeRecordingFile
+    private fun onVideoRecordingFinalized(uri: String?, error: Throwable?) {
         activeRecording = null
-        activeRecordingFile = null
-        val result: Result<String?> = if (error == null && outputFile != null) {
-            val uri = outputFile.toURI().toString()
+        val result: Result<String?> = if (error == null && uri != null) {
             videoRecordingState.value = VideoRecordingState.Succeeded(uri)
             Result.success(uri)
         } else {
-            outputFile?.delete()
             videoRecordingState.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
             Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
         }
@@ -245,7 +234,7 @@ internal class AndroidCameraRepository(
         this.imageCapture = imageCapture
     }
 
-    // 動画モードでだけ録画の開始口が渡され、写真モードやプレビュー破棄時は null になる。
+    // 画面録画の開始口。画面が破棄されるときは null に戻す。
     fun onPlatformVideoRecorderReady(videoRecorder: AndroidVideoRecorder?) {
         this.videoRecorder = videoRecorder
     }

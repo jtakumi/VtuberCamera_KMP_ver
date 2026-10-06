@@ -2,6 +2,8 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import android.Manifest
 import android.content.Context
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.hardware.camera2.CaptureRequest
@@ -17,8 +19,6 @@ import androidx.camera.core.Preview
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.ZoomState
-import androidx.camera.video.Recorder
-import androidx.camera.video.VideoCapture
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -52,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -199,7 +200,7 @@ actual fun CameraPreviewHost(
         factory = { previewView },
     )
 
-    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture, lensFacing, captureMode) {
+    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture, lensFacing) {
         val executor = ContextCompat.getMainExecutor(context)
         val listener = Runnable {
             var attemptedLensFacing = lensFacing
@@ -245,33 +246,21 @@ actual fun CameraPreviewHost(
                     it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer)
                 }
 
-                // Preview・ImageAnalysis と合わせた同時ストリーム数を端末の上限内に収めるため、
-                // 撮影用の use case は選択中のモードの 1 つだけを束ねる。
-                val imageCapture = if (captureMode == CameraCaptureMode.Photo) {
-                    ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build()
-                } else {
-                    null
-                }
-                val videoCapture = if (captureMode == CameraCaptureMode.Video) {
-                    VideoCapture.withOutput(Recorder.Builder().build())
-                } else {
-                    null
-                }
+                val imageCapture = ImageCapture.Builder()
+                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    .build()
 
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     selector,
-                    *listOfNotNull(preview, analysis, imageCapture, videoCapture).toTypedArray(),
+                    preview,
+                    analysis,
+                    imageCapture,
                 )
                 // AndroidCameraRepositoryをこの時だけキャストする。nullなら実行しない
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformCameraControlReady(camera.cameraControl)
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(imageCapture)
-                (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(
-                    videoCapture?.let { CameraXVideoRecorder(context = context, videoCapture = it) },
-                )
                 // 現在の倍率をLiveDataで監視する
                 val zoomLiveData = camera.cameraInfo.zoomState
                 val zoomObserver = Observer<ZoomState> { zoomState ->
@@ -292,7 +281,6 @@ actual fun CameraPreviewHost(
                 (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
                 previewView.tag = null
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
-                (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(null)
                 onFaceTrackingFrameChangedState.value(null)
                 cameraRepository.onPlatformPreviewError(
                     lensFacing = attemptedLensFacing,
@@ -311,7 +299,33 @@ actual fun CameraPreviewHost(
                 cameraProviderFuture.get().unbindAll()
             }
             (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
+        }
+    }
+
+    // 画面録画はカメラのバインドとは独立しているため、画面（ウィンドウ）が存在する間だけ登録する。
+    val screenRecorderView = LocalView.current
+    DisposableEffect(cameraRepository, context, screenRecorderView) {
+        val screenRecorder = AndroidScreenVideoRecorder(
+            context = context,
+            windowProvider = { screenRecorderView.context.findActivity()?.window },
+            // 録画開始のたびに権限を確かめ、許可されていれば音声も録る。
+            isMicrophonePermitted = { context.hasMicrophonePermission() },
+        )
+        (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(screenRecorder)
+        onDispose {
             (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(null)
+        }
+    }
+
+    // 動画モードへ切り替えた時点でマイク権限を要求し、録画の開始時に権限ダイアログで中断されないようにする。
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        // 拒否されても録画は止めない。結果は保持せず、録画開始時に権限を確かめ直して映像のみで録画する。
+    }
+    LaunchedEffect(captureMode) {
+        if (captureMode == CameraCaptureMode.Video && !context.hasMicrophonePermission()) {
+            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
@@ -438,6 +452,20 @@ private fun AvatarRendererHostView(
         },
         modifier = modifier,
     )
+}
+
+private fun Context.hasMicrophonePermission(): Boolean {
+    return ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.RECORD_AUDIO,
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+// Compose の View から、ラップされた Context をたどって所属する Activity を探す。
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 private fun Context.hasCameraPermission(): Boolean {
