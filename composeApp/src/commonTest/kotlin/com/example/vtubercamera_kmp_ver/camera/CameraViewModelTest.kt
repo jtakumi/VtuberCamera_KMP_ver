@@ -1193,6 +1193,41 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun onToggleVideoRecording_afterPhotoCapture_clearsStalePhotoOutcome() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+        assertIs<PhotoCaptureState.Succeeded>(viewModel.uiState.value.photoCapture)
+
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+
+        // 古い写真の保存通知が、録画の通知を隠さないよう Idle へ戻る。撮影済み URI は保持する。
+        assertEquals(PhotoCaptureState.Idle, viewModel.uiState.value.photoCapture)
+        assertEquals("fake://photo.jpg", viewModel.uiState.value.capturedPhotoUri)
+    }
+
+    @Test
+    fun onToggleCaptureMode_afterPhotoCapture_clearsStalePhotoOutcome() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+
+        assertEquals(PhotoCaptureState.Idle, viewModel.uiState.value.photoCapture)
+    }
+
+    @Test
     fun releaseCurrentAvatarAsset_removesCurrentAvatarAssetHandle() = runTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
