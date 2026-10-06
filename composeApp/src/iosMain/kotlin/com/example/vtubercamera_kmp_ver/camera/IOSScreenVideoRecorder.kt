@@ -9,12 +9,7 @@ import platform.Foundation.NSError
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
 import platform.Foundation.NSUUID
-import platform.Photos.PHAccessLevelAddOnly
 import platform.Photos.PHAssetChangeRequest
-import platform.Photos.PHAuthorizationStatus
-import platform.Photos.PHAuthorizationStatusAuthorized
-import platform.Photos.PHAuthorizationStatusLimited
-import platform.Photos.PHPhotoLibrary
 import platform.ReplayKit.RPScreenRecorder
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -64,41 +59,24 @@ internal class IOSScreenVideoRecorder : IOSVideoRecorder {
         }
     }
 
-    // Photos の add-only 権限を確かめ、録画ファイルを写真ライブラリへ追加する。
+    // 録画ファイルを写真ライブラリへ追加し、結果が出たら一時ファイルを片付けて通知する。
     private fun saveToPhotos(
         tempUrl: NSURL,
         tempPath: String,
         finalizeOnMain: (uri: String?, error: Throwable?) -> Unit,
     ) {
-        PHPhotoLibrary.requestAuthorizationForAccessLevel(PHAccessLevelAddOnly) { status ->
-            if (!status.canAddAssets()) {
+        saveToPhotoLibrary(
+            createAsset = {
+                PHAssetChangeRequest
+                    .creationRequestForAssetFromVideoAtFileURL(tempUrl)
+                    ?.placeholderForCreatedAsset
+                    ?.localIdentifier
+            },
+            onComplete = { uri, error ->
                 discardTempFile(tempPath)
-                finalizeOnMain(null, IllegalStateException("Photo library access was not granted"))
-                return@requestAuthorizationForAccessLevel
-            }
-            var assetIdentifier: String? = null
-            PHPhotoLibrary.sharedPhotoLibrary().performChanges(
-                changeBlock = {
-                    assetIdentifier = PHAssetChangeRequest
-                        .creationRequestForAssetFromVideoAtFileURL(tempUrl)
-                        ?.placeholderForCreatedAsset
-                        ?.localIdentifier
-                },
-                completionHandler = { isSaved, error ->
-                    discardTempFile(tempPath)
-                    val savedIdentifier = assetIdentifier
-                    if (isSaved && savedIdentifier != null) {
-                        finalizeOnMain("ph://$savedIdentifier", null)
-                    } else {
-                        finalizeOnMain(
-                            null,
-                            error?.toThrowable()
-                                ?: IllegalStateException("Failed to save the recorded video to Photos"),
-                        )
-                    }
-                },
-            )
-        }
+                finalizeOnMain(uri, error)
+            },
+        )
     }
 }
 
@@ -115,11 +93,6 @@ private fun onceOnMain(
             }
         }
     }
-}
-
-// 追加だけを許す権限（限定的な許可を含む）が得られているか。
-private fun PHAuthorizationStatus.canAddAssets(): Boolean {
-    return this == PHAuthorizationStatusAuthorized || this == PHAuthorizationStatusLimited
 }
 
 private fun NSError.toThrowable(): Throwable = IllegalStateException(localizedDescription)
