@@ -30,6 +30,7 @@
     <string name="camera_error_photo_delete_failed">写真の削除に失敗しました。</string>
     <string name="camera_error_video_record_failed">動画の録画に失敗しました。</string>
     <string name="camera_error_unknown">不明なカメラエラーが発生しました。</string>
+    <string name="camera_photo_capture_succeeded">写真をギャラリーに保存しました。</string>
     <string name="camera_photo_delete_succeeded">写真を削除しました。</string>
     <string name="camera_video_record_succeeded">録画をギャラリーに保存しました。</string>
     <string name="avatar_picker_open_button">アバターを選択</string>
