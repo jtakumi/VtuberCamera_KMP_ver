@@ -1099,6 +1099,24 @@ class CameraViewModelTest {
     }
 
     @Test
+    fun onToggleVideoRecording_marksRecordingInProgressFromStartingSoUiCanHide() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onToggleVideoRecording()
+
+        assertEquals(VideoRecordingState.Starting, viewModel.uiState.value.videoRecording)
+        assertEquals(true, viewModel.uiState.value.isVideoRecordingActive)
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+        assertEquals(CameraCaptureMode.Photo, viewModel.uiState.value.captureMode.mode)
+    }
+
+    @Test
     fun onToggleLensFacing_whileRecording_doesNotSwitchLens() = runTest {
         val cameraRepository = FakeCameraRepository()
         val viewModel = CameraViewModel(
