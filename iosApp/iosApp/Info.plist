@@ -9,6 +9,6 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>動画を録画するときに音声を録音するために使用します。</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>録画した動画を写真ライブラリへ保存するために使用します。</string>
+	<string>撮影した写真と録画した動画を写真ライブラリへ保存するために使用します。</string>
 </dict>
 </plist>
