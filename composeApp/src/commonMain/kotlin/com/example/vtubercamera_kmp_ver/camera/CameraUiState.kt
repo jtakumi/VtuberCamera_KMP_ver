@@ -48,10 +48,9 @@ data class CameraUiState(
             pinchTarget
         }
 
-    // 録画中、または出力ファイルの書き出し中。この間はカメラ構成を変える操作を受け付けない。
+    // 録画の開始から保存完了まで。この間は操作 UI を隠し、撮影モードやレンズの切り替えを受け付けない。
     val isVideoRecordingActive: Boolean
-        get() = videoRecording == VideoRecordingState.Recording ||
-            videoRecording == VideoRecordingState.Finalizing
+        get() = videoRecording.isInProgress
 
     val isDeletingPhoto: Boolean
         get() = photoDeletion == PhotoDeletionState.Deleting
