@@ -29,6 +29,8 @@ internal class AndroidCameraRepository(
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState()),
     // 既定では撮影で書き出したローカルファイルを削除する。テストや content:// 対応で差し替え可能にする。
     private val photoFileDeleter: (String) -> Boolean = ::deletePhotoFile,
+    // 写真の保存先を撮影ごとに作る。既定は一時ファイルで、実機ではギャラリーへ書き出す保存先を渡す。
+    private val photoOutputFactory: () -> PhotoCaptureOutput = ::createTempFilePhotoOutput,
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
@@ -92,7 +94,7 @@ internal class AndroidCameraRepository(
         photoCaptureState.value = PhotoCaptureState.Capturing
         return withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { continuation ->
-                val outputFile = runCatching { File.createTempFile("vtuber-camera-", ".jpg") }
+                val output = runCatching { photoOutputFactory() }
                     .getOrElse {
                         photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
                         continuation.resume(
@@ -100,20 +102,27 @@ internal class AndroidCameraRepository(
                         )
                         return@suspendCancellableCoroutine
                     }
-                val outputOptions = ImageCapture.OutputFileOptions.Builder(outputFile).build()
                 runCatching {
                     capture.takePicture(
-                        outputOptions,
+                        output.options,
                         Runnable::run,
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                val uri = outputFileResults.savedUri?.toString() ?: outputFile.toURI().toString()
+                                val uri = outputFileResults.savedUri?.toString() ?: output.fallbackUri
+                                if (uri == null) {
+                                    output.discard()
+                                    photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+                                    continuation.resume(
+                                        Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+                                    )
+                                    return
+                                }
                                 photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
                                 continuation.resume(Result.success(uri))
                             }
 
                             override fun onError(exception: ImageCaptureException) {
-                                outputFile.delete()
+                                output.discard()
                                 photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
                                 continuation.resume(
                                     Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
@@ -122,7 +131,7 @@ internal class AndroidCameraRepository(
                         },
                     )
                 }.onFailure {
-                    outputFile.delete()
+                    output.discard()
                     photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
                     if (continuation.isActive) {
                         continuation.resume(
