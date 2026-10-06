@@ -8,6 +8,7 @@ import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
 import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
@@ -1032,6 +1033,145 @@ class CameraViewModelTest {
         assertEquals(PhotoDeletionState.Failed(CameraError.PhotoDeleteFailed), uiState.photoDeletion)
         assertEquals("fake://photo.jpg", uiState.capturedPhotoUri)
         assertEquals(CameraMessageType.Error, uiState.photoDeletion.toCameraMessage()?.type)
+    }
+
+    // ---------------------------------------------------------------------------
+    // onToggleCaptureMode() / onToggleVideoRecording()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onToggleCaptureMode_switchesBetweenPhotoAndVideo() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        assertEquals(CameraCaptureMode.Photo, viewModel.uiState.value.captureMode.mode)
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+        assertEquals(CameraCaptureMode.Video, viewModel.uiState.value.captureMode.mode)
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+        assertEquals(CameraCaptureMode.Photo, viewModel.uiState.value.captureMode.mode)
+    }
+
+    @Test
+    fun onToggleVideoRecording_startsThenStopsRecordingAndPublishesUri() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+        assertEquals(VideoRecordingState.Recording, viewModel.uiState.value.videoRecording)
+        assertEquals(true, viewModel.uiState.value.isVideoRecordingActive)
+
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+        assertEquals(
+            VideoRecordingState.Succeeded("fake://video.mp4"),
+            viewModel.uiState.value.videoRecording,
+        )
+        assertEquals(false, viewModel.uiState.value.isVideoRecordingActive)
+    }
+
+    @Test
+    fun onToggleCaptureMode_whileRecording_keepsCurrentMode() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onToggleCaptureMode()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+
+        assertEquals(CameraCaptureMode.Video, viewModel.uiState.value.captureMode.mode)
+        assertEquals(VideoRecordingState.Recording, viewModel.uiState.value.videoRecording)
+    }
+
+    @Test
+    fun onToggleLensFacing_whileRecording_doesNotSwitchLens() = runTest {
+        val cameraRepository = FakeCameraRepository()
+        val viewModel = CameraViewModel(
+            cameraRepository = cameraRepository,
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+
+        viewModel.onToggleLensFacing()
+        advanceUntilIdle()
+
+        assertEquals(0, cameraRepository.switchLensCallCount)
+    }
+
+    @Test
+    fun onToggleVideoRecording_whenStartFails_publishesErrorMessage() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(
+                startVideoRecordingResult = Result.failure(
+                    CameraRepositoryException(CameraError.VideoRecordFailed),
+                ),
+            ),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+
+        val videoRecording = viewModel.uiState.value.videoRecording
+        assertEquals(VideoRecordingState.Failed(CameraError.VideoRecordFailed), videoRecording)
+        assertEquals(CameraMessageType.Error, videoRecording.toCameraMessage()?.type)
+        assertEquals(false, viewModel.uiState.value.isVideoRecordingActive)
+    }
+
+    @Test
+    fun onToggleCaptureMode_afterRecordingFinished_clearsStaleRecordingOutcome() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+        assertIs<VideoRecordingState.Succeeded>(viewModel.uiState.value.videoRecording)
+
+        viewModel.onToggleCaptureMode()
+        advanceUntilIdle()
+
+        assertEquals(VideoRecordingState.Idle, viewModel.uiState.value.videoRecording)
+        assertNull(viewModel.uiState.value.videoRecording.toCameraMessage())
+    }
+
+    @Test
+    fun onCapturePhoto_afterRecordingFinished_clearsStaleRecordingOutcome() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+        )
+        advanceUntilIdle()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+        viewModel.onToggleVideoRecording()
+        advanceUntilIdle()
+
+        viewModel.onCapturePhoto()
+        advanceUntilIdle()
+
+        assertEquals(VideoRecordingState.Idle, viewModel.uiState.value.videoRecording)
     }
 
     @Test
