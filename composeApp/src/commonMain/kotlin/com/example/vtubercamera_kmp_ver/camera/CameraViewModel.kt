@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleController
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionController
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundController
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureModeController
 import com.example.vtubercamera_kmp_ver.camera.facetracking.FaceTrackingPresenter
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureController
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionCoordinator
@@ -13,6 +14,7 @@ import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoDeletionController
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionController
 import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityController
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingController
 import com.example.vtubercamera_kmp_ver.camera.zoom.CameraZoomController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +53,11 @@ class CameraViewModel(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
     )
+    private val videoRecordingController = VideoRecordingController(
+        cameraRepository = cameraRepository,
+        scope = viewModelScope,
+    )
+    private val captureModeController = CameraCaptureModeController()
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
     private val avatarScaleController = AvatarScaleController()
@@ -120,6 +127,16 @@ class CameraViewModel(
             }
         }
         mirrorScope.launch {
+            videoRecordingController.state.collect { videoRecording ->
+                _uiState.update { it.copy(videoRecording = videoRecording) }
+            }
+        }
+        mirrorScope.launch {
+            captureModeController.state.collect { captureMode ->
+                _uiState.update { it.copy(captureMode = captureMode) }
+            }
+        }
+        mirrorScope.launch {
             faceTrackingPresenter.state.collect { presenter ->
                 _uiState.update {
                     it.copy(
@@ -176,7 +193,12 @@ class CameraViewModel(
         permissionCoordinator.onPermissionStateChanged(isGranted, isChecking)
     }
 
+    // 録画中はプレビューの再構成で録画が途切れるため、レンズ切り替えを受け付けない。
     fun onToggleLensFacing() {
+        if (_uiState.value.isVideoRecordingActive) {
+            return
+        }
+        videoRecordingController.onOutcomeAcknowledged()
         sessionController.onToggleLensFacing()
     }
 
@@ -224,7 +246,22 @@ class CameraViewModel(
         uiVisibilityController.onShowUi()
     }
 
+    // 写真 / 動画の撮影モードを切り替える。モード切り替えはカメラの再構成を伴うため、録画中は無視する。
+    fun onToggleCaptureMode() {
+        if (_uiState.value.isVideoRecordingActive) {
+            return
+        }
+        videoRecordingController.onOutcomeAcknowledged()
+        captureModeController.onToggleCaptureMode()
+    }
+
+    // 動画モードのシャッターで、録画の開始と停止を切り替える。
+    fun onToggleVideoRecording() {
+        videoRecordingController.onToggleRecording()
+    }
+
     fun onCapturePhoto() {
+        videoRecordingController.onOutcomeAcknowledged()
         photoCaptureController.capturePhoto()
     }
 

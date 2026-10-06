@@ -6,6 +6,7 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ internal class AndroidCameraRepository(
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
     private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
     private val photoDeletionState: MutableStateFlow<PhotoDeletionState> = MutableStateFlow(PhotoDeletionState.Idle),
+    private val videoRecordingState: MutableStateFlow<VideoRecordingState> = MutableStateFlow(VideoRecordingState.Idle),
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState()),
     // 既定では撮影で書き出したローカルファイルを削除する。テストや content:// 対応で差し替え可能にする。
     private val photoFileDeleter: (String) -> Boolean = ::deletePhotoFile,
@@ -31,6 +33,12 @@ internal class AndroidCameraRepository(
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
     private var imageCapture: ImageCapture? = null
+    private var videoRecorder: AndroidVideoRecorder? = null
+
+    // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と CameraX の callback が main）。
+    private var activeRecording: AndroidVideoRecording? = null
+    private var activeRecordingFile: File? = null
+    private var pendingStopResult: CompletableDeferred<Result<String?>>? = null
 
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
         val cameraAvailability = cameraAvailabilityProvider()
@@ -127,6 +135,68 @@ internal class AndroidCameraRepository(
         }
     }
 
+    override fun observeVideoRecordingState(): Flow<VideoRecordingState> = videoRecordingState
+
+    // 一時ファイルへ録画を開始する。録画中、recorder が未準備（写真モードなど）、ファイル作成や開始に失敗したときは
+    // [CameraError.VideoRecordFailed] で失敗する。すでに録画中の呼び出しは状態を変えずに失敗だけ返す。
+    override suspend fun startVideoRecording(): Result<Unit> {
+        if (activeRecording != null) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        val recorder = videoRecorder ?: return failVideoRecordingStart()
+        val outputFile = runCatching { File.createTempFile("vtuber-camera-", ".mp4") }
+            .getOrElse { return failVideoRecordingStart() }
+        val recording = runCatching { recorder.startRecording(outputFile, ::onVideoRecordingFinalized) }
+            .getOrElse {
+                outputFile.delete()
+                return failVideoRecordingStart()
+            }
+        activeRecording = recording
+        activeRecordingFile = outputFile
+        videoRecordingState.value = VideoRecordingState.Recording
+        return Result.success(Unit)
+    }
+
+    // 録画の停止を要求し、書き出しが完了するまで待つ。録画中でなければ状態を変えずに失敗だけ返す。
+    // 書き出しに失敗したときは出力ファイルを削除し、[VideoRecordingState.Failed] へ遷移する。
+    override suspend fun stopVideoRecording(): Result<String?> {
+        val recording = activeRecording
+        if (recording == null || pendingStopResult != null) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        val stopResult = CompletableDeferred<Result<String?>>()
+        pendingStopResult = stopResult
+        videoRecordingState.value = VideoRecordingState.Finalizing
+        runCatching { recording.stop() }
+            .onFailure { onVideoRecordingFinalized(error = it) }
+        return stopResult.await()
+    }
+
+    // 録画の開始前に失敗したことを状態へ反映し、失敗結果を返す。
+    private fun failVideoRecordingStart(): Result<Unit> {
+        videoRecordingState.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
+        return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+    }
+
+    // 録画の書き出し完了を受けて状態を確定する。停止要求への応答だけでなく、unbind やストレージ不足など
+    // 録画側から終了した場合も同じ経路で失敗として扱う。
+    private fun onVideoRecordingFinalized(error: Throwable?) {
+        val outputFile = activeRecordingFile
+        activeRecording = null
+        activeRecordingFile = null
+        val result: Result<String?> = if (error == null && outputFile != null) {
+            val uri = outputFile.toURI().toString()
+            videoRecordingState.value = VideoRecordingState.Succeeded(uri)
+            Result.success(uri)
+        } else {
+            outputFile?.delete()
+            videoRecordingState.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
+            Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        pendingStopResult?.complete(result)
+        pendingStopResult = null
+    }
+
     override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = photoDeletionState
 
     override suspend fun deletePhoto(uri: String): Result<Unit> {
@@ -173,6 +243,11 @@ internal class AndroidCameraRepository(
 
     fun onPlatformImageCaptureReady(imageCapture: ImageCapture?) {
         this.imageCapture = imageCapture
+    }
+
+    // 動画モードでだけ録画の開始口が渡され、写真モードやプレビュー破棄時は null になる。
+    fun onPlatformVideoRecorderReady(videoRecorder: AndroidVideoRecorder?) {
+        this.videoRecorder = videoRecorder
     }
 }
 

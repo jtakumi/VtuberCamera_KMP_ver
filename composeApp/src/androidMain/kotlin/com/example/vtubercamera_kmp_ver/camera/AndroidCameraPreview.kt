@@ -17,6 +17,8 @@ import androidx.camera.core.Preview
 import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.ZoomState
+import androidx.camera.video.Recorder
+import androidx.camera.video.VideoCapture
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
@@ -61,6 +63,7 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.Flow
@@ -160,6 +163,7 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
@@ -195,7 +199,7 @@ actual fun CameraPreviewHost(
         factory = { previewView },
     )
 
-    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture, lensFacing) {
+    DisposableEffect(lifecycleOwner, previewView, cameraProviderFuture, lensFacing, captureMode) {
         val executor = ContextCompat.getMainExecutor(context)
         val listener = Runnable {
             var attemptedLensFacing = lensFacing
@@ -241,21 +245,33 @@ actual fun CameraPreviewHost(
                     it.setAnalyzer(analysisExecutor, faceTrackingAnalyzer)
                 }
 
-                val imageCapture = ImageCapture.Builder()
-                    .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                    .build()
+                // Preview・ImageAnalysis と合わせた同時ストリーム数を端末の上限内に収めるため、
+                // 撮影用の use case は選択中のモードの 1 つだけを束ねる。
+                val imageCapture = if (captureMode == CameraCaptureMode.Photo) {
+                    ImageCapture.Builder()
+                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                        .build()
+                } else {
+                    null
+                }
+                val videoCapture = if (captureMode == CameraCaptureMode.Video) {
+                    VideoCapture.withOutput(Recorder.Builder().build())
+                } else {
+                    null
+                }
 
                 cameraProvider.unbindAll()
                 val camera = cameraProvider.bindToLifecycle(
                     lifecycleOwner,
                     selector,
-                    preview,
-                    analysis,
-                    imageCapture,
+                    *listOfNotNull(preview, analysis, imageCapture, videoCapture).toTypedArray(),
                 )
                 // AndroidCameraRepositoryをこの時だけキャストする。nullなら実行しない
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformCameraControlReady(camera.cameraControl)
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(imageCapture)
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(
+                    videoCapture?.let { CameraXVideoRecorder(context = context, videoCapture = it) },
+                )
                 // 現在の倍率をLiveDataで監視する
                 val zoomLiveData = camera.cameraInfo.zoomState
                 val zoomObserver = Observer<ZoomState> { zoomState ->
@@ -276,6 +292,7 @@ actual fun CameraPreviewHost(
                 (previewView.tag as? AndroidFaceTrackingAnalyzer)?.close()
                 previewView.tag = null
                 (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
+                (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(null)
                 onFaceTrackingFrameChangedState.value(null)
                 cameraRepository.onPlatformPreviewError(
                     lensFacing = attemptedLensFacing,
@@ -294,6 +311,7 @@ actual fun CameraPreviewHost(
                 cameraProviderFuture.get().unbindAll()
             }
             (cameraRepository as? AndroidCameraRepository)?.onPlatformImageCaptureReady(null)
+            (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(null)
         }
     }
 
@@ -500,6 +518,9 @@ private fun createMockCameraRepositories(): CameraRepositories {
             override fun observePreviewState(): Flow<PreviewState> = emptyFlow()
             override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = emptyFlow()
             override suspend fun capturePhoto(): Result<String?> = Result.success(null)
+            override fun observeVideoRecordingState(): Flow<VideoRecordingState> = emptyFlow()
+            override suspend fun startVideoRecording(): Result<Unit> = Result.success(Unit)
+            override suspend fun stopVideoRecording(): Result<String?> = Result.success(null)
             override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = emptyFlow()
             override suspend fun deletePhoto(uri: String): Result<Unit> = Result.success(Unit)
             override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {}

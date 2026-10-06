@@ -42,11 +42,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraRecordingIndicator
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
@@ -105,6 +107,8 @@ fun CameraRoute(
         zoom = uiState.zoom,
         photoCapture = uiState.photoCapture,
         photoDeletion = uiState.photoDeletion,
+        captureMode = uiState.captureMode.mode,
+        videoRecording = uiState.videoRecording,
         avatarRender = uiState.avatarRender,
         avatarSelection = uiState.avatarSelection.avatarSelection,
         filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
@@ -128,6 +132,8 @@ fun CameraRoute(
         onHideUi = cameraViewModel::onHideUi,
         onShowUi = cameraViewModel::onShowUi,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
+        onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
+        onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
     )
 }
 
@@ -148,6 +154,8 @@ fun CameraScreen(
     zoom: CameraZoomUiState,
     photoCapture: PhotoCaptureState,
     photoDeletion: PhotoDeletionState,
+    captureMode: CameraCaptureMode,
+    videoRecording: VideoRecordingState,
     avatarRender: AvatarRenderState,
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
@@ -170,12 +178,15 @@ fun CameraScreen(
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
     val previewError = session.previewState as? PreviewState.Error
     val cameraMessage = photoDeletion.toCameraMessage()
         ?: photoCapture.toCameraMessage()
+        ?: videoRecording.toCameraMessage()
         ?: session.message
     var visibleCameraMessage by remember { mutableStateOf<CameraMessage?>(null) }
 
@@ -213,6 +224,8 @@ fun CameraScreen(
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
                 photoCapture = photoCapture,
+                captureMode = captureMode,
+                videoRecording = videoRecording,
                 isUiHidden = isUiHidden,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
@@ -227,6 +240,8 @@ fun CameraScreen(
                 onHideUi = onHideUi,
                 onShowUi = onShowUi,
                 onCapturePhoto = onCapturePhoto,
+                onToggleCaptureMode = onToggleCaptureMode,
+                onToggleVideoRecording = onToggleVideoRecording,
             )
 
             else -> LoadingState()
@@ -282,6 +297,8 @@ private fun CameraPreviewState(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     photoCapture: PhotoCaptureState,
+    captureMode: CameraCaptureMode,
+    videoRecording: VideoRecordingState,
     isUiHidden: Boolean,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
@@ -296,6 +313,8 @@ private fun CameraPreviewState(
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
     val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
@@ -308,6 +327,7 @@ private fun CameraPreviewState(
             lensFacing = lensFacing,
             zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
             backgroundMode = backgroundMode,
+            captureMode = captureMode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
             modifier = Modifier.zIndex(CAMERA_BACKGROUND_LAYER_Z_INDEX),
@@ -361,6 +381,10 @@ private fun CameraPreviewState(
                 onLensFacingToggle = onLensFacingToggle,
                 onCapturePhoto = onCapturePhoto,
                 isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
+                captureMode = captureMode,
+                videoRecording = videoRecording,
+                onToggleCaptureMode = onToggleCaptureMode,
+                onToggleVideoRecording = onToggleVideoRecording,
             )
         }
     }
@@ -403,6 +427,7 @@ private fun CameraBackgroundLayer(
     lensFacing: CameraLensFacing,
     zoomScale: Float,
     backgroundMode: CameraBackgroundMode,
+    captureMode: CameraCaptureMode,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     modifier: Modifier = Modifier,
@@ -422,6 +447,7 @@ private fun CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = lensFacing,
             backgroundMode = backgroundMode,
+            captureMode = captureMode,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
@@ -578,6 +604,10 @@ private fun BoxScope.CameraUiLayer(
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+    captureMode: CameraCaptureMode,
+    videoRecording: VideoRecordingState,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
 ) {
     val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
 
@@ -602,6 +632,13 @@ private fun BoxScope.CameraUiLayer(
             glass = glass,
             modifier = Modifier.fillMaxWidth(),
         )
+        // 録画中だけ、経過時間つきの録画インジケーターを上部バーの直下へ出す。
+        if (videoRecording == VideoRecordingState.Recording) {
+            CameraRecordingIndicator(
+                glass = glass,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+        }
         CameraUiHideButton(
             onClick = onHideUi,
             glass = glass,
@@ -613,6 +650,10 @@ private fun BoxScope.CameraUiLayer(
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
         isCapturingPhoto = isCapturingPhoto,
+        captureMode = captureMode,
+        videoRecording = videoRecording,
+        onToggleCaptureMode = onToggleCaptureMode,
+        onToggleVideoRecording = onToggleVideoRecording,
         glass = glass,
         modifier = Modifier
             .align(Alignment.BottomCenter)

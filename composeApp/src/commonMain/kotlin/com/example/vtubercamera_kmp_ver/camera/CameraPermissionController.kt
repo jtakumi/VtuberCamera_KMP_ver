@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -113,12 +114,14 @@ expect fun rememberCameraPermissionController(): CameraPermissionController
 @Composable
 expect fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher
 
+// [captureMode] に合わせて、プラットフォーム側が撮影用の出力（写真 / 動画）を組み替える。
 @Composable
 expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 )
