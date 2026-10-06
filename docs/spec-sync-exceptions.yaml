@@ -65,8 +65,9 @@ exceptions:
       - ios
       - image_save
       - permissions
-    reason: iOS only needs Photos add-library permission when image save is implemented; current camera preview only requires camera permission.
+    reason: NSPhotoLibraryAddUsageDescription is now present because recorded videos are saved to Photos, but still-image (photo capture) save is not implemented, so README keeps image save listed as not implemented.
     evidence:
-      - iosApp/iosApp/Info.plist: NSCameraUsageDescription exists.
+      - iosApp/iosApp/Info.plist: NSCameraUsageDescription, NSMicrophoneUsageDescription, and NSPhotoLibraryAddUsageDescription exist.
+      - composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSScreenVideoRecorder.kt: recorded videos are saved to Photos.
       - README.md: image save is listed as not implemented.
-    reevaluate_when: iOS image save code is added.
+    reevaluate_when: iOS still-image save code is added.
