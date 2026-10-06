@@ -54,10 +54,12 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
   - `CameraPermissionCoordinator` (`camera/permission`): 権限の確認・要求・状態反映
   - `CameraZoomController` (`camera/zoom`): ズーム倍率の計算・反映
   - `PhotoCaptureController` (`camera/photo`): 写真撮影状態の管理
+  - `VideoRecordingController` (`camera/video`): 動画録画の開始 / 停止と録画状態の管理
+  - `CameraCaptureModeController` (`camera/capturemode`): 写真 / 動画の撮影モードの切り替え
   - `FaceTrackingPresenter` (`camera/facetracking`): face tracking 結果の UI / レンダラー向け変換
   - `AvatarSelectionController` (`camera/avatar`): アバターファイル選択結果とアセット寿命の管理
   - `CameraUiVisibilityController` (`camera/uivisibility`): 操作 UI を隠す UI 非表示モードの ON / OFF
-- `CameraUiState` は `session` / `permission` / `zoom` / `photoCapture` / `faceTracking` / `avatarRender` / `avatarSelection` / `uiVisibility` の sub-state を束ねた composite とし、`CameraViewModel` が単一の `StateFlow<CameraUiState>` として公開する。
+- `CameraUiState` は `session` / `permission` / `zoom` / `photoCapture` / `captureMode` / `videoRecording` / `faceTracking` / `avatarRender` / `avatarSelection` / `uiVisibility` の sub-state を束ねた composite とし、`CameraViewModel` が単一の `StateFlow<CameraUiState>` として公開する。
 - プラットフォーム差分は `CameraRepository` / `PermissionRepository` インターフェース（共有定義）の platform 実装で吸収する。
 
 ### 3.2 モジュール構成
@@ -209,7 +211,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | 概要 | カメラ画面のエラー・案内をローカライズ済みメッセージで表示する |
 
 - メッセージは `Guide` / `Error` の種別 (`CameraMessageType`) を持つ。
-- エラー種別 (`CameraError`): 権限拒否 / カメラ利用不可 / プレビュー初期化失敗 / レンズ切り替え失敗 / 写真撮影失敗 / 不明。
+- エラー種別 (`CameraError`): 権限拒否 / カメラ利用不可 / プレビュー初期化失敗 / レンズ切り替え失敗 / 写真撮影失敗 / 写真削除失敗 / 動画録画失敗 / 不明。
 - 文言は Compose Resources の `StringResource` で管理する。
 
 ### FR-13 ピンチ操作によるアバター表示倍率調整
@@ -241,6 +243,24 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - 状態は端末内の画面状態であり永続化しない。アプリの再起動後は常に OFF から始まる。
 - カメラ画面の通知バナーは、失敗を見逃さないよう UI 非表示モード中も表示する。
 
+### FR-15 動画録画と撮影モード切り替え
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象 | 共通 / A / I |
+| 概要 | 操作バーのトグルで写真と動画の撮影モードを切り替え、動画モードではシャッターで録画を開始 / 停止する |
+
+- 撮影モードは `CameraCaptureMode`（`Photo` / `Video`）で管理し、既定は `Photo`。トグルは操作バーの上段に置き、読み上げ名は「撮影モードを切り替え」、選択中のモードは state description で読み上げる。
+- シャッターの役割はモードで変わる。`Photo` は FR-05 の写真撮影、`Video` は録画の開始 / 停止。動画モードでは待機中を録画アイコン、録画中を停止アイコン（どちらも赤）で表し、読み上げ名は「録画開始」「録画停止」とする。
+- 録画状態は `Idle` / `Recording` / `Finalizing` / `Succeeded(uri)` / `Failed(error)` で管理する (`VideoRecordingState`)。停止要求から出力ファイルの書き出し完了までが `Finalizing` で、この間の操作は無視する。
+- 録画中は、撮影モードのトグルとレンズ切り替えを受け付けない（UI は無効表示、`CameraViewModel` 側でも無視）。プレビューの再構成で録画が途切れるのを防ぐため。
+- 録画中は上部バーの下に、赤い点と経過時間（`mm:ss`）の録画インジケーターを出す。経過時間は短命な UI 表示として composable 内で保持し、ViewModel には持たせない。
+- 録画の完了時は案内メッセージ、失敗時は `VideoRecordFailed` エラーメッセージを表示する。完了 / 失敗の結果は、次の操作（モード切り替え・レンズ切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーが再表示されないようにする。
+- Android: CameraX `VideoCapture<Recorder>` で一時ファイル（MP4）へ録画する。Preview・ImageAnalysis と合わせた同時ストリーム数を端末の上限内に収めるため、撮影用 use case は選択中のモードの 1 つ（`ImageCapture` か `VideoCapture`）だけを束ね、モード切り替え時に再 bind する。
+- iOS: `AVCaptureMovieFileOutput` で一時ファイル（MOV）へ録画する。`AVErrorRecordingSuccessfullyFinishedKey` が true の終了（最大録画時間・ディスク残量による停止など）は成功として扱う。ARKit face tracking 中（TrueDepth 対応端末の前面カメラ）は `AVCaptureSession` を使えないため録画できず、開始時に `VideoRecordFailed` となる（写真撮影の制約と同じ）。
+- 録画されるのはカメラ映像のみで、アバターの描画は合成されない（写真撮影と同じ）。音声も録音しない。
+- 注記: 録画ファイルの保存先は一時領域であり、ギャラリーへの永続保存は未実装（PR-01 / PR-04 参照）。
+
 ## 5. 将来要件（未実装・計画中）
 
 以下は現時点で未実装であり、実装済みとして扱わない。
@@ -250,7 +270,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | PR-01 | 撮影画像の永続保存 / 削除 | 現状は一時ファイル保存まで（FR-05 注記参照） |
 | PR-02 | フラッシュ制御 | |
 | PR-03 | ギャラリー関連機能（撮影画像の閲覧など） | |
-| PR-04 | 録画 / 配信向けの出力機能 | 設計から着手 |
+| PR-04 | 録画の拡張（アバター合成、音声録音、永続保存）と配信向けの出力機能 | 一時ファイルへの映像のみの録画は FR-15 で実装済み。それ以外は設計から着手 |
 | PR-05 | iOS native Filament renderer での avatar mesh loading と head pose / expression morph 適用 | `iosApp/Configuration/Filament.xcconfig` の SDK / linker 設定が未整備 |
 
 ## 6. 非機能要件
