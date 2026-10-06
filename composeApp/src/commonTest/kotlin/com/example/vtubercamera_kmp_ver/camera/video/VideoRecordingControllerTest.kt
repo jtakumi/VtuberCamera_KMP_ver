@@ -33,6 +33,71 @@ class VideoRecordingControllerTest {
     }
 
     @Test
+    fun onToggleRecording_whenIdle_publishesStartingBeforeRecordingBegins() = runTest {
+        val repository = FakeCameraRepository()
+        val controller = createController(repository)
+
+        controller.onToggleRecording()
+
+        // 録画は操作 UI が消えるのを待ってから始まるため、直後はまだ開始準備中。
+        assertEquals(VideoRecordingState.Starting, controller.state.value)
+        assertEquals(0, repository.startVideoRecordingCallCount)
+
+        advanceUntilIdle()
+
+        assertEquals(1, repository.startVideoRecordingCallCount)
+        assertEquals(VideoRecordingState.Recording, controller.state.value)
+    }
+
+    @Test
+    fun onToggleRecording_whileStarting_isIgnored() = runTest {
+        val repository = FakeCameraRepository()
+        val controller = createController(repository)
+
+        controller.onToggleRecording()
+        controller.onToggleRecording()
+        advanceUntilIdle()
+
+        assertEquals(1, repository.startVideoRecordingCallCount)
+        assertEquals(0, repository.stopVideoRecordingCallCount)
+        assertEquals(VideoRecordingState.Recording, controller.state.value)
+    }
+
+    @Test
+    fun onToggleRecording_whenStartFailsWithUnchangedRepositoryState_doesNotStayStarting() = runTest {
+        val repository = FakeCameraRepository(
+            startVideoRecordingResult = Result.failure(
+                CameraRepositoryException(CameraError.VideoRecordFailed),
+            ),
+        )
+        val controller = createController(repository)
+        controller.onToggleRecording()
+        advanceUntilIdle()
+        controller.onOutcomeAcknowledged()
+        advanceUntilIdle()
+        assertEquals(VideoRecordingState.Idle, controller.state.value)
+
+        // repository の値は前回と同じ Failed のままで再発行されないが、準備中のまま固まらない。
+        controller.onToggleRecording()
+        advanceUntilIdle()
+
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            controller.state.value,
+        )
+    }
+
+    @Test
+    fun onOutcomeAcknowledged_keepsStartingState() = runTest {
+        val controller = createController(FakeCameraRepository())
+        controller.onToggleRecording()
+
+        controller.onOutcomeAcknowledged()
+
+        assertEquals(VideoRecordingState.Starting, controller.state.value)
+    }
+
+    @Test
     fun onToggleRecording_whenRecording_stopsAndPublishesSucceededUri() = runTest {
         val repository = FakeCameraRepository()
         val controller = createController(repository)
