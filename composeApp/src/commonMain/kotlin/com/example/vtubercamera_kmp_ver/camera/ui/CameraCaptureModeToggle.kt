@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -40,12 +39,10 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_mode_v
  * 写真と動画の撮影モードを切り替えるトグル。
  *
  * 両モードを並べて現在の選択を強調表示し、押下で [onClick] を通じてもう一方へ切り替える。
- * [isEnabled] が false（録画中など）のあいだは押下を受け付けず、薄く表示して切り替えられないことを示す。
  */
 @Composable
 internal fun CameraCaptureModeToggle(
     captureMode: CameraCaptureMode,
-    isEnabled: Boolean,
     onClick: () -> Unit,
     glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
@@ -60,9 +57,7 @@ internal fun CameraCaptureModeToggle(
         cornerStyle = LiquidGlassCornerStyle.Capsule,
         modifier = modifier
             .height(CAPTURE_MODE_TOGGLE_HEIGHT)
-            .alpha(if (isEnabled) 1f else DISABLED_TOGGLE_ALPHA)
             .clickable(
-                enabled = isEnabled,
                 role = Role.Button,
                 onClick = onClick,
             )
@@ -136,7 +131,5 @@ private val CameraCaptureMode.labelRes: StringResource
 
 /** トグルの高さ。操作バー全体の高さを決めたい呼び出し側が参照する。 */
 internal val CAPTURE_MODE_TOGGLE_HEIGHT: Dp = 48.dp
-
-private const val DISABLED_TOGGLE_ALPHA = 0.4f
 
 private val CAPTURE_MODE_SEGMENT_GAP = 4.dp

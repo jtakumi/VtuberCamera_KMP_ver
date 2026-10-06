@@ -48,7 +48,6 @@ import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiStat
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
 import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
-import com.example.vtubercamera_kmp_ver.camera.ui.CameraRecordingIndicator
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
@@ -65,6 +64,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_req
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_ui_show_action
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_stop_action
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -142,6 +142,9 @@ fun CameraRoute(
  *
  * [isUiHidden] が true のあいだは UI 非表示モードとして操作 UI を描かない。このとき画面のどこを
  * タップしても [onShowUi] が呼ばれて操作 UI へ戻れる。[onHideUi] は操作 UI 上の非表示ボタンから呼ばれる。
+ *
+ * 動画の録画は画面そのものを撮るため、[videoRecording] が進行中のあいだは [isUiHidden] によらず操作 UI を
+ * 描かず、映像へ映り込まないようにする。このとき画面タップは録画の停止（[onToggleVideoRecording]）になる。
  *
  * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
  * 現在の overlay ベースの avatar body 表示を維持する。
@@ -318,6 +321,8 @@ private fun CameraPreviewState(
 ) {
     val avatarPreview = avatarSelection?.preview
     val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
+    val stopRecordingActionLabel = stringResource(Res.string.camera_video_stop_action)
+    val isRecordingInProgress = videoRecording.isInProgress
 
     // レイヤーは背景 → アバター → ジェスチャー → 操作 UI の順で重ねる。アバターを拡大しても
     // ボタン類が隠れないよう、z 順を zIndex で明示して操作 UI を常に最前面に置く。
@@ -350,10 +355,14 @@ private fun CameraPreviewState(
                 .matchParentSize()
                 .zIndex(PINCH_GESTURE_LAYER_Z_INDEX)
                 .then(
-                    if (isUiHidden) {
-                        Modifier.revealUiOnTap(label = showUiActionLabel, onShowUi = onShowUi)
-                    } else {
-                        Modifier
+                    when {
+                        // 録画中は画面タップが停止操作になる。UI の再表示は録画の終了後に任せる。
+                        isRecordingInProgress -> Modifier.stopRecordingOnTap(
+                            label = stopRecordingActionLabel,
+                            onStopRecording = onToggleVideoRecording,
+                        )
+                        isUiHidden -> Modifier.revealUiOnTap(label = showUiActionLabel, onShowUi = onShowUi)
+                        else -> Modifier
                     },
                 )
                 .pointerInput(pinchTarget) {
@@ -367,7 +376,7 @@ private fun CameraPreviewState(
         )
         // UI 非表示モード中は操作 UI を composition から外す。透明にするだけだと、見えないボタンが
         // 押せてしまううえ、iOS では OS 製ガラスの interop view が画面に残るおそれがある。
-        if (!isUiHidden) {
+        if (!isUiHidden && !isRecordingInProgress) {
             CameraUiLayer(
                 zoomScale = zoomScale,
                 avatarScale = avatarScale,
@@ -382,7 +391,6 @@ private fun CameraPreviewState(
                 onCapturePhoto = onCapturePhoto,
                 isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
                 captureMode = captureMode,
-                videoRecording = videoRecording,
                 onToggleCaptureMode = onToggleCaptureMode,
                 onToggleVideoRecording = onToggleVideoRecording,
             )
@@ -410,6 +418,29 @@ private fun Modifier.revealUiOnTap(
         contentDescription = label
         onClick(label = label) {
             onShowUi()
+            true
+        }
+    }
+
+/**
+ * 録画中に、画面のどこをタップしても [onStopRecording] を呼べるようにする。
+ *
+ * 録画中は操作 UI を隠しているため、停止の入口はこのタップだけになる。[revealUiOnTap] と同じく、
+ * ピンチ検出より外側へ置いてピンチ操作がタップとして扱われないようにし、画面全体を 1 つのボタンとして
+ * [label] で読み上げる。開始準備中や保存中のタップは、受け取った側（録画 controller）が無視する。
+ */
+private fun Modifier.stopRecordingOnTap(
+    label: String,
+    onStopRecording: () -> Unit,
+): Modifier = this
+    .pointerInput(onStopRecording) {
+        detectTapGestures(onTap = { onStopRecording() })
+    }
+    .semantics {
+        role = Role.Button
+        contentDescription = label
+        onClick(label = label) {
+            onStopRecording()
             true
         }
     }
@@ -605,7 +636,6 @@ private fun BoxScope.CameraUiLayer(
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
     captureMode: CameraCaptureMode,
-    videoRecording: VideoRecordingState,
     onToggleCaptureMode: () -> Unit,
     onToggleVideoRecording: () -> Unit,
 ) {
@@ -632,13 +662,6 @@ private fun BoxScope.CameraUiLayer(
             glass = glass,
             modifier = Modifier.fillMaxWidth(),
         )
-        // 録画中だけ、経過時間つきの録画インジケーターを上部バーの直下へ出す。
-        if (videoRecording == VideoRecordingState.Recording) {
-            CameraRecordingIndicator(
-                glass = glass,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
-        }
         CameraUiHideButton(
             onClick = onHideUi,
             glass = glass,
@@ -651,7 +674,6 @@ private fun BoxScope.CameraUiLayer(
         onCapturePhoto = onCapturePhoto,
         isCapturingPhoto = isCapturingPhoto,
         captureMode = captureMode,
-        videoRecording = videoRecording,
         onToggleCaptureMode = onToggleCaptureMode,
         onToggleVideoRecording = onToggleVideoRecording,
         glass = glass,

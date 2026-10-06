@@ -24,7 +24,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.example.vtubercamera_kmp_ver.camera.VideoRecordingState
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
@@ -40,20 +39,18 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_picker_open_bu
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_record_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_stop_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_avatar_picker
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_video_record
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_video_stop
 
 /**
  * カメラ画面下部の操作バー。撮影モードのトグルを上段に、アバター選択・シャッター・レンズ切り替えを
  * 下段にアイコンで並べる。
  *
  * シャッターは [captureMode] で役割が変わる。写真モードでは [onCapturePhoto] を呼び、動画モードでは
- * 録画の開始と停止を [onToggleVideoRecording] で切り替える。[videoRecording] が録画中または書き出し中の
- * あいだは、録画が途切れないよう撮影モードのトグルとレンズ切り替えを押せなくする。
+ * [onToggleVideoRecording] で録画を始める。録画の停止は録画中の画面タップで行うため、録画の進行中は
+ * 呼び出し側がこのバーごと画面から外す。
  *
  * バー自体を Liquid Glass の面として浮かせ、各ボタンはその内側の層として描くことで、
  * 背景プリセットが変わってもボタンの当たり判定の範囲が見た目から分かるようにする。
@@ -65,15 +62,11 @@ internal fun CameraCaptureBar(
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
     captureMode: CameraCaptureMode,
-    videoRecording: VideoRecordingState,
     onToggleCaptureMode: () -> Unit,
     onToggleVideoRecording: () -> Unit,
     glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
-    val isRecordingSessionActive = videoRecording == VideoRecordingState.Recording ||
-        videoRecording == VideoRecordingState.Finalizing
-
     LiquidGlassSurface(
         appearance = glass,
         cornerStyle = LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_CORNER_RADIUS),
@@ -86,7 +79,6 @@ internal fun CameraCaptureBar(
         ) {
             CameraCaptureModeToggle(
                 captureMode = captureMode,
-                isEnabled = !isRecordingSessionActive,
                 onClick = onToggleCaptureMode,
                 glass = glass,
             )
@@ -104,7 +96,6 @@ internal fun CameraCaptureBar(
                 )
                 ShutterButton(
                     captureMode = captureMode,
-                    videoRecording = videoRecording,
                     isCapturingPhoto = isCapturingPhoto,
                     onCapturePhoto = onCapturePhoto,
                     onToggleVideoRecording = onToggleVideoRecording,
@@ -115,7 +106,6 @@ internal fun CameraCaptureBar(
                     contentDescriptionRes = Res.string.camera_switch_button,
                     onClick = onLensFacingToggle,
                     glassStyle = glass.style,
-                    isEnabled = !isRecordingSessionActive,
                 )
             }
         }
@@ -126,13 +116,11 @@ internal fun CameraCaptureBar(
  * [captureMode] に応じて役割と見た目が変わるシャッターボタン。
  *
  * 写真モードではカメラのアイコンで、撮影中は進行中インジケーターへ差し替える。
- * 動画モードでは待機中を録画アイコン、録画中を停止アイコンで示し、どちらも赤で描いて録画操作だと分かるようにする。
- * 録画の書き出し中は、二重操作を防ぐため進行中インジケーターへ差し替えて押下も止める。
+ * 動画モードでは録画アイコンを赤で描き、録画を始める操作だと分かるようにする。
  */
 @Composable
 private fun ShutterButton(
     captureMode: CameraCaptureMode,
-    videoRecording: VideoRecordingState,
     isCapturingPhoto: Boolean,
     onCapturePhoto: () -> Unit,
     onToggleVideoRecording: () -> Unit,
@@ -150,24 +138,16 @@ private fun ShutterButton(
             isBusy = isCapturingPhoto,
         )
 
-        CameraCaptureMode.Video -> {
-            val isRecording = videoRecording == VideoRecordingState.Recording
-            CaptureBarIconButton(
-                iconRes = if (isRecording) Res.drawable.ic_video_stop else Res.drawable.ic_video_record,
-                contentDescriptionRes = if (isRecording) {
-                    Res.string.camera_video_stop_button
-                } else {
-                    Res.string.camera_video_record_button
-                },
-                onClick = onToggleVideoRecording,
-                glassStyle = glassStyle,
-                buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
-                iconSize = CAPTURE_SHUTTER_ICON_SIZE,
-                isEmphasized = true,
-                isBusy = videoRecording == VideoRecordingState.Finalizing,
-                iconTint = CAMERA_RECORDING_ACCENT_COLOR,
-            )
-        }
+        CameraCaptureMode.Video -> CaptureBarIconButton(
+            iconRes = Res.drawable.ic_video_record,
+            contentDescriptionRes = Res.string.camera_video_record_button,
+            onClick = onToggleVideoRecording,
+            glassStyle = glassStyle,
+            buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
+            iconSize = CAPTURE_SHUTTER_ICON_SIZE,
+            isEmphasized = true,
+            iconTint = RECORD_ICON_COLOR,
+        )
     }
 }
 
@@ -253,3 +233,6 @@ private val CAPTURE_BAR_ICON_SIZE = 28.dp
 private val CAPTURE_SHUTTER_BUTTON_SIZE = 76.dp
 private val CAPTURE_SHUTTER_ICON_SIZE = 34.dp
 private val CAPTURE_SHUTTER_RIM_WIDTH = 2.dp
+
+// 録画の開始を示す赤。
+private val RECORD_ICON_COLOR = Color(0xFFE53935)
