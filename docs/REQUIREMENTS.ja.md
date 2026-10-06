@@ -248,18 +248,21 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | 項目 | 内容 |
 | --- | --- |
 | 対象 | 共通 / A / I |
-| 概要 | 操作バーのトグルで写真と動画の撮影モードを切り替え、動画モードではシャッターで録画を開始 / 停止する |
+| 概要 | 操作バーのトグルで写真と動画の撮影モードを切り替え、動画モードではアバターを合成した画面を音声つきで録画してギャラリーへ保存する |
 
 - 撮影モードは `CameraCaptureMode`（`Photo` / `Video`）で管理し、既定は `Photo`。トグルは操作バーの上段に置き、読み上げ名は「撮影モードを切り替え」、選択中のモードは state description で読み上げる。
-- シャッターの役割はモードで変わる。`Photo` は FR-05 の写真撮影、`Video` は録画の開始 / 停止。動画モードでは待機中を録画アイコン、録画中を停止アイコン（どちらも赤）で表し、読み上げ名は「録画開始」「録画停止」とする。
-- 録画状態は `Idle` / `Recording` / `Finalizing` / `Succeeded(uri)` / `Failed(error)` で管理する (`VideoRecordingState`)。停止要求から出力ファイルの書き出し完了までが `Finalizing` で、この間の操作は無視する。
-- 録画中は、撮影モードのトグルとレンズ切り替えを受け付けない（UI は無効表示、`CameraViewModel` 側でも無視）。プレビューの再構成で録画が途切れるのを防ぐため。
-- 録画中は上部バーの下に、赤い点と経過時間（`mm:ss`）の録画インジケーターを出す。経過時間は短命な UI 表示として composable 内で保持し、ViewModel には持たせない。
-- 録画の完了時は案内メッセージ、失敗時は `VideoRecordFailed` エラーメッセージを表示する。完了 / 失敗の結果は、次の操作（モード切り替え・レンズ切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーが再表示されないようにする。
-- Android: CameraX `VideoCapture<Recorder>` で一時ファイル（MP4）へ録画する。Preview・ImageAnalysis と合わせた同時ストリーム数を端末の上限内に収めるため、撮影用 use case は選択中のモードの 1 つ（`ImageCapture` か `VideoCapture`）だけを束ね、モード切り替え時に再 bind する。
-- iOS: `AVCaptureMovieFileOutput` で一時ファイル（MOV）へ録画する。`AVErrorRecordingSuccessfullyFinishedKey` が true の終了（最大録画時間・ディスク残量による停止など）は成功として扱う。ARKit face tracking 中（TrueDepth 対応端末の前面カメラ）は `AVCaptureSession` を使えないため録画できず、開始時に `VideoRecordFailed` となる（写真撮影の制約と同じ）。
-- 録画されるのはカメラ映像のみで、アバターの描画は合成されない（写真撮影と同じ）。音声も録音しない。
-- 注記: 録画ファイルの保存先は一時領域であり、ギャラリーへの永続保存は未実装（PR-01 / PR-04 参照）。
+- シャッターの役割はモードで変わる。`Photo` は FR-05 の写真撮影、`Video` は録画の開始（録画アイコン、赤）。読み上げ名は「録画開始」。
+- 録画するのは**アプリ画面そのもの**（カメラ映像または単色背景、その上のアバター）。アバターは Filament が専用ビューへ描画しておりカメラの録画パイプラインに入らないため、画面を撮ることで合成済みの映像を得る。画面解像度が映像の解像度になる（Android は長辺 1920 px 以内へ縮小）。
+- 録画状態は `Idle` / `Starting` / `Recording` / `Finalizing` / `Succeeded(uri)` / `Failed(error)` で管理する (`VideoRecordingState`)。`Starting` から `Finalizing` までを「進行中」とする（`isInProgress`）。
+- 開始: 録画ボタンを押すと `Starting` になり、操作 UI が画面から消えるのを待って（`UI_HIDE_SETTLE_MILLIS`）から録画を始める。操作 UI やバナーが映像の先頭へ映り込まないための順序。
+- 進行中は、FR-14 の UI 非表示モードかどうかに関わらず操作 UI を描かない。録画中インジケーターも映像に映るため出さない。撮影モードとレンズの切り替えは受け付けない（`CameraViewModel` 側で無視）。
+- 停止: 録画中は画面のどこをタップしても停止する（全画面レイヤーが「録画を停止」という名前のボタンとして読み上げられ、スクリーンリーダーの click 操作でも停止できる）。`Starting` / `Finalizing` 中のタップは無視する。ピンチ操作はタップとして扱わない。
+- 停止後はギャラリーへの保存が完了するまで `Finalizing`。完了すると `Succeeded(uri)`（案内「録画をギャラリーに保存しました。」）、失敗すると `Failed`（`VideoRecordFailed` のエラーメッセージ）になり、操作 UI が戻る。結果は次の操作（モード切り替え・レンズ切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーを再表示しない。
+- 音声はマイクから録音する。動画モードへ切り替えた時点（Android）または録画開始時（iOS、ReplayKit の許可ダイアログ）にマイク権限を要求し、拒否されても録画は止めず映像のみで録画する。
+- Android: ウィンドウを `PixelCopy` で 30 fps 相当に複製し、`MediaRecorder` の入力 Surface（H.264 / AAC、MP4）へ描き込む。`MediaStore` の `Movies/VtuberCamera` へ保留状態（`IS_PENDING`）で書き出し、停止後に確定する。Android 10 以降のため保存用の権限は不要。アプリが背面へ回るなどでウィンドウを複製できない状態が約 5 秒続いたら、それまでの分を保存して終了する。
+- iOS: `RPScreenRecorder`（ReplayKit）で画面とマイクを録画し、`stopRecording(withOutputURL:)` で一時ファイルへ書き出してから、add-only の権限で Photos（`PHAssetChangeRequest`）へ保存する。保存後に一時ファイルを削除する。ARKit face tracking 中も録画できる。
+- 失敗時の片付け: 録画が失敗したときの出力（MediaStore の保留項目、iOS の一時ファイル）は recorder が削除してから通知する。
+- 注記: 保存されるのは動画のみ。写真撮影の画像は引き続き一時領域で、ギャラリーへの保存は未実装（PR-01）。
 
 ## 5. 将来要件（未実装・計画中）
 
@@ -267,10 +270,10 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 
 | ID | 要件 | 備考 |
 | --- | --- | --- |
-| PR-01 | 撮影画像の永続保存 / 削除 | 現状は一時ファイル保存まで（FR-05 注記参照） |
+| PR-01 | 撮影画像（写真）の永続保存 / 削除 | 現状は一時ファイル保存まで（FR-05 注記参照）。動画は FR-15 でギャラリーへ保存済み |
 | PR-02 | フラッシュ制御 | |
 | PR-03 | ギャラリー関連機能（撮影画像の閲覧など） | |
-| PR-04 | 録画の拡張（アバター合成、音声録音、永続保存）と配信向けの出力機能 | 一時ファイルへの映像のみの録画は FR-15 で実装済み。それ以外は設計から着手 |
+| PR-04 | 配信向けの出力機能、およびカメラ解像度での録画（UI を映さずカメラ映像とアバターだけを GPU で合成する方式） | 画面録画方式の動画録画（音声・アバター合成・ギャラリー保存）は FR-15 で実装済み。それ以外は設計から着手 |
 | PR-05 | iOS native Filament renderer での avatar mesh loading と head pose / expression morph 適用 | `iosApp/Configuration/Filament.xcconfig` の SDK / linker 設定が未整備 |
 
 ## 6. 非機能要件
@@ -283,7 +286,8 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 
 ### 6.2 プライバシー・セキュリティ
 
-- カメラへのアクセスは利用者の明示的な権限許可を必須とする。Android の必要権限は `android.permission.CAMERA` のみとする。
+- カメラへのアクセスは利用者の明示的な権限許可を必須とする。Android の必要権限は `android.permission.CAMERA` と、動画の音声録音に使う `android.permission.RECORD_AUDIO`（任意。拒否時は映像のみで録画）とする。ギャラリーへの動画保存は `MediaStore` へ直接書き出すため、保存用の権限は要求しない。
+- iOS は動画録画のために `NSMicrophoneUsageDescription` と `NSPhotoLibraryAddUsageDescription`（add-only）を使用する。
 - face tracking の解析・アバターへの反映は端末内（オンデバイス）で完結し、ネットワーク送信を行わない。
 - 選択したアバターファイルの raw bytes はメモリ上の `AvatarAssetStore` で管理し、共有 state へは軽量 handle のみを渡す。
 
