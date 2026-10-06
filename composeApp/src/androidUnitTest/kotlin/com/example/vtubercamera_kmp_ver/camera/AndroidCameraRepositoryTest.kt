@@ -5,8 +5,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 class AndroidCameraRepositoryTest {
@@ -65,6 +68,129 @@ class AndroidCameraRepositoryTest {
             PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed),
             repository.observePhotoCaptureState().first(),
         )
+    }
+
+    @Test
+    fun startVideoRecording_returnsVideoRecordFailedWhenRecorderIsNotReady() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        val result = repository.startVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun startVideoRecording_publishesRecordingAndRejectsSecondStart() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+
+        val first = repository.startVideoRecording()
+        val second = repository.startVideoRecording()
+
+        assertTrue(first.isSuccess)
+        assertTrue(second.isFailure)
+        assertEquals(1, recorder.startCount)
+        assertEquals(VideoRecordingState.Recording, repository.observeVideoRecordingState().first())
+        recorder.outputFile?.delete()
+    }
+
+    @Test
+    fun startVideoRecording_returnsVideoRecordFailedWhenRecorderThrows() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(
+            AndroidVideoRecorder { _, _ -> throw IllegalStateException("camera closed") },
+        )
+
+        val result = repository.startVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun stopVideoRecording_withoutActiveRecording_failsWithoutChangingState() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        val result = repository.stopVideoRecording()
+
+        assertTrue(result.isFailure)
+        assertEquals(VideoRecordingState.Idle, repository.observeVideoRecordingState().first())
+    }
+
+    @Test
+    fun stopVideoRecording_waitsForFinalizeAndPublishesSucceededUri() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+
+        val stopResult = async { repository.stopVideoRecording() }
+        advanceUntilIdle()
+
+        assertEquals(1, recorder.stopCount)
+        assertEquals(VideoRecordingState.Finalizing, repository.observeVideoRecordingState().first())
+        assertTrue(stopResult.isActive)
+
+        recorder.finalize(error = null)
+        advanceUntilIdle()
+
+        val outputFile = assertNotNull(recorder.outputFile)
+        val expectedUri = outputFile.toURI().toString()
+        assertEquals(expectedUri, stopResult.await().getOrNull())
+        assertEquals(
+            VideoRecordingState.Succeeded(expectedUri),
+            repository.observeVideoRecordingState().first(),
+        )
+        assertTrue(outputFile.exists())
+        outputFile.delete()
+    }
+
+    @Test
+    fun stopVideoRecording_whenFinalizeFails_deletesOutputAndPublishesFailed() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+
+        val stopResult = async { repository.stopVideoRecording() }
+        advanceUntilIdle()
+        recorder.finalize(error = VideoRecordingException(errorCode = 8, cause = null))
+        advanceUntilIdle()
+
+        val exception = assertIs<CameraRepositoryException>(stopResult.await().exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+        assertFalse(assertNotNull(recorder.outputFile).exists())
+    }
+
+    @Test
+    fun startVideoRecording_afterFinalize_allowsNextRecording() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+        // 録画側から終了（unbind やストレージ不足）した場合も、次の録画を始められる状態へ戻る。
+        recorder.finalize(error = VideoRecordingException(errorCode = 2, cause = null))
+
+        val result = repository.startVideoRecording()
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, recorder.startCount)
+        assertEquals(VideoRecordingState.Recording, repository.observeVideoRecordingState().first())
+        recorder.outputFile?.delete()
     }
 
     @Test
@@ -137,6 +263,31 @@ class AndroidCameraRepositoryTest {
                 FakeCameraLensAvailability(availableLens)
             },
         )
+    }
+
+    // CameraX を使わずに録画の開始 / 停止 / 書き出し完了を再現する recorder。
+    private class FakeVideoRecorder : AndroidVideoRecorder {
+        var startCount = 0
+            private set
+        var stopCount = 0
+            private set
+        var outputFile: File? = null
+            private set
+        private var onFinalized: ((Throwable?) -> Unit)? = null
+
+        override fun startRecording(
+            outputFile: File,
+            onFinalized: (error: Throwable?) -> Unit,
+        ): AndroidVideoRecording {
+            startCount += 1
+            this.outputFile = outputFile
+            this.onFinalized = onFinalized
+            return AndroidVideoRecording { stopCount += 1 }
+        }
+
+        fun finalize(error: Throwable?) {
+            onFinalized?.invoke(error)
+        }
     }
 
     private class FakeCameraLensAvailability(
