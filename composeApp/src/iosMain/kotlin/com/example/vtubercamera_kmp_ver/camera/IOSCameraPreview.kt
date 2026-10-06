@@ -69,12 +69,11 @@ import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
-import platform.Foundation.NSUUID
 import platform.Foundation.NSURL
-import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.create
 import platform.Foundation.getBytes
-import platform.Foundation.writeToFile
+import platform.Photos.PHAssetCreationRequest
+import platform.Photos.PHAssetResourceTypePhoto
 import platform.SceneKit.SCNScene
 import platform.SceneKit.SCNNode
 import platform.SceneKit.SCNSceneRendererProtocol
@@ -660,13 +659,19 @@ private class IOSPhotoCaptureDelegate(
             return
         }
 
-        val filePath = NSTemporaryDirectory() + "vtuber-camera-${NSUUID().UUIDString}.jpg"
-        if (!imageData.writeToFile(filePath, atomically = true)) {
-            onComplete(null, IllegalStateException("Failed to save captured photo"))
-            return
-        }
-        val photoUri = NSURL.fileURLWithPath(filePath).absoluteString
-        onComplete(photoUri, null)
+        // 一時ファイルを介さず、撮影データをそのまま Photos へ追加する。結果は main queue へ戻して通知される。
+        saveToPhotoLibrary(
+            createAsset = {
+                val creationRequest = PHAssetCreationRequest.creationRequestForAsset()
+                creationRequest.addResourceWithType(
+                    type = PHAssetResourceTypePhoto,
+                    data = imageData,
+                    options = null,
+                )
+                creationRequest.placeholderForCreatedAsset?.localIdentifier
+            },
+            onComplete = onComplete,
+        )
     }
 }
 
