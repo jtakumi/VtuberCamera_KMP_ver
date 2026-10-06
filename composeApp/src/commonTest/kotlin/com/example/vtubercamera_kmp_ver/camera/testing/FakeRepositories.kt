@@ -9,6 +9,7 @@ import com.example.vtubercamera_kmp_ver.camera.PermissionState
 import com.example.vtubercamera_kmp_ver.camera.PhotoCaptureState
 import com.example.vtubercamera_kmp_ver.camera.PhotoDeletionState
 import com.example.vtubercamera_kmp_ver.camera.PreviewState
+import com.example.vtubercamera_kmp_ver.camera.VideoRecordingState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,10 +22,13 @@ internal class FakeCameraRepository(
     private val startPreviewResult: Result<CameraLensFacing>? = null,
     private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
     private val deletePhotoResult: Result<Unit> = Result.success(Unit),
+    private val startVideoRecordingResult: Result<Unit> = Result.success(Unit),
+    private val stopVideoRecordingResult: Result<String?> = Result.success("fake://video.mp4"),
 ) : CameraRepository {
     private val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
     private val photoCaptureState = MutableStateFlow<PhotoCaptureState>(PhotoCaptureState.Idle)
     private val photoDeletionState = MutableStateFlow<PhotoDeletionState>(PhotoDeletionState.Idle)
+    private val videoRecordingState = MutableStateFlow<VideoRecordingState>(VideoRecordingState.Idle)
     private val zoomUiState = MutableStateFlow(
         CameraZoomUiState(
             currentCameraZoomRatio = 1f,
@@ -40,6 +44,12 @@ internal class FakeCameraRepository(
         private set
 
     var switchLensCallCount: Int = 0
+        private set
+
+    var startVideoRecordingCallCount: Int = 0
+        private set
+
+    var stopVideoRecordingCallCount: Int = 0
         private set
 
     val startPreviewRequests = mutableListOf<CameraLensFacing>()
@@ -90,6 +100,32 @@ internal class FakeCameraRepository(
         photoCaptureState.value = PhotoCaptureState.Capturing
         photoCaptureState.value = PhotoCaptureState.Succeeded("fake://photo.jpg")
         return Result.success("fake://photo.jpg")
+    }
+
+    override fun observeVideoRecordingState(): Flow<VideoRecordingState> {
+        return videoRecordingState.asStateFlow()
+    }
+
+    override suspend fun startVideoRecording(): Result<Unit> {
+        startVideoRecordingCallCount += 1
+        return startVideoRecordingResult.also { result ->
+            videoRecordingState.value = if (result.isSuccess) {
+                VideoRecordingState.Recording
+            } else {
+                VideoRecordingState.Failed(CameraError.VideoRecordFailed)
+            }
+        }
+    }
+
+    override suspend fun stopVideoRecording(): Result<String?> {
+        stopVideoRecordingCallCount += 1
+        videoRecordingState.value = VideoRecordingState.Finalizing
+        return stopVideoRecordingResult.also { result ->
+            videoRecordingState.value = result.fold(
+                onSuccess = { uri -> VideoRecordingState.Succeeded(uri) },
+                onFailure = { VideoRecordingState.Failed(CameraError.VideoRecordFailed) },
+            )
+        }
     }
 
     override fun observePhotoDeletionState(): Flow<PhotoDeletionState> {
