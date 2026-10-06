@@ -115,7 +115,7 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(
-            IOSVideoRecorder { throw IllegalStateException("face tracking is active") },
+            IOSVideoRecorder { throw IllegalStateException("screen recording is unavailable") },
         )
 
         val result = repository.startVideoRecording()
@@ -180,35 +180,40 @@ class IOSCameraRepositoryTest {
     }
 
     @Test
-    fun stopVideoRecording_whenFinalizeFails_deletesOutputAndPublishesFailed() = runTest {
+    fun stopVideoRecording_whenSaveFails_publishesFailed() = runTest {
         val recorder = FakeVideoRecorder()
-        val deletedUris = mutableListOf<String>()
-        val repository = IOSCameraRepository(
-            hasLens = { true },
-            photoFileDeleter = { uri ->
-                deletedUris += uri
-                true
-            },
-        )
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(recorder)
         repository.startVideoRecording()
 
         val stopResult = async { repository.stopVideoRecording() }
         advanceUntilIdle()
-        recorder.finalize(
-            uri = "file:///tmp/vtuber-camera.mov",
-            error = IllegalStateException("disk full"),
-        )
+        recorder.finalize(uri = null, error = IllegalStateException("Photo library access was not granted"))
         advanceUntilIdle()
 
         val exception = assertIs<CameraRepositoryException>(stopResult.await().exceptionOrNull())
         assertEquals(CameraError.VideoRecordFailed, exception.error)
-        assertEquals(listOf("file:///tmp/vtuber-camera.mov"), deletedUris)
         assertEquals(
             VideoRecordingState.Failed(CameraError.VideoRecordFailed),
             repository.observeVideoRecordingState().first(),
         )
+    }
+
+    @Test
+    fun startVideoRecording_afterStartPermissionDenied_allowsNextRecording() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+        // 停止要求なしに録画側から終了（ReplayKit の権限拒否など）しても、次の録画を始められる状態へ戻る。
+        recorder.finalize(uri = null, error = IllegalStateException("User declined screen recording"))
+
+        val result = repository.startVideoRecording()
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, recorder.startCount)
     }
 
     @Test
