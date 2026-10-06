@@ -114,7 +114,7 @@ expect fun rememberCameraPermissionController(): CameraPermissionController
 @Composable
 expect fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher
 
-// [captureMode] に合わせて、プラットフォーム側が撮影用の出力（写真 / 動画）を組み替える。
+// [captureMode] が動画のときは、プラットフォーム側が録画に必要なマイク権限を先に要求する。
 @Composable
 expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
