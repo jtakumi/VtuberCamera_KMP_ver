@@ -34,6 +34,8 @@
 - ML Kit Face Detection を使った face tracking 解析と共有 state への反映
 - face tracking 結果をアバター状態へマッピング (`AndroidFaceTrackingToAvatarMapper`)
 - Filament renderer による VRM avatar 表示基盤
+- 写真撮影（CameraX `ImageCapture`）と MediaStore（`Pictures/VtuberCamera`）への保存
+- 画面（カメラ映像とアバターの合成）の録画（`PixelCopy` + `MediaRecorder`、マイク音声つき）と MediaStore（`Movies/VtuberCamera`）への保存
 
 ### 1.3 iOS
 
@@ -46,6 +48,8 @@
 - avatar render state を Filament ブリッジへ伝達 (`IOSAvatarRenderInterop` / `IOSAvatarRenderBridge.swift`)
 - アバター表示倍率を render state 通知へ載せて native へ伝達し、static preview へ適用（Filament renderer への適用は未実装）
 - iOS 26 以降で OS 製 Liquid Glass (`UIGlassEffect`) をカメラ操作 UI の背面へ差し込む (`IOSLiquidGlassBackdropHost` / `GlassEffectBackdropViewProvider.swift`)。iOS 26 未満は Compose 実装のガラスへフォールバックする
+- 写真撮影（`AVCapturePhotoOutput`）と Photos への保存（add-only 権限）
+- 画面（カメラ映像とアバターの合成）の録画（ReplayKit、マイク音声つき）と Photos への保存
 - `iosApp` は Compose のホストアプリ（`MainViewController` 起動）
 - Android は ML Kit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、Filament renderer の head bone / expression morph へ適用する。
 - iOS は ARKit face tracking の正規化結果を共有 `AvatarRenderState` へ変換し、native bridge へ通知する。
@@ -54,10 +58,10 @@
 
 以下は将来計画であり、現時点では実装済みとして扱わない。
 
-- 写真撮影
-- 撮影画像の保存 / 削除
+- 撮影した写真 / 動画の削除
 - フラッシュ制御
-- ギャラリー連携
+- ギャラリー閲覧機能
+- 配信向けの出力機能
 - iOS native Filament renderer で選択済み avatar mesh を読み込み、head pose / expression morph を適用する実装
 
 ## 3. 共有とプラットフォーム責務の整理
