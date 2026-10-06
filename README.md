@@ -20,6 +20,8 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - face tracking 結果をアバター表情・ボーン状態へマッピング
 - Filament / gltfio による VRM avatar 表示基盤
 - VRM morph target への表情 weight 反映
+- CameraX `ImageCapture` による写真撮影と MediaStore（ギャラリー）への保存
+- 画面（カメラ映像とアバターの合成）の音声つき録画と MediaStore（ギャラリー）への保存
 - Compose Multiplatform ベースのカメラ画面
 - ライト / ダーク / システムテーマ切り替え
 
@@ -34,6 +36,8 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - Filament renderer host view を Compose のアバターレイヤーへ提供（`IOSAvatarRenderHost`）
 - avatar render state を Filament ブリッジへ伝達
 - ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達
+- `AVCapturePhotoOutput` による写真撮影と Photos（ギャラリー）への保存
+- ReplayKit による画面（カメラ映像とアバターの合成）の音声つき録画と Photos（ギャラリー）への保存
 - ライト / ダーク / システムテーマ切り替え
 
 ### 共有コードで扱っているもの
@@ -50,16 +54,16 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - アバターアセット管理 (`AvatarAssetStore`) と renderer slot への受け渡し
 - Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合
 - iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合
+- 写真 / 動画の撮影モード切り替え (`CameraCaptureMode`) と録画状態 (`VideoRecordingState`) の管理
 - ライト / ダーク / システムテーマ設定の永続化
 - 権限文言のリソース管理
 
 ### まだ未実装の主な機能
 
-- 写真撮影
-- 撮影画像の保存 / 削除
+- 撮影した写真 / 動画の削除
 - フラッシュ制御
-- ギャラリー関連機能
-- 録画 / 配信向けの出力機能
+- ギャラリー閲覧機能
+- 配信向けの出力機能
 - iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装
 
 ## リポジトリ構成
@@ -176,6 +180,6 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug 
 
 ## 今後の整理候補
 
-- 写真撮影、保存 / 削除、フラッシュ、ギャラリー関連機能を段階的に追加する
+- 撮影した写真 / 動画の削除、フラッシュ、ギャラリー閲覧機能を段階的に追加する
 - iOS native Filament renderer に avatar mesh loading と head pose / expression morph 適用を追加する
-- 録画 / 配信向けの出力機能を設計する
+- 配信向けの出力機能を設計する
