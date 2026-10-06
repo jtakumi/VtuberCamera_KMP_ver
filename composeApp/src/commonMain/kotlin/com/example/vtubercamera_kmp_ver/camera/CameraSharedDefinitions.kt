@@ -11,6 +11,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_preview_
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unavailable
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_video_record_failed
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_capture_succeeded
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_delete_succeeded
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_record_succeeded
 
@@ -46,6 +47,7 @@ sealed interface PhotoCaptureState {
 
     data object Capturing : PhotoCaptureState
 
+    // [uri] は保存先のギャラリー項目を指す。
     data class Succeeded(val uri: String?) : PhotoCaptureState
 
     data class Failed(val error: CameraError) : PhotoCaptureState
@@ -130,7 +132,10 @@ fun PhotoCaptureState.toCameraMessage(): CameraMessage? = when (this) {
     PhotoCaptureState.Idle,
     PhotoCaptureState.Capturing,
     -> null
-    is PhotoCaptureState.Succeeded -> null
+    is PhotoCaptureState.Succeeded -> CameraMessage(
+        type = CameraMessageType.Guide,
+        messageRes = Res.string.camera_photo_capture_succeeded,
+    )
     is PhotoCaptureState.Failed -> error.toCameraMessage()
 }
 
