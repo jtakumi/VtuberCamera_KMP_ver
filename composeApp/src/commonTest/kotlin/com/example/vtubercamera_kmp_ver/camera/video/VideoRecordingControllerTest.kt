@@ -7,8 +7,11 @@ import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
@@ -26,7 +29,7 @@ class VideoRecordingControllerTest {
         val controller = createController(repository)
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(1, repository.startVideoRecordingCallCount)
         assertEquals(VideoRecordingState.Recording, controller.state.value)
@@ -43,7 +46,7 @@ class VideoRecordingControllerTest {
         assertEquals(VideoRecordingState.Starting, controller.state.value)
         assertEquals(0, repository.startVideoRecordingCallCount)
 
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(1, repository.startVideoRecordingCallCount)
         assertEquals(VideoRecordingState.Recording, controller.state.value)
@@ -56,7 +59,7 @@ class VideoRecordingControllerTest {
 
         controller.onToggleRecording()
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(1, repository.startVideoRecordingCallCount)
         assertEquals(0, repository.stopVideoRecordingCallCount)
@@ -72,14 +75,14 @@ class VideoRecordingControllerTest {
         )
         val controller = createController(repository)
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
         controller.onOutcomeAcknowledged()
-        advanceUntilIdle()
+        advanceRecordingWork()
         assertEquals(VideoRecordingState.Idle, controller.state.value)
 
         // repository の値は前回と同じ Failed のままで再発行されないが、準備中のまま固まらない。
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(
             VideoRecordingState.Failed(CameraError.VideoRecordFailed),
@@ -102,10 +105,10 @@ class VideoRecordingControllerTest {
         val repository = FakeCameraRepository()
         val controller = createController(repository)
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(1, repository.stopVideoRecordingCallCount)
         assertEquals(VideoRecordingState.Succeeded("fake://video.mp4"), controller.state.value)
@@ -116,11 +119,11 @@ class VideoRecordingControllerTest {
         val repository = FakeCameraRepository()
         val controller = createController(repository)
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
         controller.onToggleRecording()
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(2, repository.startVideoRecordingCallCount)
         assertEquals(VideoRecordingState.Recording, controller.state.value)
@@ -136,14 +139,14 @@ class VideoRecordingControllerTest {
         val controller = createController(repository)
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
         assertEquals(
             VideoRecordingState.Failed(CameraError.VideoRecordFailed),
             controller.state.value,
         )
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
         assertEquals(2, repository.startVideoRecordingCallCount)
     }
 
@@ -156,10 +159,10 @@ class VideoRecordingControllerTest {
         )
         val controller = createController(repository)
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(
             VideoRecordingState.Failed(CameraError.VideoRecordFailed),
@@ -171,11 +174,11 @@ class VideoRecordingControllerTest {
     fun onOutcomeAcknowledged_resetsSucceededToIdle() = runTest {
         val controller = createController(FakeCameraRepository())
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
         controller.onToggleRecording()
 
         controller.onOutcomeAcknowledged()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(VideoRecordingState.Idle, controller.state.value)
     }
@@ -184,19 +187,30 @@ class VideoRecordingControllerTest {
     fun onOutcomeAcknowledged_keepsRecordingState() = runTest {
         val controller = createController(FakeCameraRepository())
         controller.onToggleRecording()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         controller.onOutcomeAcknowledged()
-        advanceUntilIdle()
+        advanceRecordingWork()
 
         assertEquals(VideoRecordingState.Recording, controller.state.value)
     }
 
+    private fun TestScope.advanceRecordingWork() {
+        advanceTimeBy(UI_HIDE_SETTLE_MILLIS)
+        advanceUntilIdle()
+    }
+
     // 状態の反映を同期的に検証できるよう、controller の collect と launch を Unconfined で動かす。
     private fun TestScope.createController(repository: FakeCameraRepository): VideoRecordingController {
+        // backgroundScope の子では遅延処理を advanceTimeBy で進められないため独立 Job を使い、
+        // テスト終了時は backgroundScope の完了に連動して collector を停止する。
+        val controllerJob = SupervisorJob()
+        backgroundScope.coroutineContext[Job]?.invokeOnCompletion { controllerJob.cancel() }
         return VideoRecordingController(
             cameraRepository = repository,
-            scope = CoroutineScope(backgroundScope.coroutineContext + UnconfinedTestDispatcher(testScheduler)),
+            scope = CoroutineScope(controllerJob + UnconfinedTestDispatcher(testScheduler)),
         )
     }
 }
+
+private const val UI_HIDE_SETTLE_MILLIS = 300L
