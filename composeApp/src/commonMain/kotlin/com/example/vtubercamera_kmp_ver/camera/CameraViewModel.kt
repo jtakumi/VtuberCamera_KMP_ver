@@ -198,7 +198,7 @@ class CameraViewModel(
         if (_uiState.value.isVideoRecordingActive) {
             return
         }
-        videoRecordingController.onOutcomeAcknowledged()
+        acknowledgeCaptureOutcomes()
         sessionController.onToggleLensFacing()
     }
 
@@ -251,12 +251,13 @@ class CameraViewModel(
         if (_uiState.value.isVideoRecordingActive) {
             return
         }
-        videoRecordingController.onOutcomeAcknowledged()
+        acknowledgeCaptureOutcomes()
         captureModeController.onToggleCaptureMode()
     }
 
     // 動画モードのシャッターで、録画の開始と停止を切り替える。
     fun onToggleVideoRecording() {
+        photoCaptureController.onOutcomeAcknowledged()
         videoRecordingController.onToggleRecording()
     }
 
@@ -276,6 +277,13 @@ class CameraViewModel(
 
     internal fun releaseCurrentAvatarAsset() {
         avatarSelectionController.release()
+    }
+
+    // 写真と動画の完了 / 失敗の結果を通知済みにする。残したままだと、次の操作の最中に古い結果バナーが
+    // 再表示されたり、別の操作の通知を隠したりする。
+    private fun acknowledgeCaptureOutcomes() {
+        photoCaptureController.onOutcomeAcknowledged()
+        videoRecordingController.onOutcomeAcknowledged()
     }
 
     private fun applyPermissionChange(change: PermissionChange) {
