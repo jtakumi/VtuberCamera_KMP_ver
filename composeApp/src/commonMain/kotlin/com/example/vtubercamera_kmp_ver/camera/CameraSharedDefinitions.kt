@@ -51,19 +51,37 @@ sealed interface PhotoCaptureState {
     data class Failed(val error: CameraError) : PhotoCaptureState
 }
 
-// 動画録画の進行に関する共有 UI 状態。[Recording] と [Finalizing] のあいだは録画セッションが占有されている。
+// 動画録画の進行に関する共有 UI 状態。[Starting]・[Recording]・[Finalizing] のあいだは録画が進行中で、
+// 操作 UI は映像へ映り込まないよう隠れる。
 sealed interface VideoRecordingState {
     data object Idle : VideoRecordingState
 
+    // 録画開始を受け付けてから、操作 UI が画面から消えて録画が実際に始まるまでの状態。
+    data object Starting : VideoRecordingState
+
     data object Recording : VideoRecordingState
 
-    // 録画停止を要求してから、出力ファイルの書き出しが完了するまでの状態。
+    // 録画停止を要求してから、ギャラリーへの保存が完了するまでの状態。
     data object Finalizing : VideoRecordingState
 
+    // [uri] は保存先のギャラリー項目を指す。
     data class Succeeded(val uri: String?) : VideoRecordingState
 
     data class Failed(val error: CameraError) : VideoRecordingState
 }
+
+// 録画が進行中か。進行中は操作 UI を隠し、モードやレンズの切り替えを受け付けない。
+val VideoRecordingState.isInProgress: Boolean
+    get() = when (this) {
+        VideoRecordingState.Starting,
+        VideoRecordingState.Recording,
+        VideoRecordingState.Finalizing,
+        -> true
+        VideoRecordingState.Idle,
+        is VideoRecordingState.Succeeded,
+        is VideoRecordingState.Failed,
+        -> false
+    }
 
 // 撮影画像の削除に関する共有 UI 状態。
 sealed interface PhotoDeletionState {
@@ -118,6 +136,7 @@ fun PhotoCaptureState.toCameraMessage(): CameraMessage? = when (this) {
 
 fun VideoRecordingState.toCameraMessage(): CameraMessage? = when (this) {
     VideoRecordingState.Idle,
+    VideoRecordingState.Starting,
     VideoRecordingState.Recording,
     VideoRecordingState.Finalizing,
     -> null
@@ -159,10 +178,11 @@ interface CameraRepository {
 
     fun observeVideoRecordingState(): Flow<VideoRecordingState>
 
-    // 録画を開始する。録画中や準備未完了のときは [CameraError.VideoRecordFailed] で失敗する。
+    // アプリ画面（カメラ映像とアバター）の録画を開始する。録画中や準備未完了のときは
+    // [CameraError.VideoRecordFailed] で失敗する。
     suspend fun startVideoRecording(): Result<Unit>
 
-    // 録画を停止し、出力ファイルの書き出し完了まで待って URI を返す。録画中でなければ失敗する。
+    // 録画を停止し、ギャラリーへの保存完了まで待って保存先の URI を返す。録画中でなければ失敗する。
     suspend fun stopVideoRecording(): Result<String?>
 
     fun observePhotoDeletionState(): Flow<PhotoDeletionState>
