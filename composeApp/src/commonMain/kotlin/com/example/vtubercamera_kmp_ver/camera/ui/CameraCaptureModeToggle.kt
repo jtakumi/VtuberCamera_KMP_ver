@@ -57,10 +57,6 @@ internal fun CameraCaptureModeToggle(
         cornerStyle = LiquidGlassCornerStyle.Capsule,
         modifier = modifier
             .height(CAPTURE_MODE_TOGGLE_HEIGHT)
-            .clickable(
-                role = Role.Button,
-                onClick = onClick,
-            )
             // 選択中のモードは stateDescription で読み上げ、セグメントの見た目と情報量を揃える。
             .semantics(mergeDescendants = true) {
                 contentDescription = toggleContentDescription
@@ -69,6 +65,7 @@ internal fun CameraCaptureModeToggle(
     ) {
         Row(
             modifier = Modifier
+                .clickable(role = Role.Button, onClick = onClick)
                 .align(Alignment.Center)
                 .padding(CAPTURE_MODE_SEGMENT_GAP),
             horizontalArrangement = Arrangement.spacedBy(CAPTURE_MODE_SEGMENT_GAP),
