@@ -30,7 +30,6 @@ import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlinx.cinterop.addressOf
-import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.get
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.usePinned
@@ -195,6 +194,8 @@ actual fun CameraPreviewHost(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
+            // The camera is visual-only; let Compose's controls and gesture layer receive touches.
+            previewView.userInteractionEnabled = false
             // UIKitView is composited above sibling Compose content on iOS. Hide just the native
             // camera image with transparency when a solid background is selected. Keeping the
             // ARSCNView unhidden lets its renderer continue delivering face-anchor updates.
@@ -208,6 +209,7 @@ actual fun CameraPreviewHost(
             previewView
         },
         update = {
+            it.userInteractionEnabled = false
             it.hidden = false
             it.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
             if (usesFaceTracking) {
