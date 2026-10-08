@@ -361,7 +361,10 @@ private fun CameraPreviewState(
                             label = stopRecordingActionLabel,
                             onStopRecording = onToggleVideoRecording,
                         )
-                        isUiHidden -> Modifier.revealUiOnTap(label = showUiActionLabel, onShowUi = onShowUi)
+                        isUiHidden -> Modifier.revealUiOnTap(
+                            label = showUiActionLabel,
+                            onShowUi = onShowUi,
+                        )
                         else -> Modifier
                     },
                 )
