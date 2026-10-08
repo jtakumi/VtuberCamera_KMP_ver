@@ -29,6 +29,7 @@ import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.get
 import kotlinx.cinterop.readValue
@@ -81,6 +82,7 @@ import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
+import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
@@ -228,11 +230,17 @@ actual fun CameraPreviewHost(
                     if (resolvedLens != lensFacing) {
                         onLensFacingChanged(resolvedLens)
                     }
+                    // 顔追跡中は AVCaptureSession を止めているため、AVCapturePhotoOutput 側の capturer や
+                    // zoom 制御を登録し直してはいけない。ARKit の snapshot 撮影を使い続ける。
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(
-                        sessionManager.cameraControl(),
+                        if (usesFaceTracking) null else sessionManager.cameraControl(),
                     )
                     (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
-                        sessionManager.photoCapturer(),
+                        if (usesFaceTracking) {
+                            faceTrackingSessionManager.photoCapturer()
+                        } else {
+                            sessionManager.photoCapturer()
+                        },
                     )
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
                 } else {
@@ -663,18 +671,21 @@ private class IOSPhotoCaptureDelegate(
 
         // 一時ファイルを介さず、撮影データをそのまま Photos へ追加する。結果は main queue へ戻して通知される。
         saveToPhotoLibrary(
-            createAsset = {
-                val creationRequest = PHAssetCreationRequest.creationRequestForAsset()
-                creationRequest.addResourceWithType(
-                    type = PHAssetResourceTypePhoto,
-                    data = imageData,
-                    options = null,
-                )
-                creationRequest.placeholderForCreatedAsset?.localIdentifier
-            },
+            createAsset = { createPhotoAsset(imageData) },
             onComplete = onComplete,
         )
     }
+}
+
+// 写真データから Photos のアセット作成要求を出し、作成されるアセットの識別子を返す。
+private fun createPhotoAsset(imageData: NSData): String? {
+    val creationRequest = PHAssetCreationRequest.creationRequestForAsset()
+    creationRequest.addResourceWithType(
+        type = PHAssetResourceTypePhoto,
+        data = imageData,
+        options = null,
+    )
+    return creationRequest.placeholderForCreatedAsset?.localIdentifier
 }
 
 private class AVCaptureDeviceCameraControl(
@@ -755,9 +766,22 @@ private class IOSFaceTrackingSessionManager {
         previewView.session.pause()
     }
 
+    // AVCapturePhotoOutput は ARKit セッションと併用できないため、ARSCNView の表示中フレームに
+    // avatar layer を重ねた画像を JPEG 化し、通常撮影と同じ経路で Photos へ保存する。
     fun photoCapturer(): IOSPhotoCapturer {
         return IOSPhotoCapturer { onComplete ->
-            onComplete(null, IllegalStateException("Photo capture is unavailable during face tracking"))
+            dispatch_async(dispatch_get_main_queue()) {
+                val photo = previewView.snapshot().compositedWithOverlay(IOSAvatarRenderHost.activeHostView)
+                val imageData = UIImageJPEGRepresentation(photo, 0.95)
+                if (imageData == null) {
+                    onComplete(null, IllegalStateException("Face tracking snapshot data is unavailable"))
+                } else {
+                    saveToPhotoLibrary(
+                        createAsset = { createPhotoAsset(imageData) },
+                        onComplete = onComplete,
+                    )
+                }
+            }
         }
     }
 }
