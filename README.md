@@ -151,7 +151,13 @@ python3 scripts/spec_sync_check.py --format markdown
 
 ### iOS シミュレータ向けビルド
 
-Xcode 26 系のツールチェーンで Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
+`iosApp/iosApp.xcodeproj` は git 管理外で、[iosApp/project.yml](./iosApp/project.yml) から [XcodeGen](https://github.com/yonaskolb/XcodeGen) で生成します。clone 後、ブランチ切替後、`project.yml` 編集後は次を実行してください (`brew install xcodegen` が必要です)。
+
+```shell
+scripts/generate_ios_project.sh
+```
+
+Xcode 26 系のツールチェーンで生成された [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
 
 ```shell
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
