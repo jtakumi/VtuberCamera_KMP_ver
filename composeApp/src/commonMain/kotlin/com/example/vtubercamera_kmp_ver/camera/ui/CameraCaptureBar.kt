@@ -5,7 +5,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,11 +18,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassCornerStyle
@@ -34,18 +38,22 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_record_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_avatar_picker
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
+import vtubercamera_kmp_ver.composeapp.generated.resources.ic_video_record
 
 /**
- * カメラ画面下部の操作バー。アバター選択・撮影・レンズ切り替えをアイコンで並べ、
- * 撮影済みの写真があるときだけ削除アイコンを追加する。
+ * カメラ画面下部の操作バー。撮影モードのトグルを上段に、アバター選択・シャッター・レンズ切り替えを
+ * 下段にアイコンで並べる。
+ *
+ * シャッターは [captureMode] で役割が変わる。写真モードでは [onCapturePhoto] を呼び、動画モードでは
+ * [onToggleVideoRecording] で録画を始める。録画の停止は録画中の画面タップで行うため、録画の進行中は
+ * 呼び出し側がこのバーごと画面から外す。
  *
  * バー自体を Liquid Glass の面として浮かせ、各ボタンはその内側の層として描くことで、
  * 背景プリセットが変わってもボタンの当たり判定の範囲が見た目から分かるようにする。
- *
- * 削除は取り消せないため、押下しても即座には実行せず確認ダイアログを挟む。
  */
 @Composable
 internal fun CameraCaptureBar(
@@ -53,6 +61,9 @@ internal fun CameraCaptureBar(
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+    captureMode: CameraCaptureMode,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
     glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
@@ -61,35 +72,82 @@ internal fun CameraCaptureBar(
         cornerStyle = LiquidGlassCornerStyle.Rounded(CAPTURE_BAR_CORNER_RADIUS),
         modifier = modifier,
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(CAPTURE_BAR_PADDING),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(CAPTURE_BAR_ROW_SPACING),
         ) {
-            // 選ぶ対象がアバターだと一目で分かるよう、ファイルや写真ではなく人型のアイコンを使う。
-            CaptureBarIconButton(
-                iconRes = Res.drawable.ic_avatar_picker,
-                contentDescriptionRes = Res.string.avatar_picker_open_button,
-                onClick = onOpenFilePicker,
-                glassStyle = glass.style,
+            CameraCaptureModeToggle(
+                captureMode = captureMode,
+                onClick = onToggleCaptureMode,
+                glass = glass,
             )
-            CaptureBarIconButton(
-                iconRes = Res.drawable.ic_camera_capture,
-                contentDescriptionRes = Res.string.camera_capture_button,
-                onClick = onCapturePhoto,
-                glassStyle = glass.style,
-                buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
-                iconSize = CAPTURE_SHUTTER_ICON_SIZE,
-                isEmphasized = true,
-                isBusy = isCapturingPhoto,
-            )
-            CaptureBarIconButton(
-                iconRes = Res.drawable.ic_camera_switch,
-                contentDescriptionRes = Res.string.camera_switch_button,
-                onClick = onLensFacingToggle,
-                glassStyle = glass.style,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // 選ぶ対象がアバターだと一目で分かるよう、ファイルや写真ではなく人型のアイコンを使う。
+                CaptureBarIconButton(
+                    iconRes = Res.drawable.ic_avatar_picker,
+                    contentDescriptionRes = Res.string.avatar_picker_open_button,
+                    onClick = onOpenFilePicker,
+                    glassStyle = glass.style,
+                )
+                ShutterButton(
+                    captureMode = captureMode,
+                    isCapturingPhoto = isCapturingPhoto,
+                    onCapturePhoto = onCapturePhoto,
+                    onToggleVideoRecording = onToggleVideoRecording,
+                    glassStyle = glass.style,
+                )
+                CaptureBarIconButton(
+                    iconRes = Res.drawable.ic_camera_switch,
+                    contentDescriptionRes = Res.string.camera_switch_button,
+                    onClick = onLensFacingToggle,
+                    glassStyle = glass.style,
+                )
+            }
         }
+    }
+}
+
+/**
+ * [captureMode] に応じて役割と見た目が変わるシャッターボタン。
+ *
+ * 写真モードではカメラのアイコンで、撮影中は進行中インジケーターへ差し替える。
+ * 動画モードでは録画アイコンを赤で描き、録画を始める操作だと分かるようにする。
+ */
+@Composable
+private fun ShutterButton(
+    captureMode: CameraCaptureMode,
+    isCapturingPhoto: Boolean,
+    onCapturePhoto: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
+    glassStyle: LiquidGlassStyle,
+) {
+    when (captureMode) {
+        CameraCaptureMode.Photo -> CaptureBarIconButton(
+            iconRes = Res.drawable.ic_camera_capture,
+            contentDescriptionRes = Res.string.camera_capture_button,
+            onClick = onCapturePhoto,
+            glassStyle = glassStyle,
+            buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
+            iconSize = CAPTURE_SHUTTER_ICON_SIZE,
+            isEmphasized = true,
+            isBusy = isCapturingPhoto,
+        )
+
+        CameraCaptureMode.Video -> CaptureBarIconButton(
+            iconRes = Res.drawable.ic_video_record,
+            contentDescriptionRes = Res.string.camera_video_record_button,
+            onClick = onToggleVideoRecording,
+            glassStyle = glassStyle,
+            buttonSize = CAPTURE_SHUTTER_BUTTON_SIZE,
+            iconSize = CAPTURE_SHUTTER_ICON_SIZE,
+            isEmphasized = true,
+            iconTint = RECORD_ICON_COLOR,
+        )
     }
 }
 
@@ -99,6 +157,7 @@ internal fun CameraCaptureBar(
  * ラベル文字を持たないため、[contentDescriptionRes] を読み上げ用の名前として必ず設定する。
  * [isEmphasized] のときは縁を太くしてシャッターを他のボタンと区別する。
  * [isBusy] のときは進行中インジケーターへ差し替え、二重押下しないよう押下も止める。
+ * [iconTint] を渡すと、ガラスの前景色の代わりにアイコンをその色で描く。
  */
 @Composable
 private fun CaptureBarIconButton(
@@ -112,6 +171,7 @@ private fun CaptureBarIconButton(
     isEmphasized: Boolean = false,
     isEnabled: Boolean = true,
     isBusy: Boolean = false,
+    iconTint: Color? = null,
 ) {
     val buttonContentDescription = stringResource(contentDescriptionRes)
     val contentColor = if (isEnabled) {
@@ -151,20 +211,28 @@ private fun CaptureBarIconButton(
                 // 読み上げ名は押下領域の Box 側に付けているため、ここでは重複させない。
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
-                tint = contentColor,
+                tint = if (isEnabled) (iconTint ?: contentColor) else contentColor,
             )
         }
     }
 }
 
 /** 操作バーの高さ。バーへ重ならない位置を決めたい呼び出し側が参照する。 */
-internal val CAMERA_CAPTURE_BAR_HEIGHT: Dp get() = CAPTURE_SHUTTER_BUTTON_SIZE + CAPTURE_BAR_PADDING * 2
+internal val CAMERA_CAPTURE_BAR_HEIGHT: Dp
+    get() = CAPTURE_MODE_TOGGLE_HEIGHT +
+        CAPTURE_BAR_ROW_SPACING +
+        CAPTURE_SHUTTER_BUTTON_SIZE +
+        CAPTURE_BAR_PADDING * 2
 
 private val CAPTURE_BAR_CORNER_RADIUS = 28.dp
 private val CAPTURE_BAR_PADDING = 12.dp
+private val CAPTURE_BAR_ROW_SPACING = 8.dp
 private val CAPTURE_BAR_BUTTON_SIZE = 64.dp
 private val CAPTURE_BAR_BUTTON_CORNER_RADIUS = 20.dp
 private val CAPTURE_BAR_ICON_SIZE = 28.dp
 private val CAPTURE_SHUTTER_BUTTON_SIZE = 76.dp
 private val CAPTURE_SHUTTER_ICON_SIZE = 34.dp
 private val CAPTURE_SHUTTER_RIM_WIDTH = 2.dp
+
+// 録画の開始を示す赤。
+private val RECORD_ICON_COLOR = Color(0xFFE53935)

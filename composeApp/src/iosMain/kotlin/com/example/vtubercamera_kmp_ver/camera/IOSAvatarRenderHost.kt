@@ -28,6 +28,11 @@ interface AvatarRenderHostViewProvider {
 object IOSAvatarRenderHost {
     private var viewProvider: AvatarRenderHostViewProvider? = null
 
+    // 現在 avatar layer に組み込まれている host view。顔追跡中の撮影で、avatar を写真へ合成するために参照する。
+    // makeHostView / releaseHostView と同じ main thread からだけ触る。
+    internal var activeHostView: UIView? = null
+        private set
+
     // iosApp の起動時に main thread から登録する。以降の生成・破棄も Compose の composition と
     // 同じ main thread からのみ呼ばれるため、追加の同期は行わない。
     fun registerViewProvider(viewProvider: AvatarRenderHostViewProvider) {
@@ -41,10 +46,13 @@ object IOSAvatarRenderHost {
             NSLog("Avatar render host view provider is not registered; avatar layer stays empty")
             return null
         }
-        return currentViewProvider.makeHostView()
+        return currentViewProvider.makeHostView().also { activeHostView = it }
     }
 
     internal fun releaseHostView(hostView: UIView) {
+        if (activeHostView === hostView) {
+            activeHostView = null
+        }
         viewProvider?.releaseHostView(hostView)
     }
 }

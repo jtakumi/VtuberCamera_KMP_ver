@@ -149,10 +149,6 @@ private fun PinchTargetToggleChip(
         cornerStyle = LiquidGlassCornerStyle.Capsule,
         modifier = modifier
             .heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET)
-            .clickable(
-                role = Role.Button,
-                onClick = onClick,
-            )
             // 選択中の対象は stateDescription で読み上げ、セグメントの見た目と情報量を揃える。
             .semantics(mergeDescendants = true) {
                 contentDescription = toggleContentDescription
@@ -160,7 +156,9 @@ private fun PinchTargetToggleChip(
             },
     ) {
         Row(
-            modifier = Modifier.padding(PINCH_TARGET_SEGMENT_GAP),
+            modifier = Modifier
+                .clickable(role = Role.Button, onClick = onClick)
+                .padding(PINCH_TARGET_SEGMENT_GAP),
             horizontalArrangement = Arrangement.spacedBy(PINCH_TARGET_SEGMENT_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -232,15 +230,12 @@ private fun CameraBackgroundToggleChip(
     OverlayGlassChip(
         glass = glass,
         modifier = modifier
-            .clickable(
-                role = Role.Button,
-                onClick = onClick,
-            )
             .sizeIn(minWidth = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET)
             .semantics(mergeDescendants = true) {
                 contentDescription = toggleContentDescription
                 stateDescription = modeLabel
             },
+        onClick = onClick,
     ) {
         Text(
             text = modeLabel,
@@ -260,6 +255,7 @@ private fun CameraBackgroundToggleChip(
 private fun OverlayGlassChip(
     glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     LiquidGlassSurface(
@@ -268,7 +264,12 @@ private fun OverlayGlassChip(
         modifier = modifier.heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET),
     ) {
         Row(
-            modifier = Modifier.padding(
+            modifier = (if (onClick == null) {
+                Modifier
+            } else {
+                Modifier
+                    .clickable(role = Role.Button, onClick = onClick)
+            }).padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.xs,
             ),

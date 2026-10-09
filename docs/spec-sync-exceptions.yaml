@@ -18,16 +18,17 @@ exceptions:
 
   - id: PHOTO_CAPTURE_AND_SAVE_PLANNED
     category: Spec ahead of code
-    status: active
+    status: inactive
     severity: info
     scope:
       - photo_capture
       - image_save
-    reason: Photo capture and image save are MVP roadmap items, but README and spec mark them as not implemented.
+    reason: Photo capture, video recording, and gallery save are now implemented on Android and iOS, so this exception is no longer active.
     evidence:
-      - README.md: photo capture and image save are listed under not implemented features.
-      - docs/KMP_IMPLEMENTATION_SPEC.ja.md: photo capture and image save are listed under planned work.
-    reevaluate_when: CameraX ImageCapture, AVFoundation photo output, MediaStore, or Photos save code is added.
+      - composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidPhotoOutput.kt
+      - composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSPhotoLibrary.kt
+      - README.md: only deletion of captured photos / videos remains under not implemented features.
+    reevaluate_when: Remove this historical note once photo / video deletion ships.
 
   - id: FLASH_ZOOM_PLANNED
     category: Spec ahead of code
@@ -59,14 +60,14 @@ exceptions:
 
   - id: IOS_PHOTO_LIBRARY_PERMISSION_PLANNED
     category: Spec ahead of code
-    status: active
+    status: inactive
     severity: info
     scope:
       - ios
       - image_save
       - permissions
-    reason: iOS only needs Photos add-library permission when image save is implemented; current camera preview only requires camera permission.
+    reason: NSPhotoLibraryAddUsageDescription is present and backed by add-only Photos saving of photos and videos, so this exception is no longer active.
     evidence:
-      - iosApp/iosApp/Info.plist: NSCameraUsageDescription exists.
-      - README.md: image save is listed as not implemented.
-    reevaluate_when: iOS image save code is added.
+      - iosApp/iosApp/Info.plist: NSCameraUsageDescription, NSMicrophoneUsageDescription, and NSPhotoLibraryAddUsageDescription exist.
+      - composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSPhotoLibrary.kt: photos and videos are saved to Photos with add-only access.
+    reevaluate_when: Remove this historical note once iOS photo / video deletion ships.

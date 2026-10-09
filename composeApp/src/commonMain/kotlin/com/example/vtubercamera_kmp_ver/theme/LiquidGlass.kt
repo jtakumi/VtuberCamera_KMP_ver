@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp as lerpColor
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -216,9 +215,8 @@ fun rememberLiquidGlassAppearance(tone: LiquidGlassTone): LiquidGlassAppearance 
  * 押下処理やサイズ指定は呼び出し側が [modifier] で与える。[elevation] と [rimWidth] は Compose で
  * 描くときだけ使う。OS 製のガラスは影と縁を自前で持つため、二重に描かない。
  *
- * Material の `Surface` と同じく、面の背後にあるレイヤーへタッチを通さず、読み上げ時は
- * 1 つのまとまりとして扱う。全画面のジェスチャーレイヤーへ重ねても、面の上の操作が
- * 背後のジェスチャーへ二重に伝わらない。
+ * 読み上げ時は面を 1 つのまとまりとして扱う。操作を受け付けるかどうかは呼び出し側の
+ * modifier と子要素に任せ、面自体は空のポインター入力ハンドラーでイベント経路を変えない。
  */
 @Composable
 fun LiquidGlassSurface(
@@ -251,10 +249,7 @@ fun LiquidGlassSurface(
                     )
                 },
             )
-            .semantics(mergeDescendants = false) { isTraversalGroup = true }
-            // 面の背後へタッチを通さない。カメラ画面では全画面のピンチ検出レイヤーの上に
-            // この面が乗るため、これが無いと操作 UI 上のピンチがズームにも伝わってしまう。
-            .pointerInput(Unit) {},
+            .semantics(mergeDescendants = false) { isTraversalGroup = true },
         propagateMinConstraints = true,
     ) {
         if (usesPlatformGlass) {

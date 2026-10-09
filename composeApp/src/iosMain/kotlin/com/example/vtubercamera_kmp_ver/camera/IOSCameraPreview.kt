@@ -27,9 +27,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
-import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.ObjCSignatureOverride
+import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.get
 import kotlinx.cinterop.readValue
 import kotlinx.cinterop.usePinned
@@ -68,12 +69,11 @@ import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSError
 import platform.Foundation.NSNumber
-import platform.Foundation.NSUUID
 import platform.Foundation.NSURL
-import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.create
 import platform.Foundation.getBytes
-import platform.Foundation.writeToFile
+import platform.Photos.PHAssetCreationRequest
+import platform.Photos.PHAssetResourceTypePhoto
 import platform.SceneKit.SCNScene
 import platform.SceneKit.SCNNode
 import platform.SceneKit.SCNSceneRendererProtocol
@@ -82,6 +82,7 @@ import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
+import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
@@ -180,6 +181,8 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    // iOS の画面録画は撮影モードに依らず使え、マイク権限は ReplayKit が録画開始時に要求するため参照しない。
+    captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
@@ -193,6 +196,8 @@ actual fun CameraPreviewHost(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
+            // The camera is visual-only; let Compose's controls and gesture layer receive touches.
+            previewView.userInteractionEnabled = false
             // UIKitView is composited above sibling Compose content on iOS. Hide just the native
             // camera image with transparency when a solid background is selected. Keeping the
             // ARSCNView unhidden lets its renderer continue delivering face-anchor updates.
@@ -206,6 +211,7 @@ actual fun CameraPreviewHost(
             previewView
         },
         update = {
+            it.userInteractionEnabled = false
             it.hidden = false
             it.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
             if (usesFaceTracking) {
@@ -224,11 +230,17 @@ actual fun CameraPreviewHost(
                     if (resolvedLens != lensFacing) {
                         onLensFacingChanged(resolvedLens)
                     }
+                    // 顔追跡中は AVCaptureSession を止めているため、AVCapturePhotoOutput 側の capturer や
+                    // zoom 制御を登録し直してはいけない。ARKit の snapshot 撮影を使い続ける。
                     (cameraRepository as? IOSCameraRepository)?.onPlatformCameraControlReady(
-                        sessionManager.cameraControl(),
+                        if (usesFaceTracking) null else sessionManager.cameraControl(),
                     )
                     (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(
-                        sessionManager.photoCapturer(),
+                        if (usesFaceTracking) {
+                            faceTrackingSessionManager.photoCapturer()
+                        } else {
+                            sessionManager.photoCapturer()
+                        },
                     )
                     cameraRepository.onPlatformPreviewStarted(resolvedLens)
                 } else {
@@ -273,6 +285,15 @@ actual fun CameraPreviewHost(
             sessionManager.stopPreview()
             (cameraRepository as? IOSCameraRepository)?.onPlatformPhotoCapturerReady(null)
             currentOnFaceTrackingFrameChanged.value(null)
+        }
+    }
+
+    // 画面録画はカメラセッションや face tracking と独立した ReplayKit なので、プレビュー構成を
+    // 切り替えても使い続けられるよう、画面が存在する間だけ 1 度登録する。
+    DisposableEffect(cameraRepository) {
+        (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(IOSScreenVideoRecorder())
+        onDispose {
+            (cameraRepository as? IOSCameraRepository)?.onPlatformVideoRecorderReady(null)
         }
     }
 }
@@ -648,14 +669,23 @@ private class IOSPhotoCaptureDelegate(
             return
         }
 
-        val filePath = NSTemporaryDirectory() + "vtuber-camera-${NSUUID().UUIDString}.jpg"
-        if (!imageData.writeToFile(filePath, atomically = true)) {
-            onComplete(null, IllegalStateException("Failed to save captured photo"))
-            return
-        }
-        val photoUri = NSURL.fileURLWithPath(filePath).absoluteString
-        onComplete(photoUri, null)
+        // 一時ファイルを介さず、撮影データをそのまま Photos へ追加する。結果は main queue へ戻して通知される。
+        saveToPhotoLibrary(
+            createAsset = { createPhotoAsset(imageData) },
+            onComplete = onComplete,
+        )
     }
+}
+
+// 写真データから Photos のアセット作成要求を出し、作成されるアセットの識別子を返す。
+private fun createPhotoAsset(imageData: NSData): String? {
+    val creationRequest = PHAssetCreationRequest.creationRequestForAsset()
+    creationRequest.addResourceWithType(
+        type = PHAssetResourceTypePhoto,
+        data = imageData,
+        options = null,
+    )
+    return creationRequest.placeholderForCreatedAsset?.localIdentifier
 }
 
 private class AVCaptureDeviceCameraControl(
@@ -736,9 +766,22 @@ private class IOSFaceTrackingSessionManager {
         previewView.session.pause()
     }
 
+    // AVCapturePhotoOutput は ARKit セッションと併用できないため、ARSCNView の表示中フレームに
+    // avatar layer を重ねた画像を JPEG 化し、通常撮影と同じ経路で Photos へ保存する。
     fun photoCapturer(): IOSPhotoCapturer {
         return IOSPhotoCapturer { onComplete ->
-            onComplete(null, IllegalStateException("Photo capture is unavailable during face tracking"))
+            dispatch_async(dispatch_get_main_queue()) {
+                val photo = previewView.snapshot().compositedWithOverlay(IOSAvatarRenderHost.activeHostView)
+                val imageData = UIImageJPEGRepresentation(photo, 0.95)
+                if (imageData == null) {
+                    onComplete(null, IllegalStateException("Face tracking snapshot data is unavailable"))
+                } else {
+                    saveToPhotoLibrary(
+                        createAsset = { createPhotoAsset(imageData) },
+                        onComplete = onComplete,
+                    )
+                }
+            }
         }
     }
 }

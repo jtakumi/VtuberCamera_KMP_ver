@@ -6,7 +6,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 class IOSCameraRepositoryTest {
@@ -75,6 +77,143 @@ class IOSCameraRepositoryTest {
             PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed),
             repository.observePhotoCaptureState().first(),
         )
+    }
+
+    @Test
+    fun startVideoRecording_returnsVideoRecordFailedWhenRecorderIsNotReady() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+
+        val result = repository.startVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun startVideoRecording_doesNotInvokeRecorderUntilPreviewIsShowing() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+
+        val result = repository.startVideoRecording()
+
+        assertTrue(result.isFailure)
+        assertEquals(0, recorder.startCount)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun startVideoRecording_returnsVideoRecordFailedWhenRecorderThrows() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(
+            IOSVideoRecorder { throw IllegalStateException("screen recording is unavailable") },
+        )
+
+        val result = repository.startVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun startVideoRecording_publishesRecordingAndRejectsSecondStart() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(recorder)
+
+        val first = repository.startVideoRecording()
+        val second = repository.startVideoRecording()
+
+        assertTrue(first.isSuccess)
+        assertTrue(second.isFailure)
+        assertEquals(1, recorder.startCount)
+        assertEquals(VideoRecordingState.Recording, repository.observeVideoRecordingState().first())
+    }
+
+    @Test
+    fun stopVideoRecording_withoutActiveRecording_failsWithoutChangingState() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+
+        val result = repository.stopVideoRecording()
+
+        assertTrue(result.isFailure)
+        assertEquals(VideoRecordingState.Idle, repository.observeVideoRecordingState().first())
+    }
+
+    @Test
+    fun stopVideoRecording_waitsForFinalizeAndPublishesSucceededUri() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+
+        val stopResult = async { repository.stopVideoRecording() }
+        advanceUntilIdle()
+
+        assertEquals(1, recorder.stopCount)
+        assertEquals(VideoRecordingState.Finalizing, repository.observeVideoRecordingState().first())
+        assertTrue(stopResult.isActive)
+
+        recorder.finalize(uri = "file:///tmp/vtuber-camera.mov", error = null)
+        advanceUntilIdle()
+
+        assertEquals("file:///tmp/vtuber-camera.mov", stopResult.await().getOrNull())
+        assertEquals(
+            VideoRecordingState.Succeeded("file:///tmp/vtuber-camera.mov"),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun stopVideoRecording_whenSaveFails_publishesFailed() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+
+        val stopResult = async { repository.stopVideoRecording() }
+        advanceUntilIdle()
+        recorder.finalize(uri = null, error = IllegalStateException("Photo library access was not granted"))
+        advanceUntilIdle()
+
+        val exception = assertIs<CameraRepositoryException>(stopResult.await().exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
+    fun startVideoRecording_afterStartPermissionDenied_allowsNextRecording() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformPreviewStarted(CameraLensFacing.Back)
+        repository.onPlatformVideoRecorderReady(recorder)
+        repository.startVideoRecording()
+        // 停止要求なしに録画側から終了（ReplayKit の権限拒否など）しても、次の録画を始められる状態へ戻る。
+        recorder.finalize(uri = null, error = IllegalStateException("User declined screen recording"))
+
+        val result = repository.startVideoRecording()
+
+        assertTrue(result.isSuccess)
+        assertEquals(2, recorder.startCount)
     }
 
     @Test
@@ -251,6 +390,27 @@ class IOSCameraRepositoryTest {
 
     private fun createRepository(availableLens: Set<CameraLensFacing>): IOSCameraRepository {
         return IOSCameraRepository(hasLens = { lensFacing -> lensFacing in availableLens })
+    }
+
+    // AVFoundation を使わずに録画の開始 / 停止 / 書き出し完了を再現する recorder。
+    private class FakeVideoRecorder : IOSVideoRecorder {
+        var startCount = 0
+            private set
+        var stopCount = 0
+            private set
+        private var onFinalized: ((uri: String?, error: Throwable?) -> Unit)? = null
+
+        override fun startRecording(
+            onFinalized: (uri: String?, error: Throwable?) -> Unit,
+        ): IOSVideoRecording {
+            startCount += 1
+            this.onFinalized = onFinalized
+            return IOSVideoRecording { stopCount += 1 }
+        }
+
+        fun finalize(uri: String?, error: Throwable?) {
+            onFinalized?.invoke(uri, error)
+        }
     }
 
     private class FakeCameraControl(
