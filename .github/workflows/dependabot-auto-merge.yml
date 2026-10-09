@@ -124,6 +124,12 @@ jobs:
       - name: Build Android debug app
         run: ./gradlew :composeApp:assembleDebug
 
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: scripts/generate_ios_project.sh
+
       - name: Build iOS app for simulator
         run: |
           xcodebuild \
