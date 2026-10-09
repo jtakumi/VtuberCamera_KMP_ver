@@ -23,6 +23,12 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: scripts/generate_ios_project.sh
+
       - name: Build
         run: |
           xcodebuild \
