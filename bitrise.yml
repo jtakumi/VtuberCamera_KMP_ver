@@ -32,6 +32,14 @@ workflows:
                 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
                 "$GRADLEW_PATH" :composeApp:assembleDebug
       - script@1:
+          title: Generate Xcode project
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                command -v xcodegen >/dev/null || brew install xcodegen
+                scripts/generate_ios_project.sh
+      - script@1:
           title: Build iOS app for simulator
           inputs:
             - content: |-
@@ -85,6 +93,14 @@ workflows:
                 chmod +x "$GRADLEW_PATH"
                 export JAVA_HOME=$(/usr/libexec/java_home -v 17)
                 echo "Using JAVA_HOME=$JAVA_HOME"
+      - script@1:
+          title: Generate Xcode project
+          inputs:
+            - content: |-
+                #!/usr/bin/env bash
+                set -euxo pipefail
+                command -v xcodegen >/dev/null || brew install xcodegen
+                scripts/generate_ios_project.sh
       - script@1:
           title: Build iOS app for simulator
           inputs:
