@@ -1,23 +1,23 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -37,7 +38,9 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -51,6 +54,9 @@ import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
 import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassCornerStyle
+import com.example.vtubercamera_kmp_ver.theme.LiquidGlassSurface
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.StringResource
@@ -173,6 +179,7 @@ fun CameraScreen(
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
+    val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
     val previewError = session.previewState as? PreviewState.Error
     val cameraMessage = photoDeletion.toCameraMessage()
         ?: photoCapture.toCameraMessage()
@@ -193,14 +200,16 @@ fun CameraScreen(
             .background(MaterialTheme.colorScheme.scrim),
     ) {
         when {
-            permission.permissionState == PermissionState.Unknown -> LoadingState()
+            permission.permissionState == PermissionState.Unknown -> LoadingState(glass)
             permission.permissionState == PermissionState.Denied -> PermissionDeniedState(
                 onRequestPermission = onRequestPermission,
+                glass = glass,
             )
 
             previewError != null -> CameraErrorState(
                 error = previewError.error,
                 onRetryPreview = onRetryPreview,
+                glass = glass,
             )
 
             permission.permissionState == PermissionState.Granted -> CameraPreviewState(
@@ -212,6 +221,7 @@ fun CameraScreen(
                 avatarRenderState = avatarRender,
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
+                glass = glass,
                 photoCapture = photoCapture,
                 isUiHidden = isUiHidden,
                 rendererHost = rendererHost,
@@ -229,12 +239,13 @@ fun CameraScreen(
                 onCapturePhoto = onCapturePhoto,
             )
 
-            else -> LoadingState()
+            else -> LoadingState(glass)
         }
 
         visibleCameraMessage?.let { message ->
             CameraMessageBanner(
                 message = message,
+                glass = glass,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -248,15 +259,12 @@ fun CameraScreen(
         }
 
         filePickerErrorMessageRes?.let { messageRes ->
-            AlertDialog(
+            GlassErrorDialog(
                 onDismissRequest = onDismissFilePickerError,
-                title = { Text(stringResource(Res.string.avatar_error_dialog_title)) },
-                text = { Text(stringResource(messageRes)) },
-                confirmButton = {
-                    Button(onClick = onDismissFilePickerError) {
-                        Text(stringResource(Res.string.avatar_error_dialog_confirm))
-                    }
-                },
+                title = stringResource(Res.string.avatar_error_dialog_title),
+                message = stringResource(messageRes),
+                confirmLabel = stringResource(Res.string.avatar_error_dialog_confirm),
+                glass = glass,
             )
         }
     }
@@ -281,6 +289,7 @@ private fun CameraPreviewState(
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
+    glass: LiquidGlassAppearance,
     photoCapture: PhotoCaptureState,
     isUiHidden: Boolean,
     rendererHost: CameraRendererHost,
@@ -352,6 +361,7 @@ private fun CameraPreviewState(
                 zoomScale = zoomScale,
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
+                glass = glass,
                 canTogglePinchTarget = avatarSelection != null,
                 onTogglePinchTarget = onTogglePinchTarget,
                 backgroundMode = backgroundMode,
@@ -578,9 +588,8 @@ private fun BoxScope.CameraUiLayer(
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+    glass: LiquidGlassAppearance,
 ) {
-    val glass = rememberLiquidGlassAppearance(backgroundMode.overlayGlassTone)
-
     Column(
         modifier = Modifier
             .align(Alignment.TopStart)
@@ -631,16 +640,13 @@ private fun BoxScope.CameraUiLayer(
 @Composable
 private fun CameraMessageBanner(
     message: CameraMessage,
+    glass: LiquidGlassAppearance,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    LiquidGlassSurface(
+        appearance = glass,
+        cornerStyle = LiquidGlassCornerStyle.Rounded(MaterialTheme.spacing.md),
         modifier = modifier,
-        color = if (message.type == CameraMessageType.Error) {
-            MaterialTheme.colorScheme.errorContainer
-        } else {
-            MaterialTheme.colorScheme.secondaryContainer
-        },
-        shape = RoundedCornerShape(MaterialTheme.spacing.md),
     ) {
         Text(
             text = stringResource(
@@ -652,36 +658,42 @@ private fun CameraMessageBanner(
                 vertical = MaterialTheme.spacing.sm,
             ),
             color = if (message.type == CameraMessageType.Error) {
-                MaterialTheme.colorScheme.onErrorContainer
+                MaterialTheme.colorScheme.error
             } else {
-                MaterialTheme.colorScheme.onSecondaryContainer
+                glass.style.contentColor
             },
         )
     }
 }
 
 @Composable
-private fun LoadingState() {
+private fun LoadingState(glass: LiquidGlassAppearance) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        CircularProgressIndicator()
+        LiquidGlassSurface(
+            appearance = glass,
+            cornerStyle = LiquidGlassCornerStyle.Capsule,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                color = glass.style.contentColor,
+            )
+        }
     }
 }
 
 @Composable
-private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = MaterialTheme.spacing.lg),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+private fun PermissionDeniedState(
+    onRequestPermission: () -> Unit,
+    glass: LiquidGlassAppearance,
+) {
+    StateGlassPanel(glass = glass) {
         Text(
             text = stringResource(Res.string.camera_permission_required_message),
             style = MaterialTheme.typography.headlineSmall,
+            color = glass.style.contentColor,
             textAlign = TextAlign.Center,
         )
         Text(
@@ -691,11 +703,14 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
                 bottom = MaterialTheme.spacing.lg,
             ),
             style = MaterialTheme.typography.bodyMedium,
+            color = glass.style.contentVariantColor,
             textAlign = TextAlign.Center,
         )
-        Button(onClick = onRequestPermission) {
-            Text(stringResource(Res.string.camera_permission_request_button))
-        }
+        GlassActionButton(
+            label = stringResource(Res.string.camera_permission_request_button),
+            glass = glass,
+            onClick = onRequestPermission,
+        )
     }
 }
 
@@ -703,24 +718,112 @@ private fun PermissionDeniedState(onRequestPermission: () -> Unit) {
 private fun CameraErrorState(
     error: CameraError,
     onRetryPreview: () -> Unit,
+    glass: LiquidGlassAppearance,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = MaterialTheme.spacing.lg),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    StateGlassPanel(glass = glass) {
         Text(
             text = stringResource(error.toCameraMessage().messageRes),
             style = MaterialTheme.typography.headlineSmall,
+            color = glass.style.contentColor,
             textAlign = TextAlign.Center,
         )
-        Button(
+        GlassActionButton(
+            label = stringResource(Res.string.camera_retry_button),
+            glass = glass,
             onClick = onRetryPreview,
             modifier = Modifier.padding(top = MaterialTheme.spacing.lg),
+        )
+    }
+}
+
+@Composable
+private fun StateGlassPanel(
+    glass: LiquidGlassAppearance,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(horizontal = MaterialTheme.spacing.lg),
+        contentAlignment = Alignment.Center,
+    ) {
+        LiquidGlassSurface(
+            appearance = glass,
+            cornerStyle = LiquidGlassCornerStyle.Rounded(28.dp),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
         ) {
-            Text(stringResource(Res.string.camera_retry_button))
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = content,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassActionButton(
+    label: String,
+    glass: LiquidGlassAppearance,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier.clip(CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        LiquidGlassSurface(
+            appearance = glass,
+            cornerStyle = LiquidGlassCornerStyle.Capsule,
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(
+                    horizontal = MaterialTheme.spacing.lg,
+                    vertical = MaterialTheme.spacing.md,
+                ),
+                color = glass.style.contentColor,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlassErrorDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    message: String,
+    confirmLabel: String,
+    glass: LiquidGlassAppearance,
+) {
+    Dialog(onDismissRequest = onDismissRequest) {
+        LiquidGlassSurface(
+            appearance = glass,
+            cornerStyle = LiquidGlassCornerStyle.Rounded(28.dp),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
+        ) {
+            Column(
+                modifier = Modifier.padding(MaterialTheme.spacing.lg),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = glass.style.contentColor,
+                    textAlign = TextAlign.Center,
+                )
+                Text(
+                    text = message,
+                    modifier = Modifier.padding(vertical = MaterialTheme.spacing.lg),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = glass.style.contentVariantColor,
+                    textAlign = TextAlign.Center,
+                )
+                GlassActionButton(
+                    label = confirmLabel,
+                    glass = glass,
+                    onClick = onDismissRequest,
+                )
+            }
         }
     }
 }
