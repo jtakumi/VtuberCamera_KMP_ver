@@ -28,7 +28,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "9D7D5F02EAD009405095B4B4"
-               BuildableName = "VtuberCamera_KMP_ver.app"
+               BuildableName = "VtuberCamera.app"
                BlueprintName = "iosApp"
                ReferencedContainer = "container:iosApp.xcodeproj">
             </BuildableReference>
@@ -70,7 +70,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "9D7D5F02EAD009405095B4B4"
-            BuildableName = "VtuberCamera_KMP_ver.app"
+            BuildableName = "VtuberCamera.app"
             BlueprintName = "iosApp"
             ReferencedContainer = "container:iosApp.xcodeproj">
          </BuildableReference>
