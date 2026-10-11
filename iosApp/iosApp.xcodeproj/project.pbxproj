@@ -18,7 +18,7 @@
 
 /* Begin PBXFileReference section */
 		1A2B3C4D5E6F7890ABCDEF01 /* iosAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = iosAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		5AC11AEC8E5CA456A456FB53 /* VtuberCamera_KMP_ver.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VtuberCamera_KMP_ver.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5AC11AEC8E5CA456A456FB53 /* VtuberCamera.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VtuberCamera.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -73,7 +73,7 @@
 		BA7F9B9537C3B640DD1F7DCD /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				5AC11AEC8E5CA456A456FB53 /* VtuberCamera_KMP_ver.app */,
+				5AC11AEC8E5CA456A456FB53 /* VtuberCamera.app */,
 				1A2B3C4D5E6F7890ABCDEF01 /* iosAppTests.xctest */,
 			);
 			name = Products;
@@ -135,7 +135,7 @@
 			packageProductDependencies = (
 			);
 			productName = iosApp;
-			productReference = 5AC11AEC8E5CA456A456FB53 /* VtuberCamera_KMP_ver.app */;
+			productReference = 5AC11AEC8E5CA456A456FB53 /* VtuberCamera.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -255,14 +255,14 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vtubercamera.kmp.ver.vtubercamera.kmpverTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.jtakumi.vtubercamera.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera_KMP_ver.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera_KMP_ver";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera";
 			};
 			name = Debug;
 		};
@@ -309,12 +309,12 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vtubercamera.kmp.ver.vtubercamera.kmpverTests;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.jtakumi.vtubercamera.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera_KMP_ver.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera_KMP_ver";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/VtuberCamera.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/VtuberCamera";
 			};
 			name = Release;
 		};
@@ -464,7 +464,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.example.vtubercamera.kmp.ver.vtubercamera.kmpver;
+				PRODUCT_BUNDLE_IDENTIFIER = io.github.jtakumi.vtubercamera;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "iosApp/iosApp-Bridging-Header.h";
