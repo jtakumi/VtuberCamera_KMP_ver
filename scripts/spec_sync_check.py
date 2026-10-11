@@ -253,18 +253,21 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
         )
     )
 
+    ios_photo_library = read_text(
+        "composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSPhotoLibrary.kt"
+    )
     findings.append(
         make_finding(
-            check_id="ios_photo_permission_planned",
-            title="iOS Photos add permission remains tied to planned image save",
-            category="Spec ahead of code",
-            ok="NSPhotoLibraryAddUsageDescription" not in plist and "撮影画像の保存 / 削除" in readme,
+            check_id="ios_photo_library_permission",
+            title="iOS Photos add permission is backed by Info.plist and the save code",
+            category="Code ahead of spec",
+            ok="NSPhotoLibraryAddUsageDescription" in plist and "PHAccessLevelAddOnly" in ios_photo_library,
             ok_evidence=(
-                "Info.plist does not include NSPhotoLibraryAddUsageDescription.",
-                "README marks image save/delete as not implemented.",
+                "Info.plist includes NSPhotoLibraryAddUsageDescription.",
+                "IOSPhotoLibrary.kt requests add-only Photos access before saving photos and videos.",
             ),
-            problem_evidence=("Photos add-library permission or image save wording may be out of sync.",),
-            recommendation="Only add or require Photos permission when iOS image save is implemented.",
+            problem_evidence=("Photos add-library permission and the iOS save code are out of sync.",),
+            recommendation="Keep NSPhotoLibraryAddUsageDescription and the add-only authorization request together.",
             exception_id="IOS_PHOTO_LIBRARY_PERMISSION_PLANNED",
             active_exceptions=active_exceptions,
         )
@@ -426,21 +429,23 @@ def run_checks(active_exceptions: set[str]) -> list[Finding]:
             "composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSCameraPreview.kt",
         )
     )
-    capture_tokens = ("ImageCapture", "takePicture", "AVCapturePhotoOutput", "MediaStore", "PHPhotoLibrary")
+    capture_tokens = ("ImageCapture", "AVCapturePhotoOutput", "saveToPhotoLibrary", "AndroidScreenVideoRecorder", "IOSScreenVideoRecorder")
     flash_tokens = ("FLASH_MODE", "enableTorch", "torchMode")
     zoom_tokens = ("zoomRatio", "linearZoom", "videoZoomFactor", "setZoomRatio")
     findings.append(
         make_finding(
-            check_id="capture_save_planned",
-            title="Photo capture and image save are still planned, not shipped",
-            category="Spec ahead of code",
-            ok=not any(token in camera_sources for token in capture_tokens) and all_in(readme, ("写真撮影", "撮影画像の保存 / 削除")),
+            check_id="capture_save_shipped",
+            title="Photo and video capture with gallery save are shipped, deletion is still planned",
+            category="Code ahead of spec",
+            ok=all(token in camera_sources for token in capture_tokens)
+            and "撮影した写真 / 動画の削除" in readme
+            and "撮影画像の保存 / 削除" not in readme,
             ok_evidence=(
-                "No capture/save implementation tokens were found in camera sources.",
-                "README marks photo capture and image save/delete as not implemented.",
+                "Capture and gallery save tokens were found in camera sources.",
+                "README lists only deletion of captured photos / videos as not implemented.",
             ),
-            problem_evidence=("Capture/save implementation tokens or docs changed; update README/spec or exception ledger.",),
-            recommendation="When capture/save code lands, remove the not-implemented wording and expire PHOTO_CAPTURE_AND_SAVE_PLANNED.",
+            problem_evidence=("Capture/save implementation tokens or README wording changed; update README/spec.",),
+            recommendation="Keep README's not-implemented list limited to features that are still missing (deletion, gallery browsing).",
             exception_id="PHOTO_CAPTURE_AND_SAVE_PLANNED",
             active_exceptions=active_exceptions,
         )

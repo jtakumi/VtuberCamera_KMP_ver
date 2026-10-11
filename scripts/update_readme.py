@@ -106,6 +106,10 @@ def render_generated_block() -> str:
         android_items.append("Filament / gltfio による VRM avatar 表示基盤")
     if all_in(android_avatar_runtime_controller, ("VrmMorphBindingResolver", "setMorphWeights")):
         android_items.append("VRM morph target への表情 weight 反映")
+    if all_in(read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidPhotoOutput.kt"), ("MediaStore.Images.Media", "ImageCapture.OutputFileOptions")):
+        android_items.append("CameraX `ImageCapture` による写真撮影と MediaStore（ギャラリー）への保存")
+    if all_in(read_text("composeApp/src/androidMain/kotlin/com/example/vtubercamera_kmp_ver/camera/AndroidScreenVideoRecorder.kt"), ("PixelCopy", "MediaRecorder", "MediaStore.Video.Media")):
+        android_items.append("画面（カメラ映像とアバターの合成）の音声つき録画と MediaStore（ギャラリー）への保存")
     if "fun CameraScreen(" in camera_screen:
         android_items.append("Compose Multiplatform ベースのカメラ画面")
     if "onThemeModeToggle" in camera_screen:
@@ -137,6 +141,10 @@ def render_generated_block() -> str:
         ios_items.append("avatar render state を Filament ブリッジへ伝達")
     if "avatarScaleKey" in ios_avatar_interop:
         ios_items.append("ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達")
+    if all_in(ios_preview, ("AVCapturePhotoOutput", "saveToPhotoLibrary")):
+        ios_items.append("`AVCapturePhotoOutput` による写真撮影と Photos（ギャラリー）への保存")
+    if all_in(read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSScreenVideoRecorder.kt"), ("RPScreenRecorder", "saveToPhotoLibrary")):
+        ios_items.append("ReplayKit による画面（カメラ映像とアバターの合成）の音声つき録画と Photos（ギャラリー）への保存")
     if "onThemeModeToggle" in camera_screen:
         ios_items.append("ライト / ダーク / システムテーマ切り替え")
 
@@ -171,17 +179,18 @@ def render_generated_block() -> str:
         shared_items.append("Android で face tracking 結果を avatar renderer の head pose / expression morph に反映する end-to-end 統合")
     if has_shared_avatar_mapping and "IOSAvatarRenderInterop" in ios_avatar_interop:
         shared_items.append("iOS で ARKit face tracking 結果を共有 render state と native bridge へ伝達する統合")
+    if "onToggleCaptureMode" in camera_view_model and "onToggleVideoRecording" in camera_view_model:
+        shared_items.append("写真 / 動画の撮影モード切り替え (`CameraCaptureMode`) と録画状態 (`VideoRecordingState`) の管理")
     if "ThemeModeStore" in theme_mode_store:
         shared_items.append("ライト / ダーク / システムテーマ設定の永続化")
     if "camera_error_permission_denied" in camera_module:
         shared_items.append("権限文言のリソース管理")
 
     not_implemented_items = [
-        "写真撮影",
-        "撮影画像の保存 / 削除",
+        "撮影した写真 / 動画の削除",
         "フラッシュ制御",
-        "ギャラリー関連機能",
-        "録画 / 配信向けの出力機能",
+        "ギャラリー閲覧機能",
+        "配信向けの出力機能",
         "iOS native Filament renderer で選択済み avatar mesh へ head pose / expression morph を適用する実装",
     ]
 

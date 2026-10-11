@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
@@ -69,6 +70,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_req
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_required_message
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_ui_show_action
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_stop_action
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -111,6 +113,8 @@ fun CameraRoute(
         zoom = uiState.zoom,
         photoCapture = uiState.photoCapture,
         photoDeletion = uiState.photoDeletion,
+        captureMode = uiState.captureMode.mode,
+        videoRecording = uiState.videoRecording,
         avatarRender = uiState.avatarRender,
         avatarSelection = uiState.avatarSelection.avatarSelection,
         filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
@@ -134,6 +138,8 @@ fun CameraRoute(
         onHideUi = cameraViewModel::onHideUi,
         onShowUi = cameraViewModel::onShowUi,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
+        onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
+        onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
     )
 }
 
@@ -142,6 +148,9 @@ fun CameraRoute(
  *
  * [isUiHidden] が true のあいだは UI 非表示モードとして操作 UI を描かない。このとき画面のどこを
  * タップしても [onShowUi] が呼ばれて操作 UI へ戻れる。[onHideUi] は操作 UI 上の非表示ボタンから呼ばれる。
+ *
+ * 動画の録画は画面そのものを撮るため、[videoRecording] が進行中のあいだは [isUiHidden] によらず操作 UI を
+ * 描かず、映像へ映り込まないようにする。このとき画面タップは録画の停止（[onToggleVideoRecording]）になる。
  *
  * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
  * 現在の overlay ベースの avatar body 表示を維持する。
@@ -154,6 +163,8 @@ fun CameraScreen(
     zoom: CameraZoomUiState,
     photoCapture: PhotoCaptureState,
     photoDeletion: PhotoDeletionState,
+    captureMode: CameraCaptureMode,
+    videoRecording: VideoRecordingState,
     avatarRender: AvatarRenderState,
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
@@ -176,6 +187,8 @@ fun CameraScreen(
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -183,6 +196,7 @@ fun CameraScreen(
     val previewError = session.previewState as? PreviewState.Error
     val cameraMessage = photoDeletion.toCameraMessage()
         ?: photoCapture.toCameraMessage()
+        ?: videoRecording.toCameraMessage()
         ?: session.message
     var visibleCameraMessage by remember { mutableStateOf<CameraMessage?>(null) }
 
@@ -223,6 +237,8 @@ fun CameraScreen(
                 pinchTarget = pinchTarget,
                 glass = glass,
                 photoCapture = photoCapture,
+                captureMode = captureMode,
+                videoRecording = videoRecording,
                 isUiHidden = isUiHidden,
                 rendererHost = rendererHost,
                 onOpenFilePicker = onOpenFilePicker,
@@ -237,6 +253,8 @@ fun CameraScreen(
                 onHideUi = onHideUi,
                 onShowUi = onShowUi,
                 onCapturePhoto = onCapturePhoto,
+                onToggleCaptureMode = onToggleCaptureMode,
+                onToggleVideoRecording = onToggleVideoRecording,
             )
 
             else -> LoadingState(glass)
@@ -291,6 +309,8 @@ private fun CameraPreviewState(
     pinchTarget: PinchGestureTarget,
     glass: LiquidGlassAppearance,
     photoCapture: PhotoCaptureState,
+    captureMode: CameraCaptureMode,
+    videoRecording: VideoRecordingState,
     isUiHidden: Boolean,
     rendererHost: CameraRendererHost,
     onOpenFilePicker: () -> Unit,
@@ -305,9 +325,13 @@ private fun CameraPreviewState(
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
     onCapturePhoto: () -> Unit,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
     val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
+    val stopRecordingActionLabel = stringResource(Res.string.camera_video_stop_action)
+    val isRecordingInProgress = videoRecording.isInProgress
 
     // レイヤーは背景 → アバター → ジェスチャー → 操作 UI の順で重ねる。アバターを拡大しても
     // ボタン類が隠れないよう、z 順を zIndex で明示して操作 UI を常に最前面に置く。
@@ -317,6 +341,7 @@ private fun CameraPreviewState(
             lensFacing = lensFacing,
             zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
             backgroundMode = backgroundMode,
+            captureMode = captureMode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
             modifier = Modifier.zIndex(CAMERA_BACKGROUND_LAYER_Z_INDEX),
@@ -339,10 +364,17 @@ private fun CameraPreviewState(
                 .matchParentSize()
                 .zIndex(PINCH_GESTURE_LAYER_Z_INDEX)
                 .then(
-                    if (isUiHidden) {
-                        Modifier.revealUiOnTap(label = showUiActionLabel, onShowUi = onShowUi)
-                    } else {
-                        Modifier
+                    when {
+                        // 録画中は画面タップが停止操作になる。UI の再表示は録画の終了後に任せる。
+                        isRecordingInProgress -> Modifier.stopRecordingOnTap(
+                            label = stopRecordingActionLabel,
+                            onStopRecording = onToggleVideoRecording,
+                        )
+                        isUiHidden -> Modifier.revealUiOnTap(
+                            label = showUiActionLabel,
+                            onShowUi = onShowUi,
+                        )
+                        else -> Modifier
                     },
                 )
                 .pointerInput(pinchTarget) {
@@ -356,7 +388,7 @@ private fun CameraPreviewState(
         )
         // UI 非表示モード中は操作 UI を composition から外す。透明にするだけだと、見えないボタンが
         // 押せてしまううえ、iOS では OS 製ガラスの interop view が画面に残るおそれがある。
-        if (!isUiHidden) {
+        if (!isUiHidden && !isRecordingInProgress) {
             CameraUiLayer(
                 zoomScale = zoomScale,
                 avatarScale = avatarScale,
@@ -371,6 +403,9 @@ private fun CameraPreviewState(
                 onLensFacingToggle = onLensFacingToggle,
                 onCapturePhoto = onCapturePhoto,
                 isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
+                captureMode = captureMode,
+                onToggleCaptureMode = onToggleCaptureMode,
+                onToggleVideoRecording = onToggleVideoRecording,
             )
         }
     }
@@ -401,6 +436,29 @@ private fun Modifier.revealUiOnTap(
     }
 
 /**
+ * 録画中に、画面のどこをタップしても [onStopRecording] を呼べるようにする。
+ *
+ * 録画中は操作 UI を隠しているため、停止の入口はこのタップだけになる。[revealUiOnTap] と同じく、
+ * ピンチ検出より外側へ置いてピンチ操作がタップとして扱われないようにし、画面全体を 1 つのボタンとして
+ * [label] で読み上げる。開始準備中や保存中のタップは、受け取った側（録画 controller）が無視する。
+ */
+private fun Modifier.stopRecordingOnTap(
+    label: String,
+    onStopRecording: () -> Unit,
+): Modifier = this
+    .pointerInput(onStopRecording) {
+        detectTapGestures(onTap = { onStopRecording() })
+    }
+    .semantics {
+        role = Role.Button
+        contentDescription = label
+        onClick(label = label) {
+            onStopRecording()
+            true
+        }
+    }
+
+/**
  * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
  *
  * [backgroundMode] が単色プリセットのときは、preview host の上へ不透明な単色を重ねて
@@ -413,6 +471,7 @@ private fun CameraBackgroundLayer(
     lensFacing: CameraLensFacing,
     zoomScale: Float,
     backgroundMode: CameraBackgroundMode,
+    captureMode: CameraCaptureMode,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     modifier: Modifier = Modifier,
@@ -432,6 +491,7 @@ private fun CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = lensFacing,
             backgroundMode = backgroundMode,
+            captureMode = captureMode,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
@@ -588,7 +648,13 @@ private fun BoxScope.CameraUiLayer(
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
+<<<<<<< HEAD
     glass: LiquidGlassAppearance,
+=======
+    captureMode: CameraCaptureMode,
+    onToggleCaptureMode: () -> Unit,
+    onToggleVideoRecording: () -> Unit,
+>>>>>>> origin/main
 ) {
     Column(
         modifier = Modifier
@@ -622,6 +688,9 @@ private fun BoxScope.CameraUiLayer(
         onLensFacingToggle = onLensFacingToggle,
         onCapturePhoto = onCapturePhoto,
         isCapturingPhoto = isCapturingPhoto,
+        captureMode = captureMode,
+        onToggleCaptureMode = onToggleCaptureMode,
+        onToggleVideoRecording = onToggleVideoRecording,
         glass = glass,
         modifier = Modifier
             .align(Alignment.BottomCenter)

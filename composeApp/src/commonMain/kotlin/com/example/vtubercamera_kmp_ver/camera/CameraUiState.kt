@@ -4,6 +4,7 @@ import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleUiState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionUiState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundUiState
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureModeUiState
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
@@ -16,6 +17,8 @@ data class CameraUiState(
     val zoom: CameraZoomUiState = CameraZoomUiState(),
     val photoCapture: PhotoCaptureState = PhotoCaptureState.Idle,
     val photoDeletion: PhotoDeletionState = PhotoDeletionState.Idle,
+    val captureMode: CameraCaptureModeUiState = CameraCaptureModeUiState(),
+    val videoRecording: VideoRecordingState = VideoRecordingState.Idle,
     val capturedPhotoUri: String? = null,
     val faceTracking: FaceTrackingUiState = FaceTrackingUiState(),
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
@@ -44,6 +47,10 @@ data class CameraUiState(
         } else {
             pinchTarget
         }
+
+    // 録画の開始から保存完了まで。この間は操作 UI を隠し、撮影モードやレンズの切り替えを受け付けない。
+    val isVideoRecordingActive: Boolean
+        get() = videoRecording.isInProgress
 
     val isDeletingPhoto: Boolean
         get() = photoDeletion == PhotoDeletionState.Deleting

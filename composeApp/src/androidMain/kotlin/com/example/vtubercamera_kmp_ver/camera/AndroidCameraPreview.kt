@@ -2,6 +2,8 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import android.Manifest
 import android.content.Context
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.hardware.camera2.CaptureRequest
@@ -50,6 +52,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -61,6 +64,7 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.Flow
@@ -160,6 +164,7 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
 ) {
@@ -297,6 +302,33 @@ actual fun CameraPreviewHost(
         }
     }
 
+    // 画面録画はカメラのバインドとは独立しているため、画面（ウィンドウ）が存在する間だけ登録する。
+    val screenRecorderView = LocalView.current
+    DisposableEffect(cameraRepository, context, screenRecorderView) {
+        val screenRecorder = AndroidScreenVideoRecorder(
+            context = context,
+            windowProvider = { screenRecorderView.context.findActivity()?.window },
+            // 録画開始のたびに権限を確かめ、許可されていれば音声も録る。
+            isMicrophonePermitted = { context.hasMicrophonePermission() },
+        )
+        (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(screenRecorder)
+        onDispose {
+            (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(null)
+        }
+    }
+
+    // 動画モードへ切り替えた時点でマイク権限を要求し、録画の開始時に権限ダイアログで中断されないようにする。
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) {
+        // 拒否されても録画は止めない。結果は保持せず、録画開始時に権限を確かめ直して映像のみで録画する。
+    }
+    LaunchedEffect(captureMode) {
+        if (captureMode == CameraCaptureMode.Video && !context.hasMicrophonePermission()) {
+            microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     DisposableEffect(analysisExecutor) {
         onDispose {
             analysisExecutor.shutdown()
@@ -422,6 +454,20 @@ private fun AvatarRendererHostView(
     )
 }
 
+private fun Context.hasMicrophonePermission(): Boolean {
+    return ContextCompat.checkSelfPermission(
+        this,
+        Manifest.permission.RECORD_AUDIO,
+    ) == PackageManager.PERMISSION_GRANTED
+}
+
+// Compose の View から、ラップされた Context をたどって所属する Activity を探す。
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 private fun Context.hasCameraPermission(): Boolean {
     return ContextCompat.checkSelfPermission(
         this,
@@ -500,6 +546,9 @@ private fun createMockCameraRepositories(): CameraRepositories {
             override fun observePreviewState(): Flow<PreviewState> = emptyFlow()
             override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = emptyFlow()
             override suspend fun capturePhoto(): Result<String?> = Result.success(null)
+            override fun observeVideoRecordingState(): Flow<VideoRecordingState> = emptyFlow()
+            override suspend fun startVideoRecording(): Result<Unit> = Result.success(Unit)
+            override suspend fun stopVideoRecording(): Result<String?> = Result.success(null)
             override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = emptyFlow()
             override suspend fun deletePhoto(uri: String): Result<Unit> = Result.success(Unit)
             override fun onPlatformPreviewStarted(lensFacing: CameraLensFacing) {}
@@ -535,6 +584,7 @@ private fun createCameraRepositories(
                 ProcessCameraProviderLensAvailability(cameraProviderFuture.await())
             },
             previewState = previewState,
+            photoOutputFactory = { createGalleryPhotoOutput(context.contentResolver) },
         ),
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState {

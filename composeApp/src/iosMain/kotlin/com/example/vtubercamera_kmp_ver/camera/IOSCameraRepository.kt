@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import platform.Foundation.NSFileManager
@@ -18,11 +19,25 @@ internal fun interface IOSPhotoCapturer {
     fun capturePhoto(onComplete: (uri: String?, error: Throwable?) -> Unit)
 }
 
+// アプリ画面の録画を repository から切り離すための録画開始口。repository のテストでは fake へ差し替える。
+internal fun interface IOSVideoRecorder {
+    // 録画を開始する。[onFinalized] は録画の終了と Photos への保存が済んだ時点で main thread から
+    // 1 度だけ呼ばれ、成功なら保存先の識別子、失敗なら原因を受け取る。失敗した録画の一時ファイルは、
+    // 実装側が片付けてから通知する。開始できないときは例外を投げる。
+    fun startRecording(onFinalized: (uri: String?, error: Throwable?) -> Unit): IOSVideoRecording
+}
+
+// 開始済みの録画への停止要求。停止後の保存完了は [IOSVideoRecorder.startRecording] の callback で届く。
+internal fun interface IOSVideoRecording {
+    fun stop()
+}
+
 internal class IOSCameraRepository(
     private val hasLens: IOSCameraLensAvailability,
     private val previewState: MutableStateFlow<PreviewState> = MutableStateFlow(PreviewState.Preparing),
     private val photoCaptureState: MutableStateFlow<PhotoCaptureState> = MutableStateFlow(PhotoCaptureState.Idle),
     private val photoDeletionState: MutableStateFlow<PhotoDeletionState> = MutableStateFlow(PhotoDeletionState.Idle),
+    private val videoRecordingState: MutableStateFlow<VideoRecordingState> = MutableStateFlow(VideoRecordingState.Idle),
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(
         CameraZoomUiState()
     ),
@@ -33,6 +48,11 @@ internal class IOSCameraRepository(
 
     private var cameraControl: CameraControl? = null
     private var photoCapturer: IOSPhotoCapturer? = null
+    private var videoRecorder: IOSVideoRecorder? = null
+
+    // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と recorder の完了通知が main）。
+    private var activeRecording: IOSVideoRecording? = null
+    private var pendingStopResult: CompletableDeferred<Result<String?>>? = null
 
     // プレビュー開始前の状態を整え、利用可能なレンズを解決する。
     override suspend fun startPreview(lensFacing: CameraLensFacing): Result<CameraLensFacing> {
@@ -103,6 +123,61 @@ internal class IOSCameraRepository(
         }
     }
 
+    override fun observeVideoRecordingState(): Flow<VideoRecordingState> = videoRecordingState
+
+    // アプリ画面の録画を開始する。録画中、プレビュー未表示、recorder が未準備、開始に失敗したときは
+    // [CameraError.VideoRecordFailed] で失敗する。すでに録画中の呼び出しは状態を変えずに失敗だけ返す。
+    override suspend fun startVideoRecording(): Result<Unit> {
+        if (activeRecording != null) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        val recorder = videoRecorder
+        if (previewState.value !is PreviewState.Showing || recorder == null) {
+            return failVideoRecordingStart()
+        }
+        val recording = runCatching { recorder.startRecording(::onVideoRecordingFinalized) }
+            .getOrElse { return failVideoRecordingStart() }
+        activeRecording = recording
+        videoRecordingState.value = VideoRecordingState.Recording
+        return Result.success(Unit)
+    }
+
+    // 録画の停止を要求し、Photos への保存が完了するまで待つ。録画中でなければ状態を変えずに失敗だけ返す。
+    // 保存に失敗したときは [VideoRecordingState.Failed] へ遷移する（一時ファイルの片付けは recorder が行う）。
+    override suspend fun stopVideoRecording(): Result<String?> {
+        val recording = activeRecording
+        if (recording == null || pendingStopResult != null) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        val stopResult = CompletableDeferred<Result<String?>>()
+        pendingStopResult = stopResult
+        videoRecordingState.value = VideoRecordingState.Finalizing
+        runCatching { recording.stop() }
+            .onFailure { onVideoRecordingFinalized(uri = null, error = it) }
+        return stopResult.await()
+    }
+
+    // 録画の開始前に失敗したことを状態へ反映し、失敗結果を返す。
+    private fun failVideoRecordingStart(): Result<Unit> {
+        videoRecordingState.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
+        return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+    }
+
+    // 録画の終了を受けて状態を確定する。停止要求への応答だけでなく、開始時の権限拒否など
+    // 録画側から終了した場合も同じ経路で失敗として扱う。
+    private fun onVideoRecordingFinalized(uri: String?, error: Throwable?) {
+        activeRecording = null
+        val result: Result<String?> = if (error == null && uri != null) {
+            videoRecordingState.value = VideoRecordingState.Succeeded(uri)
+            Result.success(uri)
+        } else {
+            videoRecordingState.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
+            Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        pendingStopResult?.complete(result)
+        pendingStopResult = null
+    }
+
     override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = photoDeletionState
 
     override suspend fun deletePhoto(uri: String): Result<Unit> {
@@ -151,6 +226,10 @@ internal class IOSCameraRepository(
 
     fun onPlatformPhotoCapturerReady(photoCapturer: IOSPhotoCapturer?) {
         this.photoCapturer = photoCapturer
+    }
+
+    fun onPlatformVideoRecorderReady(videoRecorder: IOSVideoRecorder?) {
+        this.videoRecorder = videoRecorder
     }
 }
 

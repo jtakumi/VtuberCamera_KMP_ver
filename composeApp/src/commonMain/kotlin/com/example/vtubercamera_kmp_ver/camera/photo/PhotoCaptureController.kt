@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class PhotoCaptureController(
@@ -29,6 +30,22 @@ class PhotoCaptureController(
         }
         scope.launch {
             cameraRepository.capturePhoto()
+        }
+    }
+
+    // 完了 / 失敗の結果を通知済みとして [PhotoCaptureState.Idle] へ戻す。
+    // 結果が残ったままだと、動画録画など別の操作の通知を古い写真の結果が隠してしまう。
+    // 撮影中の状態は守るため何もしない。
+    fun onOutcomeAcknowledged() {
+        _state.update { captureState ->
+            when (captureState) {
+                is PhotoCaptureState.Succeeded,
+                is PhotoCaptureState.Failed,
+                -> PhotoCaptureState.Idle
+                PhotoCaptureState.Idle,
+                PhotoCaptureState.Capturing,
+                -> captureState
+            }
         }
     }
 }
