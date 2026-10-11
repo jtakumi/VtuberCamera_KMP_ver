@@ -193,6 +193,8 @@ actual fun CameraPreviewHost(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
+            // カメラ映像だけを表示し、Compose の操作とジェスチャーへタッチを渡す。
+            previewView.userInteractionEnabled = false
             // UIKitView is composited above sibling Compose content on iOS. Hide just the native
             // camera image with transparency when a solid background is selected. Keeping the
             // ARSCNView unhidden lets its renderer continue delivering face-anchor updates.
@@ -206,6 +208,7 @@ actual fun CameraPreviewHost(
             previewView
         },
         update = {
+            it.userInteractionEnabled = false
             it.hidden = false
             it.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
             if (usesFaceTracking) {
