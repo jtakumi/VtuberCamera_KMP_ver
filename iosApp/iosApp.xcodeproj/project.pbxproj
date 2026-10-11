@@ -212,7 +212,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nif [ -z \"${JAVA_HOME:-}\" ] && command -v brew >/dev/null 2>&1; then\n  jdk_home=\"$(brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home\"\n  if [ -x \"$jdk_home/bin/java\" ]; then\n    export JAVA_HOME=\"$jdk_home\"\n    export PATH=\"$JAVA_HOME/bin:$PATH\"\n  fi\nfi\ncd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nif [ -z \"${JAVA_HOME:-}\" ] && command -v brew >/dev/null 2>&1; then\n  jdk_home=\"$(brew --prefix openjdk@21 2>/dev/null)/libexec/openjdk.jdk/Contents/Home\"\n  if [ -x \"$jdk_home/bin/java\" ]; then\n    export JAVA_HOME=\"$jdk_home\"\n    export PATH=\"$JAVA_HOME/bin:$PATH\"\n  fi\nfi\ncd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
