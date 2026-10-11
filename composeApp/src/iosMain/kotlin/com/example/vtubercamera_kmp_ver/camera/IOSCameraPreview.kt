@@ -196,11 +196,7 @@ actual fun CameraPreviewHost(
         modifier = modifier.fillMaxSize(),
         factory = {
             previewView.backgroundColor = UIColor.blackColor
-<<<<<<< HEAD
             // カメラ映像だけを表示し、Compose の操作とジェスチャーへタッチを渡す。
-=======
-            // The camera is visual-only; let Compose's controls and gesture layer receive touches.
->>>>>>> origin/main
             previewView.userInteractionEnabled = false
             // UIKitView is composited above sibling Compose content on iOS. Hide just the native
             // camera image with transparency when a solid background is selected. Keeping the

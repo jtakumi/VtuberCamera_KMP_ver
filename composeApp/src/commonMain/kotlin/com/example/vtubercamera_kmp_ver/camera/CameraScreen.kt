@@ -648,13 +648,10 @@ private fun BoxScope.CameraUiLayer(
     onLensFacingToggle: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
-<<<<<<< HEAD
-    glass: LiquidGlassAppearance,
-=======
     captureMode: CameraCaptureMode,
     onToggleCaptureMode: () -> Unit,
     onToggleVideoRecording: () -> Unit,
->>>>>>> origin/main
+    glass: LiquidGlassAppearance,
 ) {
     Column(
         modifier = Modifier
