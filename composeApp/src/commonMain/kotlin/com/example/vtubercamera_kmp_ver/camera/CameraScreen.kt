@@ -776,10 +776,7 @@ private fun PermissionDeniedState(
             label = stringResource(Res.string.camera_permission_request_button),
             glass = glass,
             allowPlatformGlass = false,
-            onClick = {
-                println("[CameraPermission] Compose permission button onClick")
-                onRequestPermission()
-            },
+            onClick = onRequestPermission,
         )
     }
 }
