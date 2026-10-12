@@ -225,12 +225,14 @@ fun LiquidGlassSurface(
     modifier: Modifier = Modifier,
     elevation: Dp = LIQUID_GLASS_ELEVATION,
     rimWidth: Dp = LIQUID_GLASS_RIM_WIDTH,
+    allowPlatformGlass: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val shape = remember(cornerStyle) { cornerStyle.toShape() }
     // OS 製のガラスを使えるかは実行中の端末で決まり、画面の途中で変わらない。composition ごとに
     // 問い合わせず 1 度だけ解決する。
-    val usesPlatformGlass = remember { isPlatformLiquidGlassAvailable() }
+    val platformGlassAvailable = remember { isPlatformLiquidGlassAvailable() }
+    val usesPlatformGlass = allowPlatformGlass && platformGlassAvailable
     val style = appearance.style
 
     Box(
