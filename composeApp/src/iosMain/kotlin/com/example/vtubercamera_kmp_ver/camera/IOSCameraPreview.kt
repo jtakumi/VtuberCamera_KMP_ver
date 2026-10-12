@@ -109,7 +109,6 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 
     LaunchedEffect(Unit) {
         val status = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
-        println("[CameraPermission] initial status=$status")
         controller.update(
             isGranted = status == AVAuthorizationStatusAuthorized,
             isChecking = false,
@@ -118,15 +117,12 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
 
     controller.updateRequestPermissionAction {
         val current = AVCaptureDevice.authorizationStatusForMediaType(AVMediaTypeVideo)
-        println("[CameraPermission] request button tapped, status=$current")
         if (current == AVAuthorizationStatusAuthorized) {
-            println("[CameraPermission] already authorized")
             controller.update(
                 isGranted = true,
                 isChecking = false,
             )
         } else if (current != AVAuthorizationStatusNotDetermined) {
-            println("[CameraPermission] permission denied or restricted; opening app settings")
             // iOS は一度拒否された権限のダイアログを再表示しないため、
             // アプリ設定を開いてユーザーが手動で変更できるようにする。
             NSURL(string = UIApplicationOpenSettingsURLString).let { settingsUrl ->
@@ -141,10 +137,8 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
                 isChecking = false,
             )
         } else {
-            println("[CameraPermission] requesting system permission dialog")
             controller.update(isChecking = true)
             AVCaptureDevice.requestAccessForMediaType(AVMediaTypeVideo) { granted ->
-                println("[CameraPermission] system permission result granted=$granted")
                 dispatch_async(dispatch_get_main_queue()) {
                     controller.update(
                         isGranted = granted,
