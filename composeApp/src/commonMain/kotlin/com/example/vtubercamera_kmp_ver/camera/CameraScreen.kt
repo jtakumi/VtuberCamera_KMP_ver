@@ -755,7 +755,7 @@ private fun PermissionDeniedState(
     onRequestPermission: () -> Unit,
     glass: LiquidGlassAppearance,
 ) {
-    StateGlassPanel(glass = glass) {
+    StateGlassPanel(glass = glass, allowPlatformGlass = false) {
         Text(
             text = stringResource(Res.string.camera_permission_required_message),
             style = MaterialTheme.typography.headlineSmall,
@@ -775,6 +775,7 @@ private fun PermissionDeniedState(
         GlassActionButton(
             label = stringResource(Res.string.camera_permission_request_button),
             glass = glass,
+            allowPlatformGlass = false,
             onClick = onRequestPermission,
         )
     }
@@ -805,6 +806,7 @@ private fun CameraErrorState(
 @Composable
 private fun StateGlassPanel(
     glass: LiquidGlassAppearance,
+    allowPlatformGlass: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Box(
@@ -815,6 +817,7 @@ private fun StateGlassPanel(
             appearance = glass,
             cornerStyle = LiquidGlassCornerStyle.Rounded(28.dp),
             modifier = Modifier.fillMaxWidth().widthIn(max = 480.dp),
+            allowPlatformGlass = allowPlatformGlass,
         ) {
             Column(
                 modifier = Modifier.padding(MaterialTheme.spacing.lg),
@@ -831,6 +834,7 @@ private fun GlassActionButton(
     glass: LiquidGlassAppearance,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    allowPlatformGlass: Boolean = true,
 ) {
     Box(
         modifier = modifier.clip(CircleShape).clickable(onClick = onClick),
@@ -839,6 +843,7 @@ private fun GlassActionButton(
         LiquidGlassSurface(
             appearance = glass,
             cornerStyle = LiquidGlassCornerStyle.Capsule,
+            allowPlatformGlass = allowPlatformGlass,
         ) {
             Text(
                 text = label,

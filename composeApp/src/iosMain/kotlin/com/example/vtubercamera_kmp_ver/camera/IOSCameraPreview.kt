@@ -78,6 +78,7 @@ import platform.SceneKit.SCNScene
 import platform.SceneKit.SCNNode
 import platform.SceneKit.SCNSceneRendererProtocol
 import platform.UIKit.UIApplication
+import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
@@ -122,6 +123,15 @@ actual fun rememberCameraPermissionController(): CameraPermissionController {
                 isChecking = false,
             )
         } else if (current != AVAuthorizationStatusNotDetermined) {
+            // iOS は一度拒否された権限のダイアログを再表示しないため、
+            // アプリ設定を開いてユーザーが手動で変更できるようにする。
+            NSURL(string = UIApplicationOpenSettingsURLString).let { settingsUrl ->
+                UIApplication.sharedApplication.openURL(
+                    url = settingsUrl,
+                    options = emptyMap<Any?, Any?>(),
+                    completionHandler = null,
+                )
+            }
             controller.update(
                 isGranted = false,
                 isChecking = false,

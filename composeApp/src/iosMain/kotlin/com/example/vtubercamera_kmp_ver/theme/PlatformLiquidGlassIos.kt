@@ -38,8 +38,15 @@ actual fun PlatformLiquidGlassBackdrop(
 
     UIKitView(
         modifier = modifier,
-        factory = { backdropView },
+        factory = {
+            backdropView.apply {
+                // ガラスは見た目専用。Compose 側のボタンへタップを通す。
+                userInteractionEnabled = false
+            }
+        },
         update = { view ->
+            // UIKitView の再利用時にも、タッチを受け取らない状態を維持する。
+            view.userInteractionEnabled = false
             IOSLiquidGlassBackdropHost.updateBackdropView(
                 backdropView = view,
                 tintArgb = tintArgb,
