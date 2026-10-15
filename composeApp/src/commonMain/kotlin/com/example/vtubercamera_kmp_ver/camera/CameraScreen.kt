@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
@@ -504,25 +503,6 @@ private fun CameraBackgroundLayer(
         }
     }
 }
-
-/**
- * 背景モードに対応する不透明な単色を返す。カメラ映像をそのまま見せるモードでは null を返す。
- */
-private val CameraBackgroundMode.overlayColor: Color?
-    get() = when (this) {
-        CameraBackgroundMode.Camera -> null
-        CameraBackgroundMode.Black -> BACKGROUND_BLACK
-        CameraBackgroundMode.White -> BACKGROUND_WHITE
-        CameraBackgroundMode.Green -> BACKGROUND_CHROMA_GREEN
-        CameraBackgroundMode.Blue -> BACKGROUND_CHROMA_BLUE
-    }
-
-private val BACKGROUND_BLACK = Color(0xFF000000)
-private val BACKGROUND_WHITE = Color(0xFFFFFFFF)
-
-// 合成用途で背景を差し替えやすいよう、緑・青はクロマキー標準色に合わせる。
-private val BACKGROUND_CHROMA_GREEN = Color(0xFF00B140)
-private val BACKGROUND_CHROMA_BLUE = Color(0xFF0047BB)
 
 /**
  * platform renderer host を差し込む中間レイヤーを構成する。
