@@ -68,6 +68,9 @@ final class GlassEffectBackdropView: UIVisualEffectView {
         self.requestedCornerRadius = cornerRadius
         self.isCapsule = isCapsule
         super.init(effect: nil)
+        isOpaque = false
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
         // Compose owns every gesture on the camera screen; the glass is decoration behind it.
         isUserInteractionEnabled = false
     }
@@ -75,6 +78,12 @@ final class GlassEffectBackdropView: UIVisualEffectView {
     /// This view is only created in code; UIKit still requires the nib initializer to exist.
     required init?(coder: NSCoder) {
         fatalError("GlassEffectBackdropView is created in code, never from a nib")
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        superview?.isOpaque = false
+        superview?.backgroundColor = .clear
     }
 
     override func layoutSubviews() {
@@ -97,6 +106,7 @@ final class GlassEffectBackdropView: UIVisualEffectView {
             return
         }
         effect = makeGlassEffect(tintArgb: tintArgb)
+        applyCornerConfiguration()
     }
 
     /// Animates the glass to `tintArgb`. Apple's glass changes tint by swapping in a new effect,
@@ -108,6 +118,7 @@ final class GlassEffectBackdropView: UIVisualEffectView {
         let glassEffect = makeGlassEffect(tintArgb: tintArgb)
         UIView.animate(withDuration: duration) { [weak self] in
             self?.effect = glassEffect
+            self?.applyCornerConfiguration()
         }
     }
 
@@ -126,7 +137,8 @@ final class GlassEffectBackdropView: UIVisualEffectView {
         guard #available(iOS 26.0, *) else {
             return
         }
-        cornerConfiguration = .corners(radius: .fixed(resolvedCornerRadius(forHeight: bounds.height)))
+        cornerConfiguration = isCapsule
+            ? .capsule() : .corners(radius: .fixed(resolvedCornerRadius(forHeight: bounds.height)))
     }
 }
 
