@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
@@ -208,11 +209,13 @@ actual fun CameraPreviewHost(
             previewView.backgroundColor = UIColor.blackColor
             // カメラ映像だけを表示し、Compose の操作とジェスチャーへタッチを渡す。
             previewView.userInteractionEnabled = false
-            // UIKitView is composited above sibling Compose content on iOS. Hide just the native
-            // camera image with transparency when a solid background is selected. Keeping the
-            // ARSCNView unhidden lets its renderer continue delivering face-anchor updates.
+            // UIKitView is composited above sibling Compose content on iOS. Cover just the native
+            // camera image with a solid UIKit view when a solid background is selected. Keeping the
+            // ARSCNView unhidden lets its renderer continue delivering face-anchor updates, and
+            // painting the color here keeps it behind the glass surfaces' rounded corners.
             previewView.hidden = false
-            previewView.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
+            previewView.alpha = 1.0
+            previewView.showSolidBackground(backgroundMode.overlayColor)
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = previewView)
             } else {
@@ -223,7 +226,8 @@ actual fun CameraPreviewHost(
         update = {
             it.userInteractionEnabled = false
             it.hidden = false
-            it.alpha = if (backgroundMode.hidesCameraImage) 0.0 else 1.0
+            it.alpha = 1.0
+            it.showSolidBackground(backgroundMode.overlayColor)
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = it)
             } else {
@@ -391,6 +395,35 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
     private var hostedPreviewLayer: AVCaptureVideoPreviewLayer? = null
     private var hostedView: UIView? = null
 
+    // 単色背景を UIKit 側で塗る面。Compose が描く単色は、interop view の矩形ぶんだけ
+    // BlendMode.Clear で抜かれる。角丸のガラス面ではその矩形の四隅が背後の UIKit 層まで透けて
+    // しまうため、カメラ映像を覆う単色はこの container 自身が持つ。
+    private val solidBackgroundView = UIView(frame = CGRectZero.readValue()).apply {
+        userInteractionEnabled = false
+        hidden = true
+        // preview layer は後から sublayer として追加されるため、重ね順を zPosition で固定する。
+        layer.zPosition = SOLID_BACKGROUND_Z_POSITION
+    }
+
+    init {
+        addSubview(solidBackgroundView)
+    }
+
+    // 単色で映像を覆う。null のときは覆いを外してカメラ映像をそのまま見せる。
+    fun showSolidBackground(color: Color?) {
+        if (color == null) {
+            solidBackgroundView.hidden = true
+            return
+        }
+        solidBackgroundView.backgroundColor = UIColor.colorWithRed(
+            red = color.red.toDouble(),
+            green = color.green.toDouble(),
+            blue = color.blue.toDouble(),
+            alpha = 1.0,
+        )
+        solidBackgroundView.hidden = false
+    }
+
     // AVFoundation のプレビュー層を UIKit ビューへ紐付ける。
     fun bindPreviewLayer(previewLayer: AVCaptureVideoPreviewLayer) {
         var didChangeHostedContent = false
@@ -435,8 +468,12 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
         super.layoutSubviews()
         hostedPreviewLayer?.frame = bounds
         hostedView?.setFrame(bounds)
+        solidBackgroundView.setFrame(bounds)
     }
 }
+
+// 単色の覆いを preview layer と ARKit view より前面に置くための zPosition。
+private const val SOLID_BACKGROUND_Z_POSITION = 1.0
 
 // Adapts UIDocumentPicker callbacks into shared file-picker results.
 private class IOSDocumentPickerDelegate(
