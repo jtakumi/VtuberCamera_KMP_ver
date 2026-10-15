@@ -3,6 +3,8 @@ package com.example.vtubercamera_kmp_ver.theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
+import androidx.compose.ui.viewinterop.UIKitInteropProperties.Companion
 import androidx.compose.ui.viewinterop.UIKitView
 
 /**
@@ -53,6 +55,10 @@ actual fun PlatformLiquidGlassBackdrop(
                 durationSeconds = LIQUID_GLASS_TONE_TRANSITION_SECONDS,
             )
         },
+        properties = UIKitInteropProperties(
+            isInteractive = false,
+            isPlatformLiquidGlassAvailable()
+            ),
     )
 }
 
