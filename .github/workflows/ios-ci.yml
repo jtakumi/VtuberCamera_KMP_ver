@@ -7,6 +7,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # Xcode 26.4 に固定する。Bitrise (osx-xcode-26.4.x) と揃え、ランナーイメージの
+  # 既定 Xcode が更新されても CI の結果が変わらないようにする。
+  # Xcode 27 へ上げるときは bitrise.yml のスタックと一緒にこの値を更新する。
+  XCODE_VERSION: '26.4'
+
 jobs:
   ios-verify:
     runs-on: macos-26
@@ -19,6 +25,16 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
+
+      - name: Select Xcode
+        run: |
+          xcode_app="/Applications/Xcode_${XCODE_VERSION}.app"
+          if [ ! -d "$xcode_app" ]; then
+            echo "::error::${xcode_app} is not installed on this runner. Available:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode_app/Contents/Developer"
 
       - name: Show Xcode version
         run: xcodebuild -version
