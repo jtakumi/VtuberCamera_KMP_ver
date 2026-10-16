@@ -494,7 +494,11 @@ private fun CameraBackgroundLayer(
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
-        backgroundMode.overlayColor?.let { overlayColor ->
+        // インカメラの実映像は顔が映り込む事故を避けるため、Camera モードでも表示しない。
+        val frontCameraCoverColor = CameraBackgroundMode.Green.overlayColor
+        val coverColor = backgroundMode.overlayColor
+            ?: frontCameraCoverColor.takeIf { lensFacing == CameraLensFacing.Front }
+        coverColor?.let { overlayColor ->
             Box(
                 modifier = Modifier
                     .matchParentSize()
