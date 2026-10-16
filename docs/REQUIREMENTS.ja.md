@@ -282,7 +282,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 ### 6.1 互換性
 
 - Android: minSdk 29、targetSdk / compileSdk 36、AGP 8.11.x、Kotlin 2.3.x。
-- iOS: Xcode 26 系ツールチェーンでビルド可能であること。face tracking は TrueDepth 対応デバイスに限定される。
+- iOS: Xcode 26.4 でビルド可能であること。CI (GitHub Actions / Bitrise) は Xcode 26.4 に固定する。Xcode 27 は未検証で、Kotlin / Filament の対応確認後に CI の Xcode を更新する。face tracking は TrueDepth 対応デバイスに限定される。
 - カメラ非搭載デバイスでもインストール可能とする（`uses-feature android.hardware.camera required=false`）。その場合は `CameraUnavailable` エラーを表示する。
 
 ### 6.2 プライバシー・セキュリティ
