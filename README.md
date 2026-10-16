@@ -151,7 +151,7 @@ python3 scripts/spec_sync_check.py --format markdown
 
 ### iOS シミュレータ向けビルド
 
-Xcode 26 系のツールチェーンで Xcode で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。
+Xcode 26.4 (CI で固定しているバージョン) で [iosApp](./iosApp) を開いて実行するか、ターミナルから次を実行します。Xcode 27 は動作未検証です。
 
 ```shell
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build
