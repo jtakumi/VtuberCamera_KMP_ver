@@ -104,5 +104,7 @@ workflows:
 meta:
   bitrise.io:
     # UIGlassEffect (iOS 26 SDK) を参照するため、Xcode 26 系のスタックでビルドする。
+    # Xcode は 26.4 に固定している (GitHub Actions の XCODE_VERSION と揃える)。
+    # Xcode 27 へ上げるときは Kotlin / Filament の対応確認後に osx-xcode-27.x 系へ切り替える。
     stack: osx-xcode-26.4.x
     machine_type_id: g2-m1.4core
