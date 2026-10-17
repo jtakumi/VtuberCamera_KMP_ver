@@ -209,8 +209,8 @@ actual fun CameraPreviewHost(
             previewView.backgroundColor = UIColor.blackColor
             // カメラ映像だけを表示し、Compose の操作とジェスチャーへタッチを渡す。
             previewView.userInteractionEnabled = false
-            // UIKitView is composited above sibling Compose content on iOS. Cover just the native
-            // camera image with a solid UIKit view when a solid background is selected. Keeping the
+            // UIKitView is composited above sibling Compose content on iOS. Always cover the native
+            // camera image with a solid UIKit view. Keeping the
             // ARSCNView unhidden lets its renderer continue delivering face-anchor updates, and
             // painting the color here keeps it behind the glass surfaces' rounded corners.
             previewView.hidden = false
@@ -400,7 +400,12 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
     // しまうため、カメラ映像を覆う単色はこの container 自身が持つ。
     private val solidBackgroundView = UIView(frame = CGRectZero.readValue()).apply {
         userInteractionEnabled = false
-        hidden = true
+        backgroundColor = UIColor.colorWithRed(
+            red = CameraBackgroundMode.Green.overlayColor.red.toDouble(),
+            green = CameraBackgroundMode.Green.overlayColor.green.toDouble(),
+            blue = CameraBackgroundMode.Green.overlayColor.blue.toDouble(),
+            alpha = 1.0,
+        )
         // preview layer は後から sublayer として追加されるため、重ね順を zPosition で固定する。
         layer.zPosition = SOLID_BACKGROUND_Z_POSITION
     }
@@ -409,19 +414,14 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
         addSubview(solidBackgroundView)
     }
 
-    // 単色で映像を覆う。null のときは覆いを外してカメラ映像をそのまま見せる。
-    fun showSolidBackground(color: Color?) {
-        if (color == null) {
-            solidBackgroundView.hidden = true
-            return
-        }
+    // 単色で実映像を常に覆う。
+    fun showSolidBackground(color: Color) {
         solidBackgroundView.backgroundColor = UIColor.colorWithRed(
             red = color.red.toDouble(),
             green = color.green.toDouble(),
             blue = color.blue.toDouble(),
             alpha = 1.0,
         )
-        solidBackgroundView.hidden = false
     }
 
     // AVFoundation のプレビュー層を UIKit ビューへ紐付ける。
