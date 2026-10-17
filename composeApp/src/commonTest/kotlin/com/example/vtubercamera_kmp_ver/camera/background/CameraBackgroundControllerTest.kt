@@ -18,7 +18,6 @@ class CameraBackgroundControllerTest {
         val controller = CameraBackgroundController()
         val expectedModes = listOf(
             CameraBackgroundMode.Blue,
-            CameraBackgroundMode.Camera,
             CameraBackgroundMode.Black,
             CameraBackgroundMode.White,
             CameraBackgroundMode.Green,
@@ -33,13 +32,12 @@ class CameraBackgroundControllerTest {
     }
 
     @Test
-    fun hidesCameraImage_reflectsTheSelectedPreset() {
+    fun hidesCameraImage_isTrueForEveryPreset() {
         val controller = CameraBackgroundController()
 
-        assertTrue(controller.state.value.hidesCameraImage)
-        controller.onToggleBackgroundMode()
-        assertTrue(controller.state.value.hidesCameraImage)
-        controller.onToggleBackgroundMode()
-        kotlin.test.assertFalse(controller.state.value.hidesCameraImage)
+        repeat(CameraBackgroundMode.entries.size) {
+            assertTrue(controller.state.value.hidesCameraImage)
+            controller.onToggleBackgroundMode()
+        }
     }
 }

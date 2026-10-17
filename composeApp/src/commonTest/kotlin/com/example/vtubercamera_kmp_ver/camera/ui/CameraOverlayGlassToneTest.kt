@@ -10,7 +10,6 @@ class CameraOverlayGlassToneTest {
     @Test
     fun overlayGlassTone_usesLightGlassOnlyForTheWhitePreset() {
         val expectedTones = mapOf(
-            CameraBackgroundMode.Camera to LiquidGlassTone.Dark,
             CameraBackgroundMode.Black to LiquidGlassTone.Dark,
             CameraBackgroundMode.White to LiquidGlassTone.Light,
             CameraBackgroundMode.Green to LiquidGlassTone.Dark,
