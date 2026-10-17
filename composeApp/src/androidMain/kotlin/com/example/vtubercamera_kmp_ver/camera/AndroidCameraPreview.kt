@@ -192,6 +192,8 @@ actual fun CameraPreviewHost(
         PreviewView(context).apply {
             implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             scaleType = PreviewView.ScaleType.FILL_CENTER
+            // CameraX の surface は維持しつつ、実映像を View 自身から一切描画しない。
+            alpha = 0f
         }
     }
 
