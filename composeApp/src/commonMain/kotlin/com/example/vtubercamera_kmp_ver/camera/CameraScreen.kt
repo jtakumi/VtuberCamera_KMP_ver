@@ -460,8 +460,8 @@ private fun Modifier.stopRecordingOnTap(
 /**
  * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
  *
- * [backgroundMode] が単色プリセットのときは、preview host の上へ不透明な単色を重ねて
- * 実際の顔が映らないようにする。preview host 自体は常に構成したままにして face tracking を
+ * preview host の上へ常に不透明な単色を重ねて実際の顔が映らないようにする。
+ * preview host 自体は常に構成したままにして face tracking を
  * 止めないため、背景を隠してもアバターは顔の動きに追従し続ける。
  */
 @Composable
@@ -494,17 +494,11 @@ private fun CameraBackgroundLayer(
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
         )
-        // インカメラの実映像は顔が映り込む事故を避けるため、Camera モードでも表示しない。
-        val frontCameraCoverColor = CameraBackgroundMode.Green.overlayColor
-        val coverColor = backgroundMode.overlayColor
-            ?: frontCameraCoverColor.takeIf { lensFacing == CameraLensFacing.Front }
-        coverColor?.let { overlayColor ->
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(overlayColor),
-            )
-        }
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(backgroundMode.overlayColor),
+        )
     }
 }
 
