@@ -37,7 +37,6 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_scale_ratio_label
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_black
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_blue
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_camera
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_green
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_mode_white
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_background_toggle_content_description
@@ -297,7 +296,6 @@ private val PinchGestureTarget.segmentLabelRes: StringResource
 /** 背景モードに対応するチップ表示用のラベル。 */
 private val CameraBackgroundMode.labelRes: StringResource
     get() = when (this) {
-        CameraBackgroundMode.Camera -> Res.string.camera_background_mode_camera
         CameraBackgroundMode.Black -> Res.string.camera_background_mode_black
         CameraBackgroundMode.White -> Res.string.camera_background_mode_white
         CameraBackgroundMode.Green -> Res.string.camera_background_mode_green
