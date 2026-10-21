@@ -7,8 +7,8 @@
 
 | 項目 | 現状 |
 | --- | --- |
-| 言語モード | `SWIFT_VERSION = 5.0`（`project.pbxproj` の 4 箇所: app Debug / app Release、test Debug / test Release） |
-| strict concurrency | 未指定（= `minimal`） |
+| 言語モード | `SWIFT_VERSION = 6.0`（PR #201 で `project.pbxproj` の 4 箇所を変更） |
+| strict concurrency | Swift 6 言語モードにより完全な strict concurrency チェックが有効 |
 | ツールチェーン | CI は `macos-26`、Bitrise は `osx-xcode-26.4.x`、README も Xcode 26 系。Swift 6.2 コンパイラ相当 |
 | 配備ターゲット | iOS 18.5（`isolated deinit` の要求 iOS 18.4 を満たす） |
 | Swift ファイル | 本体 9 ファイル（約 1,500 行）+ テスト 5 ファイル（約 700 行） |
@@ -48,8 +48,8 @@
 
 ## A. 事前準備
 
-- [ ] **A-1. CI でユニットテストを実行する。**
-  `.github/workflows/ios-ci.yml` と `bitrise.yml` の `primary` は `xcodebuild ... build` のみで、`iosAppTests` を実行していません。Swift 6 で入る実行時の isolation チェック（`MainActor.assumeIsolated` の trap など）はビルドでは検出できないため、`xcodebuild test`（`-destination 'platform=iOS Simulator,name=...'`）を追加します。
+- [x] **A-1. CI でユニットテストを実行する。**
+  `.github/workflows/ios-ci.yml` に `iosAppTest` scheme の `xcodebuild test` を追加済みです。Swift 6 で入る実行時の isolation チェック（`MainActor.assumeIsolated` の trap など）はビルドでは検出できないため、CI でテストも実行します。Bitrise の `primary` では引き続きユニットテストを実行しません。
 - [ ] **A-2. Xcode のバージョンを固定する。**
   `ios-ci.yml` は `macos-26` の既定 Xcode に依存しています。Swift 6.2 の診断は Xcode のマイナー更新で変わり得るため、`xcode-select` か `maxim-lobanov/setup-xcode` で Bitrise（26.4）と揃えます。
 - [ ] **A-3. Xcode の「Update to recommended settings」を確認する。**
@@ -123,7 +123,7 @@
 
 ## C. 言語モードを Swift 6 に切り替える
 
-- [ ] **C-1.** `project.pbxproj` の `SWIFT_VERSION = 5.0` を 4 箇所とも `6.0` に変更する（app / test の Debug / Release）。
+- [x] **C-1.** `project.pbxproj` の `SWIFT_VERSION = 5.0` を 4 箇所とも `6.0` に変更する（app / test の Debug / Release）。
 - [ ] **C-2.** Debug / Release 両方で、シミュレーター向け `build` と `test` が通ることを確認する。
 - [ ] **C-3.** 実機（iOS 18.5 以降と iOS 26 以降の両方）で次を手動確認する。`assumeIsolated` の trap は実行時にしか出ないため。
   - カメラ画面の起動とアバター選択時の描画
