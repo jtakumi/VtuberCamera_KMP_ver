@@ -7,27 +7,28 @@ import ComposeApp
 /// clear of the lower controls. Handing the host view to Compose instead lets the shared layer
 /// stack decide the order, so the avatar can use the whole screen while the camera controls keep
 /// drawing above it.
-final class FilamentAvatarRenderHostProvider: NSObject, AvatarRenderHostViewProvider {
+///
+/// The Kotlin protocol carries no isolation, but the shared side only calls it from the main thread
+/// during composition, so the conformance is `@preconcurrency`: Swift checks that contract at runtime
+/// instead of the provider asserting it in every method.
+@MainActor
+final class FilamentAvatarRenderHostProvider: NSObject, @preconcurrency AvatarRenderHostViewProvider {
     private var sessionsByHostView: [ObjectIdentifier: FilamentAvatarRenderSession] = [:]
 
     /// Creates a renderer-backed host view and starts rendering into it.
     func makeHostView() -> UIView {
-        MainActor.assumeIsolated {
-            let session = FilamentAvatarRenderSession()
-            sessionsByHostView[ObjectIdentifier(session.hostView)] = session
-            return session.hostView
-        }
+        let session = FilamentAvatarRenderSession()
+        sessionsByHostView[ObjectIdentifier(session.hostView)] = session
+        return session.hostView
     }
 
     /// Stops the renderer that backs `hostView` and releases its resources. A view this provider
     /// does not know about is ignored, because its session has already been torn down.
     func releaseHostView(hostView: UIView) {
-        MainActor.assumeIsolated {
-            guard let session = sessionsByHostView.removeValue(forKey: ObjectIdentifier(hostView)) else {
-                return
-            }
-            session.teardown()
+        guard let session = sessionsByHostView.removeValue(forKey: ObjectIdentifier(hostView)) else {
+            return
         }
+        session.teardown()
     }
 }
 
@@ -80,7 +81,7 @@ private final class FilamentAvatarRenderSession {
 /// renderer on its own. Forwarding every layout pass prevents Filament from retaining its initial
 /// zero-sized viewport and silently skipping all draw calls.
 final class FilamentAvatarHostView: UIView {
-    var onLayout: ((CGRect, CGFloat) -> Void)?
+    var onLayout: (@MainActor (CGRect, CGFloat) -> Void)?
 
     override func layoutSubviews() {
         super.layoutSubviews()
