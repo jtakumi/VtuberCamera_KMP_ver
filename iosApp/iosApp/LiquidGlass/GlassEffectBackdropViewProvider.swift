@@ -8,7 +8,11 @@ import ComposeApp
 /// drawn by platform views outside Compose and a Compose fill cannot blur them. Handing a
 /// `UIVisualEffectView` back lets the system blur and refract whatever is behind the controls on
 /// iOS 26 and later, while older systems keep the shared Compose glass.
-final class GlassEffectBackdropViewProvider: NSObject, LiquidGlassBackdropViewProvider {
+///
+/// The shared side only calls this provider from the main thread during composition, so the
+/// isolation-free Kotlin protocol is adopted as `@preconcurrency` and checked at runtime.
+@MainActor
+final class GlassEffectBackdropViewProvider: NSObject, @preconcurrency LiquidGlassBackdropViewProvider {
     /// Whether the running system can draw `UIGlassEffect`. The app deploys to iOS 18.5, so this
     /// stays false on the systems that predate Liquid Glass and the shared side keeps its own glass.
     var isGlassEffectSupported: Bool {
@@ -28,14 +32,12 @@ final class GlassEffectBackdropViewProvider: NSObject, LiquidGlassBackdropViewPr
     /// - Returns: A view that renders the system glass, or a transparent view of the same shape on
     ///   systems without `UIGlassEffect`, so the shared layer stack keeps its order either way.
     func makeBackdropView(tintArgb: Int64, cornerRadiusPoints: Double, isCapsule: Bool) -> UIView {
-        MainActor.assumeIsolated {
-            let backdropView = GlassEffectBackdropView(
-                cornerRadius: CGFloat(cornerRadiusPoints),
-                isCapsule: isCapsule
-            )
-            backdropView.applyGlass(tintArgb: tintArgb)
-            return backdropView
-        }
+        let backdropView = GlassEffectBackdropView(
+            cornerRadius: CGFloat(cornerRadiusPoints),
+            isCapsule: isCapsule
+        )
+        backdropView.applyGlass(tintArgb: tintArgb)
+        return backdropView
     }
 
     /// Moves `backdropView` to the tint of the newly selected background preset over
@@ -45,13 +47,11 @@ final class GlassEffectBackdropViewProvider: NSObject, LiquidGlassBackdropViewPr
     /// A view this provider did not create cannot carry a glass effect, so it is logged instead of
     /// being updated silently.
     func updateBackdropView(backdropView: UIView, tintArgb: Int64, durationSeconds: Double) {
-        MainActor.assumeIsolated {
-            guard let glassBackdropView = backdropView as? GlassEffectBackdropView else {
-                NSLog("Liquid glass backdrop update skipped: unexpected view %@", String(describing: type(of: backdropView)))
-                return
-            }
-            glassBackdropView.animateGlass(tintArgb: tintArgb, duration: durationSeconds)
+        guard let glassBackdropView = backdropView as? GlassEffectBackdropView else {
+            NSLog("Liquid glass backdrop update skipped: unexpected view %@", String(describing: type(of: backdropView)))
+            return
         }
+        glassBackdropView.animateGlass(tintArgb: tintArgb, duration: durationSeconds)
     }
 }
 
@@ -115,10 +115,12 @@ final class GlassEffectBackdropView: UIVisualEffectView {
         guard #available(iOS 26.0, *) else {
             return
         }
-        let glassEffect = makeGlassEffect(tintArgb: tintArgb)
+        // The effect is built inside the animation block so the non-Sendable effect object is not
+        // captured across the block boundary.
         UIView.animate(withDuration: duration) { [weak self] in
-            self?.effect = glassEffect
-            self?.applyCornerConfiguration()
+            guard let self else { return }
+            effect = makeGlassEffect(tintArgb: tintArgb)
+            applyCornerConfiguration()
         }
     }
 
