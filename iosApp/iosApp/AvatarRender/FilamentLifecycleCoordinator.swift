@@ -85,8 +85,7 @@ final class FilamentLifecycleCoordinator {
         displayLink = nil
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-        displayLink?.invalidate()
-    }
+    // No deinit cleanup: the running display link retains this coordinator, so it can only be
+    // deallocated after `teardown()` or `stopDisplayLink()` has already invalidated the link, and
+    // selector-based notification observers are removed automatically on deallocation.
 }
