@@ -17,6 +17,24 @@
 
 下地ができているので、移行規模は**小〜中**です。難所は「Kotlin から呼ばれる nonisolated な ObjC 境界」と「`NotificationCenter` のブロック」の 2 つです。
 
+## 実施状況
+
+`docs/swift6-migration-checklist` ブランチで次を実施済み。Xcode の無い環境で書いたため、**ビルドとテストの確認は PR の iOS CI に委ねている**。
+
+| 項目 | 状態 | 内容 |
+| --- | --- | --- |
+| A-1 | 済 | `ios-ci.yml` に `iosAppTest` scheme の `xcodebuild test` を追加（最新 iOS runtime の iPhone simulator を自動選択） |
+| A-2 / A-3 | 未 | Xcode の固定と推奨設定の取り込みは Xcode 上での作業が必要 |
+| B-1 | 済 | `observeOnMain` に集約し、`assumeIsolated` で同期実行。`Notification` は局所的な `nonisolated(unsafe)` で受け渡す |
+| B-2 | 済 | `FilamentLifecycleCoordinator` / `FilamentAvatarRenderer` の `deinit` を削除（display link が coordinator を保持するため、`deinit` 時点で link は必ず無効化済み） |
+| B-3 | 済 | 両 provider を `@MainActor` + `@preconcurrency` 適合にし、`assumeIsolated` の包みを削除 |
+| B-4 | 保留 | 診断が出た場合のみ `@preconcurrency import ComposeApp` を足す（不要な `@preconcurrency` は警告になるため先回りしない） |
+| B-5 | 済 | 定数を `nonisolated static let` にした（参照箇所とテストは変更不要） |
+| B-6 | 済 | `VTCFilamentRendererBridge` に `NS_SWIFT_UI_ACTOR` |
+| B-7 | 済 | `onRenderingRequirementsChanged` / `onLayout` を `@MainActor` 関数型に。`animateGlass` は effect を animation block 内で生成 |
+| C-1 | 済 | `SWIFT_VERSION = 6.0`（4 箇所）。B を警告ゼロで確認する中間段階は、ビルド環境が無いため省略した |
+| C-2〜C-4 | 未 | CI と実機での確認待ち |
+
 ## 進め方（推奨順）
 
 1. 先に CI でテストを回せる状態にする（A-1）。
