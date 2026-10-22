@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import VtuberCamera_KMP_ver
+@testable import VtuberCamera
 
 /// Exercises the Filament-backed renderer bridge end to end: engine creation, glTF loading and
 /// the node-name lookup that VRM humanoid bones and expression morphs are resolved through.
