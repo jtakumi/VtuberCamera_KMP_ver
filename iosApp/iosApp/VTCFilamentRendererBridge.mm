@@ -10,6 +10,7 @@
 
 #if VTC_FILAMENT_HEADERS_AVAILABLE
 #include <filament/Camera.h>
+#include <filament/ColorGrading.h>
 #include <filament/Engine.h>
 #include <filament/IndirectLight.h>
 #include <filament/LightManager.h>
@@ -18,6 +19,7 @@
 #include <filament/Renderer.h>
 #include <filament/Scene.h>
 #include <filament/SwapChain.h>
+#include <filament/ToneMapper.h>
 #include <filament/TransformManager.h>
 #include <filament/View.h>
 #include <filament/Viewport.h>
@@ -163,8 +165,8 @@ constexpr float kSmileWeight = 0.35f;
 constexpr float kBlinkWeight = 0.15f;
 constexpr double kExpressionYOffsetScale = 0.18;
 constexpr double kExpressionZOffsetScale = 0.24;
-constexpr float kLightIntensity = 110000.0f;
-constexpr float kIndirectLightIntensity = 35000.0f;
+constexpr float kLightIntensity = 85000.0f;
+constexpr float kIndirectLightIntensity = 95000.0f;
 constexpr uint8_t kSceneLayerMask = 0xff;
 constexpr uint8_t kSceneLayerVisible = 0x1;
 constexpr double kFieldOfViewDegrees = 45.0;
@@ -457,6 +459,7 @@ public:
         destroySwapChain();
         mEngine->destroy(mRenderer);
         mEngine->destroy(mView);
+        mEngine->destroy(mColorGrading);
         mEngine->destroy(mScene);
         mEngine->destroyCameraComponent(mCameraEntity);
         utils::EntityManager::get().destroy(mCameraEntity);
@@ -602,6 +605,11 @@ private:
         mView->setScene(mScene);
         mView->setCamera(mCamera);
         mView->setBlendMode(View::BlendMode::TRANSLUCENT);
+
+        // 既定の ACES は明るい色を白寄りに潰すため、VRoid で設定した服や肌の色が残るよう Linear にする。
+        LinearToneMapper linearToneMapper;
+        mColorGrading = ColorGrading::Builder().toneMapper(&linearToneMapper).build(*mEngine);
+        mView->setColorGrading(mColorGrading);
 
         const float3 irradiance[1] = {float3{1.0f, 1.0f, 1.0f}};
         mIndirectLight = IndirectLight::Builder()
@@ -951,6 +959,7 @@ private:
     Camera* mCamera = nullptr;
     SwapChain* mSwapChain = nullptr;
     IndirectLight* mIndirectLight = nullptr;
+    ColorGrading* mColorGrading = nullptr;
     Entity mCameraEntity;
     Entity mLightEntity;
 
