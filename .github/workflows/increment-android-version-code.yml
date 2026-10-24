@@ -1,0 +1,80 @@
+name: Increment App Build Numbers
+
+on:
+  # The workflow writes a branch in the base repository. It only checks out
+  # main below, so pull_request_target is safe for merged fork PRs.
+  pull_request_target:
+    types:
+      - closed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: increment-app-build-numbers
+  cancel-in-progress: false
+
+jobs:
+  create-build-number-pr:
+    # Do not create another bump PR when the bump PR itself is merged.
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref != 'chore/increment-app-build-numbers'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Increment app build numbers
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          android_file='composeApp/build.gradle.kts'
+          ios_file='iosApp/Configuration/Config.xcconfig'
+
+          android_match_count=$(grep -Ec '^        versionCode = [0-9]+$' "$android_file")
+          if [[ "$android_match_count" -ne 1 ]]; then
+            echo "Expected exactly one Android versionCode declaration, found $android_match_count" >&2
+            exit 1
+          fi
+
+          ios_match_count=$(grep -Ec '^CURRENT_PROJECT_VERSION=[0-9]+$' "$ios_file")
+          if [[ "$ios_match_count" -ne 1 ]]; then
+            echo "Expected exactly one iOS CURRENT_PROJECT_VERSION declaration, found $ios_match_count" >&2
+            exit 1
+          fi
+
+          current_android_code=$(grep -E '^        versionCode = [0-9]+$' "$android_file" | grep -oE '[0-9]+$')
+          next_android_code=$((current_android_code + 1))
+          sed -i -E "s/^        versionCode = [0-9]+$/        versionCode = ${next_android_code}/" "$android_file"
+
+          current_ios_code=$(grep -E '^CURRENT_PROJECT_VERSION=[0-9]+$' "$ios_file" | grep -oE '[0-9]+$')
+          next_ios_code=$((current_ios_code + 1))
+          sed -i -E "s/^CURRENT_PROJECT_VERSION=[0-9]+$/CURRENT_PROJECT_VERSION=${next_ios_code}/" "$ios_file"
+
+          echo "Android versionCode: ${current_android_code} -> ${next_android_code}"
+          echo "iOS CURRENT_PROJECT_VERSION: ${current_ios_code} -> ${next_ios_code}"
+
+      - name: Create or update build number PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/increment-app-build-numbers
+          delete-branch: true
+          commit-message: "chore: increment app build numbers"
+          title: "chore: increment app build numbers"
+          body: |
+            ## Summary
+
+            Increment the Android `versionCode` and iOS `CURRENT_PROJECT_VERSION` after a pull request was merged into `main`.
+
+            This PR is generated automatically and can be merged after the regular checks pass.
+          add-paths: |
+            composeApp/build.gradle.kts
+            iosApp/Configuration/Config.xcconfig
