@@ -184,7 +184,7 @@ private fun CaptureBarIconButton(
     Box(
         modifier = modifier
             .size(buttonSize)
-            // 先に形へ切り抜いて、押下時の ripple がボタンの角丸からはみ出さないようにする。
+            // 押下領域をボタンの角丸に合わせる。
             .clip(buttonShape)
             .background(color = glassStyle.innerFillColor, shape = buttonShape)
             .border(
@@ -194,6 +194,7 @@ private fun CaptureBarIconButton(
             )
             .clickable(
                 enabled = isEnabled && !isBusy,
+                indication = null,
                 role = Role.Button,
                 onClick = onClick,
             )

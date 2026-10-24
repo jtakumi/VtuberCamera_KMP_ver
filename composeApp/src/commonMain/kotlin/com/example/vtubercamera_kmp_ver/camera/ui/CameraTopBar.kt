@@ -156,7 +156,7 @@ private fun PinchTargetToggleChip(
     ) {
         Row(
             modifier = Modifier
-                .clickable(role = Role.Button, onClick = onClick)
+                .clickable(indication = null, role = Role.Button, onClick = onClick)
                 .padding(PINCH_TARGET_SEGMENT_GAP),
             horizontalArrangement = Arrangement.spacedBy(PINCH_TARGET_SEGMENT_GAP),
             verticalAlignment = Alignment.CenterVertically,
@@ -267,7 +267,7 @@ private fun OverlayGlassChip(
                 Modifier
             } else {
                 Modifier
-                    .clickable(role = Role.Button, onClick = onClick)
+                    .clickable(indication = null, role = Role.Button, onClick = onClick)
             }).padding(
                 horizontal = MaterialTheme.spacing.md,
                 vertical = MaterialTheme.spacing.xs,
