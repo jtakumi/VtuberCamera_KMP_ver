@@ -20,6 +20,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # The Filament headers and static libraries are intentionally gitignored and must be
+      # provisioned on each clean CI runner before the renderer-backed unit tests run.
+      - name: Set up Filament iOS SDK
+        run: scripts/setup_filament_ios.sh
+
       - name: Show Xcode version
         run: xcodebuild -version
 
