@@ -1,6 +1,6 @@
 import UIKit
 import Testing
-@testable import VtuberCamera_KMP_ver
+@testable import VtuberCamera
 
 struct GlassEffectBackdropViewTests {
     @MainActor

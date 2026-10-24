@@ -20,6 +20,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # The Filament headers and static libraries are intentionally gitignored and must be
+      # provisioned on each clean CI runner before the renderer-backed unit tests run.
+      - name: Set up Filament iOS SDK
+        run: scripts/setup_filament_ios.sh
+
       - name: Show Xcode version
         run: xcodebuild -version
 
@@ -32,3 +37,24 @@ jobs:
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             build
+
+      # Swift 6 の actor isolation 違反（MainActor.assumeIsolated や @preconcurrency 適合の検査）は
+      # 実行時にしか検出できないため、ビルドだけでなくユニットテストも simulator で実行する。
+      - name: Test
+        run: |
+          simulator_id=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          ios = sorted((r for r in runtimes if "iOS" in r), key=lambda r: [int(p) for p in r.rsplit("iOS-", 1)[1].split("-")])
+          for runtime in reversed(ios):
+              for device in runtimes[runtime]:
+                  if device["name"].startswith("iPhone"):
+                      print(device["udid"]); sys.exit(0)
+          sys.exit("No available iPhone simulator")
+          ')
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme iosAppTest \
+            -configuration Debug \
+            -destination "id=$simulator_id" \
+            test

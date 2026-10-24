@@ -33,7 +33,7 @@ final class FilamentAvatarRenderer {
 
     /// Called automatically whenever `needsDisplayLink` changes value.
     /// `FilamentLifecycleCoordinator` sets this during `attach(renderer:)`.
-    var onRenderingRequirementsChanged: (() -> Void)?
+    var onRenderingRequirementsChanged: (@MainActor () -> Void)?
 
     init(bridge: VTCFilamentRendererBridge = VTCFilamentRendererBridge()) {
         self.bridge = bridge
@@ -187,10 +187,6 @@ final class FilamentAvatarRenderer {
         guard previewBackgroundView.transform.a != previewScale else { return }
 
         previewBackgroundView.transform = CGAffineTransform(scaleX: previewScale, y: previewScale)
-    }
-
-    deinit {
-        isPaused = true
     }
 
     private func configureRenderView() {

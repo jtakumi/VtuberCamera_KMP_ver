@@ -18,49 +18,49 @@ enum IOSAvatarBackgroundMode: String {
 
 @MainActor
 final class IOSAvatarRenderBridge {
-    static let avatarSelectionDidChangeNotification =
+    nonisolated static let avatarSelectionDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidChange")
-    static let avatarSelectionDidClearNotification =
+    nonisolated static let avatarSelectionDidClearNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.selectionDidClear")
-    static let avatarRenderStateDidChangeNotification =
+    nonisolated static let avatarRenderStateDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.renderStateDidChange")
-    static let avatarBackgroundDidChangeNotification =
+    nonisolated static let avatarBackgroundDidChangeNotification =
         Notification.Name("com.example.vtubercamera_kmp_ver.avatar.backgroundDidChange")
 
-    static let assetIdKey = "assetId"
-    static let contentHashKey = "contentHash"
-    static let fileNameKey = "fileName"
-    static let assetBytesKey = "assetBytes"
-    static let specVersionKey = "specVersion"
-    static let nodeNamesKey = "nodeNames"
-    static let humanoidBonesKey = "humanoidBones"
-    static let expressionsKey = "expressions"
-    static let boneNameKey = "boneName"
-    static let nodeNameKey = "nodeName"
-    static let runtimeNameKey = "runtimeName"
-    static let morphTargetBindsKey = "morphTargetBinds"
-    static let nodeIndexKey = "nodeIndex"
-    static let morphTargetIndexKey = "morphTargetIndex"
-    static let weightKey = "weight"
-    static let headYawDegreesKey = "headYawDegrees"
-    static let headPitchDegreesKey = "headPitchDegrees"
-    static let headRollDegreesKey = "headRollDegrees"
-    static let bodySwayDegreesKey = "bodySwayDegrees"
-    static let bodyLeanDegreesKey = "bodyLeanDegrees"
-    static let leftEyeBlinkKey = "leftEyeBlink"
-    static let rightEyeBlinkKey = "rightEyeBlink"
-    static let jawOpenKey = "jawOpen"
-    static let mouthSmileKey = "mouthSmile"
-    static let avatarScaleKey = "avatarScale"
-    static let trackingConfidenceKey = "trackingConfidence"
-    static let isTrackingKey = "isTracking"
-    static let backgroundModeKey = "backgroundMode"
+    nonisolated static let assetIdKey = "assetId"
+    nonisolated static let contentHashKey = "contentHash"
+    nonisolated static let fileNameKey = "fileName"
+    nonisolated static let assetBytesKey = "assetBytes"
+    nonisolated static let specVersionKey = "specVersion"
+    nonisolated static let nodeNamesKey = "nodeNames"
+    nonisolated static let humanoidBonesKey = "humanoidBones"
+    nonisolated static let expressionsKey = "expressions"
+    nonisolated static let boneNameKey = "boneName"
+    nonisolated static let nodeNameKey = "nodeName"
+    nonisolated static let runtimeNameKey = "runtimeName"
+    nonisolated static let morphTargetBindsKey = "morphTargetBinds"
+    nonisolated static let nodeIndexKey = "nodeIndex"
+    nonisolated static let morphTargetIndexKey = "morphTargetIndex"
+    nonisolated static let weightKey = "weight"
+    nonisolated static let headYawDegreesKey = "headYawDegrees"
+    nonisolated static let headPitchDegreesKey = "headPitchDegrees"
+    nonisolated static let headRollDegreesKey = "headRollDegrees"
+    nonisolated static let bodySwayDegreesKey = "bodySwayDegrees"
+    nonisolated static let bodyLeanDegreesKey = "bodyLeanDegrees"
+    nonisolated static let leftEyeBlinkKey = "leftEyeBlink"
+    nonisolated static let rightEyeBlinkKey = "rightEyeBlink"
+    nonisolated static let jawOpenKey = "jawOpen"
+    nonisolated static let mouthSmileKey = "mouthSmile"
+    nonisolated static let avatarScaleKey = "avatarScale"
+    nonisolated static let trackingConfidenceKey = "trackingConfidence"
+    nonisolated static let isTrackingKey = "isTracking"
+    nonisolated static let backgroundModeKey = "backgroundMode"
 
-    static let specVersionVrm0 = "vrm0"
-    static let specVersionVrm1 = "vrm1"
+    nonisolated static let specVersionVrm0 = "vrm0"
+    nonisolated static let specVersionVrm1 = "vrm1"
 
     /// Scale applied when the shared Compose state has not published a pinch-driven scale yet.
-    static let defaultAvatarScale: Float = 1
+    nonisolated static let defaultAvatarScale: Float = 1
 
     private weak var renderer: IOSAvatarRenderStateApplying?
     private var observerTokens: [NSObjectProtocol] = []
@@ -74,37 +74,38 @@ final class IOSAvatarRenderBridge {
     func connect() {
         guard observerTokens.isEmpty else { return }
 
-        let center = NotificationCenter.default
         observerTokens = [
-            center.addObserver(
-                forName: Self.avatarSelectionDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
+            observeOnMain(Self.avatarSelectionDidChangeNotification) { [weak self] notification in
                 self?.handleAvatarSelectionChanged(notification)
             },
-            center.addObserver(
-                forName: Self.avatarSelectionDidClearNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
+            observeOnMain(Self.avatarSelectionDidClearNotification) { [weak self] _ in
                 self?.renderer?.clearAvatar()
             },
-            center.addObserver(
-                forName: Self.avatarRenderStateDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
+            observeOnMain(Self.avatarRenderStateDidChangeNotification) { [weak self] notification in
                 self?.handleAvatarRenderStateChanged(notification)
             },
-            center.addObserver(
-                forName: Self.avatarBackgroundDidChangeNotification,
-                object: nil,
-                queue: .main
-            ) { [weak self] notification in
+            observeOnMain(Self.avatarBackgroundDidChangeNotification) { [weak self] notification in
                 self?.handleBackgroundModeChanged(notification)
             }
         ]
+    }
+
+    /// Registers `handler` for `name` on the main queue and runs it synchronously there.
+    ///
+    /// The observer block is `@Sendable` and nonisolated, but `queue: .main` always delivers on the
+    /// main thread, so the handler can be entered with `assumeIsolated` instead of hopping through a
+    /// `Task`, which would delay the update past the post and reorder it against later frames.
+    private func observeOnMain(
+        _ name: Notification.Name,
+        handler: @escaping @MainActor @Sendable (Notification) -> Void
+    ) -> NSObjectProtocol {
+        NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { notification in
+            // `Notification` is not Sendable, but it never leaves the main thread it arrived on.
+            nonisolated(unsafe) let notification = notification
+            MainActor.assumeIsolated {
+                handler(notification)
+            }
+        }
     }
 
     /// Stops listening to shared Compose avatar-render notifications.

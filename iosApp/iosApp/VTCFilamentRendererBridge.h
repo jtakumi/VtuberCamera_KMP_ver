@@ -76,6 +76,8 @@ typedef NS_ENUM(NSInteger, VTCVrmExpressionChannel) {
 
 @end
 
+/// Owns the UIKit view the avatar is rendered into, so Swift may only use it on the main actor.
+NS_SWIFT_UI_ACTOR
 @interface VTCFilamentRendererBridge : NSObject
 
 @property (nonatomic, readonly) UIView *renderView;
