@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.google.android.filament.Camera
+import com.google.android.filament.ColorGrading
 import com.google.android.filament.Engine
 import com.google.android.filament.EntityManager
 import com.google.android.filament.Filament
@@ -15,6 +16,7 @@ import com.google.android.filament.LightManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.SwapChain
+import com.google.android.filament.ToneMapper
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
@@ -38,6 +40,7 @@ internal class AndroidFilamentAvatarRenderer(
     private val scene: Scene
     private val indirectLight: IndirectLight
     private val view: FilamentView
+    private val colorGrading: ColorGrading
     private val cameraEntity: Int
     private val lightEntity: Int
     private val camera: Camera
@@ -82,6 +85,9 @@ internal class AndroidFilamentAvatarRenderer(
             .intensity(INDIRECT_LIGHT_INTENSITY)
             .build(engine)
         view = engine.createView()
+        colorGrading = ColorGrading.Builder()
+            .toneMapper(ToneMapper.Linear())
+            .build(engine)
         cameraEntity = EntityManager.get().create()
         lightEntity = EntityManager.get().create()
         camera = engine.createCamera(cameraEntity)
@@ -151,6 +157,7 @@ internal class AndroidFilamentAvatarRenderer(
         assetLoader.destroy()
         engine.destroyRenderer(renderer)
         engine.destroyView(view)
+        engine.destroyColorGrading(colorGrading)
         engine.destroyScene(scene)
         engine.destroyCameraComponent(cameraEntity)
         EntityManager.get().destroy(cameraEntity)
@@ -168,6 +175,8 @@ internal class AndroidFilamentAvatarRenderer(
         view.scene = scene
         view.camera = camera
         view.blendMode = FilamentView.BlendMode.TRANSLUCENT
+        // 既定の ACES は明るい色を白寄りに潰すため、VRoid で設定した服や肌の色が残るよう Linear にする。
+        view.colorGrading = colorGrading
         updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral, avatarScale)
     }
 
@@ -320,8 +329,8 @@ internal class AndroidFilamentAvatarRenderer(
         private const val LIGHT_COLOR_R = 1.0f
         private const val LIGHT_COLOR_G = 0.98f
         private const val LIGHT_COLOR_B = 0.95f
-        private const val LIGHT_INTENSITY = 110_000.0f
-        private const val INDIRECT_LIGHT_INTENSITY = 35_000.0f
+        private const val LIGHT_INTENSITY = 85_000.0f
+        private const val INDIRECT_LIGHT_INTENSITY = 95_000.0f
 
         private fun initializeNativeBindings() {
             if (nativeBindingsInitialized) {
