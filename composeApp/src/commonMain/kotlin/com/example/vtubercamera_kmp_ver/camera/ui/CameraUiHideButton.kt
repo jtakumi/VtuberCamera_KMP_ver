@@ -44,9 +44,11 @@ internal fun CameraUiHideButton(
     ) {
         Box(
             modifier = Modifier
-                // ガラスの落ち影を切り取らないよう、ripple の切り抜きは面の内側の層だけに掛ける。
+                // ガラスの落ち影を切り取らないよう、押下領域だけを面の内側に置く。
                 .clip(CircleShape)
                 .clickable(
+                    interactionSource = null,
+                    indication = null,
                     role = Role.Button,
                     onClick = onClick,
                 )
