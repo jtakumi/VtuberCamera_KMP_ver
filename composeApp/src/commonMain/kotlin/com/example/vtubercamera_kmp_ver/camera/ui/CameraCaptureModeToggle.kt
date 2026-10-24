@@ -65,7 +65,12 @@ internal fun CameraCaptureModeToggle(
     ) {
         Row(
             modifier = Modifier
-                .clickable(role = Role.Button, onClick = onClick)
+                .clickable(
+                    interactionSource = null,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
                 .align(Alignment.Center)
                 .padding(CAPTURE_MODE_SEGMENT_GAP),
             horizontalArrangement = Arrangement.spacedBy(CAPTURE_MODE_SEGMENT_GAP),
