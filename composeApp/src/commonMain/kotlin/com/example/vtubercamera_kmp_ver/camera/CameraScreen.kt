@@ -815,7 +815,11 @@ private fun GlassActionButton(
     allowPlatformGlass: Boolean = true,
 ) {
     Box(
-        modifier = modifier.clip(CircleShape).clickable(onClick = onClick),
+        modifier = modifier.clip(CircleShape).clickable(
+            interactionSource = null,
+            indication = null,
+            onClick = onClick,
+        ),
         contentAlignment = Alignment.Center,
     ) {
         LiquidGlassSurface(
