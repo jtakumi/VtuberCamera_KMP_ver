@@ -10,6 +10,7 @@ import kotlin.math.roundToInt
 internal fun compositePhoto(
     cameraBitmap: Bitmap,
     avatarBitmap: Bitmap,
+    backgroundColor: Int? = null,
 ): Bitmap {
     val previewAspectRatio = avatarBitmap.width.toFloat() / avatarBitmap.height
     val cameraAspectRatio = cameraBitmap.width.toFloat() / cameraBitmap.height
@@ -26,7 +27,13 @@ internal fun compositePhoto(
     val result = Bitmap.createBitmap(crop.width(), crop.height(), Bitmap.Config.ARGB_8888)
     val canvas = Canvas(result)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    canvas.drawBitmap(cameraBitmap, crop, Rect(0, 0, result.width, result.height), paint)
+    if (backgroundColor == null) {
+        canvas.drawBitmap(cameraBitmap, crop, Rect(0, 0, result.width, result.height), paint)
+    } else {
+        // Compose 上の背景オーバーレイは ImageCapture の出力には含まれないため、
+        // 撮影画像側でも同じ背景を先に塗ってからアバターを重ねる。
+        canvas.drawColor(backgroundColor)
+    }
     canvas.drawBitmap(
         avatarBitmap,
         null,
