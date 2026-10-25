@@ -586,7 +586,8 @@ private fun createCameraRepositories(
                 ProcessCameraProviderLensAvailability(cameraProviderFuture.await())
             },
             previewState = previewState,
-            photoOutputFactory = { createGalleryPhotoOutput(context.contentResolver) },
+            photoOutputFactory = ::createTempFilePhotoOutput,
+            photoBitmapSaver = { bitmap -> savePhotoBitmapToGallery(context.contentResolver, bitmap) },
         ),
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState {
