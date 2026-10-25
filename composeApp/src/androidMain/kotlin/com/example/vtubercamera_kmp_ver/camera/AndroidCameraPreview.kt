@@ -185,6 +185,9 @@ actual fun CameraPreviewHost(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    SideEffect {
+        (cameraRepository as? AndroidCameraRepository)?.onPlatformBackgroundModeChanged(backgroundMode)
+    }
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     val onFaceTrackingFrameChangedState = rememberUpdatedState(onFaceTrackingFrameChanged)
