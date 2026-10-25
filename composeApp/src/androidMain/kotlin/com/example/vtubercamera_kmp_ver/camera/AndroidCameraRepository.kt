@@ -11,6 +11,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
 import com.example.vtubercamera_kmp_ver.avatar.render.AndroidAvatarFrameProvider
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +86,7 @@ internal class AndroidCameraRepository(
     private var cameraControl: CameraControl? = null
     private var imageCapture: ImageCapture? = null
     private var videoRecorder: AndroidVideoRecorder? = null
+    private var photoBackgroundColor: Int = CAMERA_BACKGROUND_GREEN
 
     // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と recorder の完了通知が main）。
     private var activeRecording: AndroidVideoRecording? = null
@@ -193,7 +195,9 @@ internal class AndroidCameraRepository(
                 if (uprightBitmap !== cameraBitmap) cameraBitmap.recycle()
 
                 try {
-                    val composedBitmap = avatarBitmap?.let { compositePhoto(uprightBitmap, it) } ?: uprightBitmap
+                    val composedBitmap = avatarBitmap?.let {
+                        compositePhoto(uprightBitmap, it, photoBackgroundColor)
+                    } ?: uprightBitmap
                     try {
                         photoBitmapSaver(composedBitmap)
                     } finally {
@@ -320,11 +324,25 @@ internal class AndroidCameraRepository(
         this.imageCapture = imageCapture
     }
 
+    fun onPlatformBackgroundModeChanged(backgroundMode: CameraBackgroundMode) {
+        photoBackgroundColor = when (backgroundMode) {
+            CameraBackgroundMode.Black -> CAMERA_BACKGROUND_BLACK
+            CameraBackgroundMode.White -> CAMERA_BACKGROUND_WHITE
+            CameraBackgroundMode.Green -> CAMERA_BACKGROUND_GREEN
+            CameraBackgroundMode.Blue -> CAMERA_BACKGROUND_BLUE
+        }
+    }
+
     // 画面録画の開始口。画面が破棄されるときは null に戻す。
     fun onPlatformVideoRecorderReady(videoRecorder: AndroidVideoRecorder?) {
         this.videoRecorder = videoRecorder
     }
 }
+
+private val CAMERA_BACKGROUND_BLACK: Int = 0xFF000000.toInt()
+private val CAMERA_BACKGROUND_WHITE: Int = 0xFFFFFFFF.toInt()
+private val CAMERA_BACKGROUND_GREEN: Int = 0xFF00B140.toInt()
+private val CAMERA_BACKGROUND_BLUE: Int = 0xFF0047BB.toInt()
 
 // 撮影で書き出したローカルファイルを削除する。既に存在しない場合も削除成功として扱う。
 internal fun deletePhotoFile(uri: String): Boolean {
