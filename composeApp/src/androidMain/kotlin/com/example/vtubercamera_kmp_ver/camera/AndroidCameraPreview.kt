@@ -185,6 +185,9 @@ actual fun CameraPreviewHost(
 
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    SideEffect {
+        (cameraRepository as? AndroidCameraRepository)?.onPlatformBackgroundModeChanged(backgroundMode)
+    }
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     val onFaceTrackingFrameChangedState = rememberUpdatedState(onFaceTrackingFrameChanged)
@@ -586,7 +589,8 @@ private fun createCameraRepositories(
                 ProcessCameraProviderLensAvailability(cameraProviderFuture.await())
             },
             previewState = previewState,
-            photoOutputFactory = { createGalleryPhotoOutput(context.contentResolver) },
+            photoOutputFactory = ::createTempFilePhotoOutput,
+            photoBitmapSaver = { bitmap -> savePhotoBitmapToGallery(context.contentResolver, bitmap) },
         ),
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState {

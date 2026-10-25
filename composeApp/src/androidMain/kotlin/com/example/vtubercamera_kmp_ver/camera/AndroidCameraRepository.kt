@@ -6,6 +6,12 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.CameraSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import androidx.exifinterface.media.ExifInterface
+import com.example.vtubercamera_kmp_ver.avatar.render.AndroidAvatarFrameProvider
+import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -15,6 +21,49 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URI
 import kotlin.coroutines.resume
+
+private fun Bitmap.withExifOrientation(file: File): Bitmap {
+    val orientation = runCatching {
+        ExifInterface(file).getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL,
+        )
+    }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+    val matrix = Matrix()
+    when (orientation) {
+        ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> matrix.setScale(-1f, 1f)
+        ExifInterface.ORIENTATION_ROTATE_180 -> matrix.setRotate(180f)
+        ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+            matrix.setRotate(180f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_TRANSPOSE -> {
+            matrix.setRotate(90f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_ROTATE_90 -> matrix.setRotate(90f)
+        ExifInterface.ORIENTATION_TRANSVERSE -> {
+            matrix.setRotate(-90f)
+            matrix.postScale(-1f, 1f)
+        }
+        ExifInterface.ORIENTATION_ROTATE_270 -> matrix.setRotate(-90f)
+        else -> return this
+    }
+    return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
+}
+
+private fun savePhotoBitmapToTempFile(bitmap: Bitmap): String? {
+    val outputFile = runCatching { File.createTempFile("vtuber-camera-composed-", ".jpg") }
+        .getOrNull() ?: return null
+    return runCatching {
+        val saved = outputFile.outputStream().use { stream ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, PHOTO_JPEG_QUALITY, stream)
+        }
+        if (saved) outputFile.toURI().toString() else null
+    }.getOrNull().also { uri ->
+        if (uri == null) outputFile.delete()
+    }
+}
 
 internal interface CameraLensAvailability {
     fun hasCamera(lensFacing: CameraLensFacing): Boolean
@@ -29,13 +78,15 @@ internal class AndroidCameraRepository(
     private val zoomUiState: MutableStateFlow<CameraZoomUiState> = MutableStateFlow(CameraZoomUiState()),
     // 既定では撮影で書き出したローカルファイルを削除する。テストや content:// 対応で差し替え可能にする。
     private val photoFileDeleter: (String) -> Boolean = ::deletePhotoFile,
-    // 写真の保存先を撮影ごとに作る。既定は一時ファイルで、実機ではギャラリーへ書き出す保存先を渡す。
+    // 合成前の写真を一時ファイルへ撮影し、合成後の画像は photoBitmapSaver で保存する。
     private val photoOutputFactory: () -> PhotoCaptureOutput = ::createTempFilePhotoOutput,
+    private val photoBitmapSaver: (Bitmap) -> String? = ::savePhotoBitmapToTempFile,
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
     private var imageCapture: ImageCapture? = null
     private var videoRecorder: AndroidVideoRecorder? = null
+    private var photoBackgroundColor: Int = CAMERA_BACKGROUND_GREEN
 
     // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と recorder の完了通知が main）。
     private var activeRecording: AndroidVideoRecording? = null
@@ -92,55 +143,85 @@ internal class AndroidCameraRepository(
                 photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
             }
         photoCaptureState.value = PhotoCaptureState.Capturing
-        return withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { continuation ->
-                val output = runCatching { photoOutputFactory() }
-                    .getOrElse {
-                        photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
-                        continuation.resume(
-                            Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
-                        )
-                        return@suspendCancellableCoroutine
-                    }
-                runCatching {
-                    capture.takePicture(
-                        output.options,
-                        Runnable::run,
-                        object : ImageCapture.OnImageSavedCallback {
-                            override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
-                                val uri = outputFileResults.savedUri?.toString() ?: output.fallbackUri
-                                if (uri == null) {
-                                    output.discard()
-                                    photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
-                                    continuation.resume(
-                                        Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
-                                    )
-                                    return
-                                }
-                                photoCaptureState.value = PhotoCaptureState.Succeeded(uri)
-                                continuation.resume(Result.success(uri))
-                            }
+        val output = runCatching { photoOutputFactory() }.getOrElse {
+            return failPhotoCapture()
+        }
+        val avatarProviderAvailable = AndroidAvatarFrameProvider.hasProvider()
+        val avatarBitmap = withContext(Dispatchers.Main) {
+            AndroidAvatarFrameProvider.capture()
+        }
+        if (avatarProviderAvailable && avatarBitmap == null) {
+            output.discard()
+            return failPhotoCapture()
+        }
 
-                            override fun onError(exception: ImageCaptureException) {
-                                output.discard()
-                                photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
-                                continuation.resume(
-                                    Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
-                                )
-                            }
-                        },
-                    )
-                }.onFailure {
-                    output.discard()
-                    photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
-                    if (continuation.isActive) {
-                        continuation.resume(
-                            Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed)),
+        val captureResult = runCatching {
+            withContext(Dispatchers.Main) {
+                suspendCancellableCoroutine { continuation ->
+                    continuation.invokeOnCancellation { output.discard() }
+                    runCatching {
+                        capture.takePicture(
+                            output.options,
+                            Runnable::run,
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                                    if (continuation.isActive) continuation.resume(Result.success(Unit))
+                                }
+
+                                override fun onError(exception: ImageCaptureException) {
+                                    if (continuation.isActive) continuation.resume(Result.failure(exception))
+                                }
+                            },
                         )
+                    }.onFailure { error ->
+                        if (continuation.isActive) continuation.resume(Result.failure(error))
                     }
                 }
             }
+        }.getOrElse { Result.failure(it) }
+
+        if (captureResult.isFailure) {
+            output.discard()
+            avatarBitmap?.recycle()
+            return failPhotoCapture()
         }
+
+        val photoUri = runCatching {
+            withContext(Dispatchers.IO) {
+                val cameraFile = output.file
+                val cameraBitmap = BitmapFactory.decodeFile(cameraFile.absolutePath)
+                    ?: error("Captured photo could not be decoded")
+                val uprightBitmap = cameraBitmap.withExifOrientation(cameraFile)
+                if (uprightBitmap !== cameraBitmap) cameraBitmap.recycle()
+
+                try {
+                    val composedBitmap = avatarBitmap?.let {
+                        compositePhoto(uprightBitmap, it, photoBackgroundColor)
+                    } ?: uprightBitmap
+                    try {
+                        photoBitmapSaver(composedBitmap)
+                    } finally {
+                        if (composedBitmap !== uprightBitmap) composedBitmap.recycle()
+                    }
+                } finally {
+                    uprightBitmap.recycle()
+                    avatarBitmap?.recycle()
+                }
+            }
+        }.getOrNull()
+        output.discard()
+
+        return if (photoUri != null) {
+            photoCaptureState.value = PhotoCaptureState.Succeeded(photoUri)
+            Result.success(photoUri)
+        } else {
+            failPhotoCapture()
+        }
+    }
+
+    private fun failPhotoCapture(): Result<String?> {
+        photoCaptureState.value = PhotoCaptureState.Failed(CameraError.PhotoCaptureFailed)
+        return Result.failure(CameraRepositoryException(CameraError.PhotoCaptureFailed))
     }
 
     override fun observeVideoRecordingState(): Flow<VideoRecordingState> = videoRecordingState
@@ -243,11 +324,25 @@ internal class AndroidCameraRepository(
         this.imageCapture = imageCapture
     }
 
+    fun onPlatformBackgroundModeChanged(backgroundMode: CameraBackgroundMode) {
+        photoBackgroundColor = when (backgroundMode) {
+            CameraBackgroundMode.Black -> CAMERA_BACKGROUND_BLACK
+            CameraBackgroundMode.White -> CAMERA_BACKGROUND_WHITE
+            CameraBackgroundMode.Green -> CAMERA_BACKGROUND_GREEN
+            CameraBackgroundMode.Blue -> CAMERA_BACKGROUND_BLUE
+        }
+    }
+
     // 画面録画の開始口。画面が破棄されるときは null に戻す。
     fun onPlatformVideoRecorderReady(videoRecorder: AndroidVideoRecorder?) {
         this.videoRecorder = videoRecorder
     }
 }
+
+private val CAMERA_BACKGROUND_BLACK: Int = 0xFF000000.toInt()
+private val CAMERA_BACKGROUND_WHITE: Int = 0xFFFFFFFF.toInt()
+private val CAMERA_BACKGROUND_GREEN: Int = 0xFF00B140.toInt()
+private val CAMERA_BACKGROUND_BLUE: Int = 0xFF0047BB.toInt()
 
 // 撮影で書き出したローカルファイルを削除する。既に存在しない場合も削除成功として扱う。
 internal fun deletePhotoFile(uri: String): Boolean {

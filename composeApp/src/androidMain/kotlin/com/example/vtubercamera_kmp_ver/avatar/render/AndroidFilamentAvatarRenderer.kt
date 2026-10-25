@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.avatar.render
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.view.Surface
 import android.view.TextureView
 import android.view.ViewGroup
@@ -108,6 +109,7 @@ internal class AndroidFilamentAvatarRenderer(
         configureIndirectLight()
         configureLight()
         configureSurface()
+        AndroidAvatarFrameProvider.register(this, ::captureAvatarBitmap)
     }
 
     // 選択中アバターと tracking state に加えて、ピンチ操作で決まった表示倍率も次フレームへ反映する。
@@ -145,6 +147,7 @@ internal class AndroidFilamentAvatarRenderer(
         }
 
         destroyed = true
+        AndroidAvatarFrameProvider.unregister(this)
         renderBridge.destroy()
         uiHelper.detach()
         displayHelper.detach()
@@ -163,6 +166,8 @@ internal class AndroidFilamentAvatarRenderer(
         EntityManager.get().destroy(cameraEntity)
         engine.destroy()
     }
+
+    fun captureAvatarBitmap(): Bitmap? = textureView.bitmap
 
     private fun configureRenderer() {
         renderer.clearOptions = renderer.clearOptions.apply {
