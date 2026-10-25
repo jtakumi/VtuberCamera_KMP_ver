@@ -25,7 +25,7 @@ data class CameraUiState(
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
     val avatarScale: AvatarScaleUiState = AvatarScaleUiState(),
     val background: CameraBackgroundUiState = CameraBackgroundUiState(),
-    val pinchTarget: PinchGestureTarget = PinchGestureTarget.CameraZoom,
+    val pinchTarget: PinchGestureTarget = PinchGestureTarget.AvatarScale,
     val uiVisibility: CameraUiVisibilityUiState = CameraUiVisibilityUiState(),
 ) {
     val isPermissionGranted: Boolean
