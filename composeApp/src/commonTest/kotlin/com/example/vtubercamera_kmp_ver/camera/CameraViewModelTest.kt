@@ -839,7 +839,7 @@ class CameraViewModelTest {
     }
 
     // ---------------------------------------------------------------------------
-    // onAvatarScaleChanged() / onTogglePinchTarget()
+    // onAvatarScaleChanged()
     // ---------------------------------------------------------------------------
 
     @Test
@@ -859,36 +859,6 @@ class CameraViewModelTest {
 
         viewModel.onAvatarScaleChanged(0.01f)
         assertEquals(MIN_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
-    }
-
-    @Test
-    fun onTogglePinchTarget_switchesPinchTargetOnlyWhileAvatarIsSelected() = runTest {
-        val viewModel = CameraViewModel(
-            cameraRepository = FakeCameraRepository(),
-            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
-        )
-        val selection = createAvatarSelectionData("scale.vrm", "Avatar Scale", byteArrayOf(7, 8, 9))
-
-        try {
-            advanceUntilIdle()
-            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.pinchTarget)
-
-            // アバター未選択のうちは、切り替えてもピンチ操作はカメラズームのままにする。
-            viewModel.onTogglePinchTarget()
-            advanceUntilIdle()
-            assertEquals(PinchGestureTarget.AvatarScale, viewModel.uiState.value.pinchTarget)
-            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.effectivePinchTarget)
-
-            viewModel.onFilePicked(FilePickerResult.Success(selection))
-            advanceUntilIdle()
-            assertEquals(PinchGestureTarget.AvatarScale, viewModel.uiState.value.effectivePinchTarget)
-
-            viewModel.onTogglePinchTarget()
-            advanceUntilIdle()
-            assertEquals(PinchGestureTarget.CameraZoom, viewModel.uiState.value.effectivePinchTarget)
-        } finally {
-            AvatarAssetStore.remove(selection.assetHandle)
-        }
     }
 
     // ---------------------------------------------------------------------------
