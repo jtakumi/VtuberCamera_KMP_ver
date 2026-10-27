@@ -127,14 +127,6 @@ android {
     }
 }
 
-androidComponents {
-    beforeVariants(selector().withBuildType("release")) { variantBuilder ->
-        if (!releaseSigningConfigured) {
-            variantBuilder.enable = false
-        }
-    }
-}
-
 dependencies {
     debugImplementation(libs.compose.uiTooling)
 }
