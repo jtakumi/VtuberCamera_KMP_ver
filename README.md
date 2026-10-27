@@ -119,17 +119,17 @@ Windows:
 
 ### Android リリースビルド（Google Play）
 
-Google Play Console へアップロードする場合は、署名済み Android App Bundle（AAB）を作成します。Release variant は常に利用できますが、アップロード可能な成果物にするには、初回リリース時に作成した upload key を使って署名してください。debug keystore は使用しません。CI の Secret またはローカル環境変数から、以後のリリースでも同じ keystore を指定します。
+Google Play Console へアップロードする場合は、署名済み Android App Bundle（AAB）を作成します。Release variant は常に利用できますが、アップロード可能な成果物にするには、初回リリース時に作成した upload key を使って署名してください。debug keystore は使用しません。ローカルではルートの `release-signing.properties` に署名設定を保存できます。このファイルと指定した keystore は Git 管理対象外です。Mac でビルドするときは両方を安全にコピーしてください。CI では同じ値を Secret または環境変数に設定します。
 
 ```shell
-export RELEASE_STORE_FILE=/secure/path/vtubercamera-release.jks
-export RELEASE_STORE_PASSWORD='のぞき見されない値'
-export RELEASE_KEY_ALIAS='vtubercamera'
-export RELEASE_KEY_PASSWORD='のぞき見されない値'
+export RELEASE_STORE_FILE=/secure/path/vtubercamera-upload-key.p12
+export RELEASE_STORE_PASSWORD='keystore のパスワード'
+export RELEASE_KEY_ALIAS='vtubercamera-upload'
+export RELEASE_KEY_PASSWORD='鍵のパスワード'
 ./gradlew :composeApp:bundleRelease
 ```
 
-生成物は `composeApp/build/outputs/bundle/release/composeApp-release.aab` です。keystore はリポジトリへコミットせず、安全な場所にバックアップし、すべてのリリースで同じ upload key を使用してください。ローカルで署名情報を設定せずにビルドした場合も release variant は作成されますが、成果物は未署名のため Play Console にはアップロードできません。
+生成物は `composeApp/build/outputs/bundle/release/composeApp-release.aab` です。keystore と `release-signing.properties` は安全な場所にバックアップし、すべてのリリースで同じ upload key を使用してください。ローカルで署名情報を設定せずにビルドした場合も release variant は作成されますが、成果物は未署名のため Play Console にはアップロードできません。
 
 ### README 同期チェック
 
