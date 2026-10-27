@@ -10,8 +10,4 @@ class PinchGestureController {
     private val _state = MutableStateFlow(PinchGestureTarget.AvatarScale)
     val state: StateFlow<PinchGestureTarget> = _state.asStateFlow()
 
-    // 切り替えボタンからの操作で、ピンチ操作の割り当て先をもう一方へ入れ替える。
-    fun onTogglePinchTarget() {
-        _state.update { target -> target.toggled() }
-    }
 }

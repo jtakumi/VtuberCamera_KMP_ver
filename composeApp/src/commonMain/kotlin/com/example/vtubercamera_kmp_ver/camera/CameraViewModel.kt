@@ -226,10 +226,6 @@ class CameraViewModel(
         avatarScaleController.onAvatarScaleChanged(scaleChange)
     }
 
-    // ピンチ操作の割り当て先をカメラズームとアバター拡縮で切り替える。
-    fun onTogglePinchTarget() {
-        pinchGestureController.onTogglePinchTarget()
-    }
 
     // カメラ映像を覆う背景モードを次のプリセットへ切り替える。
     fun onToggleBackgroundMode() {

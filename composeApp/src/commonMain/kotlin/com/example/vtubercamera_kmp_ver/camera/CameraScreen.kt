@@ -105,7 +105,6 @@ fun CameraRoute(
     }
 
     CameraScreen(
-        modifier = modifier,
         cameraRepository = repositories.cameraRepository,
         session = uiState.session,
         permission = uiState.permission,
@@ -121,7 +120,6 @@ fun CameraRoute(
         backgroundMode = uiState.background.mode,
         pinchTarget = uiState.effectivePinchTarget,
         isUiHidden = uiState.uiVisibility.isHidden,
-        rendererHost = rendererHost,
         onRequestPermission = cameraViewModel::onRequestPermission,
         onRetryPreview = cameraViewModel::onRetryPreview,
         onOpenFilePicker = filePickerLauncher.launch,
@@ -132,13 +130,14 @@ fun CameraRoute(
         onLensFacingToggle = cameraViewModel::onToggleLensFacing,
         onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
         onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
-        onTogglePinchTarget = cameraViewModel::onTogglePinchTarget,
         onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
         onHideUi = cameraViewModel::onHideUi,
         onShowUi = cameraViewModel::onShowUi,
         onCapturePhoto = cameraViewModel::onCapturePhoto,
         onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
         onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
+        modifier = modifier,
+        rendererHost = rendererHost,
     )
 }
 
@@ -181,7 +180,6 @@ fun CameraScreen(
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
-    onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
@@ -247,7 +245,6 @@ fun CameraScreen(
                 onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
                 onAvatarScaleChanged = onAvatarScaleChanged,
-                onTogglePinchTarget = onTogglePinchTarget,
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onHideUi = onHideUi,
                 onShowUi = onShowUi,
@@ -319,7 +316,6 @@ private fun CameraPreviewState(
     onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
-    onTogglePinchTarget: () -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
@@ -392,9 +388,7 @@ private fun CameraPreviewState(
                 zoomScale = zoomScale,
                 avatarScale = avatarScale,
                 pinchTarget = pinchTarget,
-                glass = glass,
                 canTogglePinchTarget = avatarSelection != null,
-                onTogglePinchTarget = onTogglePinchTarget,
                 backgroundMode = backgroundMode,
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onHideUi = onHideUi,
@@ -405,6 +399,7 @@ private fun CameraPreviewState(
                 captureMode = captureMode,
                 onToggleCaptureMode = onToggleCaptureMode,
                 onToggleVideoRecording = onToggleVideoRecording,
+                glass = glass,
             )
         }
     }
@@ -618,7 +613,6 @@ private fun BoxScope.CameraUiLayer(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     canTogglePinchTarget: Boolean,
-    onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
@@ -646,7 +640,6 @@ private fun BoxScope.CameraUiLayer(
             avatarScale = avatarScale,
             pinchTarget = pinchTarget,
             canTogglePinchTarget = canTogglePinchTarget,
-            onTogglePinchTarget = onTogglePinchTarget,
             backgroundMode = backgroundMode,
             onToggleBackgroundMode = onToggleBackgroundMode,
             glass = glass,
