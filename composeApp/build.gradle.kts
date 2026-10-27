@@ -1,5 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -8,17 +9,28 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+val localReleaseSigningProperties = rootProject.file("release-signing.properties")
+    .takeIf { it.isFile }
+    ?.let { propertiesFile ->
+        Properties().apply {
+            propertiesFile.inputStream().use(::load)
+        }
+    }
 val releaseStoreFilePath = providers.gradleProperty("releaseStoreFile")
     .orElse(providers.environmentVariable("RELEASE_STORE_FILE"))
+    .orElse(localReleaseSigningProperties?.getProperty("releaseStoreFile") ?: "")
     .orNull
 val releaseStorePassword = providers.gradleProperty("releaseStorePassword")
     .orElse(providers.environmentVariable("RELEASE_STORE_PASSWORD"))
+    .orElse(localReleaseSigningProperties?.getProperty("releaseStorePassword") ?: "")
     .orNull
 val releaseKeyAlias = providers.gradleProperty("releaseKeyAlias")
     .orElse(providers.environmentVariable("RELEASE_KEY_ALIAS"))
+    .orElse(localReleaseSigningProperties?.getProperty("releaseKeyAlias") ?: "")
     .orNull
 val releaseKeyPassword = providers.gradleProperty("releaseKeyPassword")
     .orElse(providers.environmentVariable("RELEASE_KEY_PASSWORD"))
+    .orElse(localReleaseSigningProperties?.getProperty("releaseKeyPassword") ?: "")
     .orNull
 val releaseSigningConfigured = listOf(
     releaseStoreFilePath,
