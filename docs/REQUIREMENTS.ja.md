@@ -323,7 +323,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 
 ## 8. 制約事項
 
-- package 名と applicationId は現在サンプル値 `com.example.vtubercamera_kmp_ver` を使用しており、リリース前に正式な ID へ変更が必要である。
+- Android applicationId は `jtakumi.vtubercamera`、iOS bundle identifier は `io.github.jtakumi.vtubercamera` とする。
 - Android と iOS で実装の深さに差があるため（特にアバター描画）、両プラットフォームを同一実装とは扱わない。
 - iOS の実カメラ実装は `composeApp/src/iosMain` が本体であり、`iosApp` はホスト（`MainViewController` 起動）と native renderer の役割に限定する。両者の責務を混同しない。
 
