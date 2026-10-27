@@ -8,9 +8,9 @@ class AvatarScaleControllerTest {
     fun initialState_startsAtDefaultAvatarScale() {
         val controller = AvatarScaleController()
 
-        assertEquals(DEFAULT_AVATAR_SCALE, controller.state.value.currentAvatarScale)
-        assertEquals(MIN_AVATAR_SCALE, controller.state.value.minAvatarScale)
-        assertEquals(MAX_AVATAR_SCALE, controller.state.value.maxAvatarScale)
+        assertEquals(DEFAULT_AVATAR_SCALE, controller.state.currentAvatarScale)
+        assertEquals(MIN_AVATAR_SCALE, controller.state.minAvatarScale)
+        assertEquals(MAX_AVATAR_SCALE, controller.state.maxAvatarScale)
     }
 
     @Test
@@ -19,7 +19,7 @@ class AvatarScaleControllerTest {
 
         controller.onAvatarScaleChanged(1.5f)
 
-        assertEquals(1.5f, controller.state.value.currentAvatarScale)
+        assertEquals(1.5f, controller.state.currentAvatarScale)
     }
 
     @Test
@@ -29,7 +29,7 @@ class AvatarScaleControllerTest {
         controller.onAvatarScaleChanged(1.2f)
         controller.onAvatarScaleChanged(1.5f)
 
-        assertEquals(1.8f, controller.state.value.currentAvatarScale, absoluteTolerance = 1e-5f)
+        assertEquals(1.8f, controller.state.currentAvatarScale, absoluteTolerance = 1e-5f)
     }
 
     @Test
@@ -38,7 +38,7 @@ class AvatarScaleControllerTest {
 
         controller.onAvatarScaleChanged(10f)
 
-        assertEquals(MAX_AVATAR_SCALE, controller.state.value.currentAvatarScale)
+        assertEquals(MAX_AVATAR_SCALE, controller.state.currentAvatarScale)
     }
 
     @Test
@@ -47,7 +47,7 @@ class AvatarScaleControllerTest {
 
         controller.onAvatarScaleChanged(0.01f)
 
-        assertEquals(MIN_AVATAR_SCALE, controller.state.value.currentAvatarScale)
+        assertEquals(MIN_AVATAR_SCALE, controller.state.currentAvatarScale)
     }
 
     @Test
@@ -60,6 +60,6 @@ class AvatarScaleControllerTest {
         controller.onAvatarScaleChanged(Float.NaN)
         controller.onAvatarScaleChanged(Float.POSITIVE_INFINITY)
 
-        assertEquals(1.5f, controller.state.value.currentAvatarScale)
+        assertEquals(1.5f, controller.state.currentAvatarScale)
     }
 }

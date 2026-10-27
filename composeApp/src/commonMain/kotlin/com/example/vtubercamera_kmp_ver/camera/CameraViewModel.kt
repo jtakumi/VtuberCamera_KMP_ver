@@ -152,11 +152,6 @@ class CameraViewModel(
             }
         }
         mirrorScope.launch {
-            avatarScaleController.state.collect { avatarScale ->
-                _uiState.update { it.copy(avatarScale = avatarScale) }
-            }
-        }
-        mirrorScope.launch {
             backgroundController.state.collect { background ->
                 _uiState.update { it.copy(background = background) }
             }
@@ -224,12 +219,9 @@ class CameraViewModel(
     // ピンチ操作の相対倍率をアバター表示倍率へ反映する。
     fun onAvatarScaleChanged(scaleChange: Float) {
         avatarScaleController.onAvatarScaleChanged(scaleChange)
+        _uiState.update { it.copy(avatarScale = avatarScaleController.state) }
     }
 
-    // ピンチ操作の割り当て先をカメラズームとアバター拡縮で切り替える。
-    fun onTogglePinchTarget() {
-        pinchGestureController.onTogglePinchTarget()
-    }
 
     // カメラ映像を覆う背景モードを次のプリセットへ切り替える。
     fun onToggleBackgroundMode() {

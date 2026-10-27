@@ -61,7 +61,6 @@ internal fun CameraTopBar(
     avatarScale: Float,
     pinchTarget: PinchGestureTarget,
     canTogglePinchTarget: Boolean,
-    onTogglePinchTarget: () -> Unit,
     backgroundMode: CameraBackgroundMode,
     onToggleBackgroundMode: () -> Unit,
     glass: LiquidGlassAppearance,
@@ -78,14 +77,6 @@ internal fun CameraTopBar(
             avatarScale = avatarScale,
             glass = glass,
         )
-        // アバター選択済みのときだけ、ピンチ操作の対象を切り替えられるようにする。
-        if (canTogglePinchTarget) {
-            PinchTargetToggleChip(
-                pinchTarget = pinchTarget,
-                onClick = onTogglePinchTarget,
-                glass = glass,
-            )
-        }
         CameraBackgroundToggleChip(
             backgroundMode = backgroundMode,
             onClick = onToggleBackgroundMode,
@@ -120,94 +111,6 @@ private fun ScaleRatioIndicator(
         Text(
             text = stringResource(pinchTarget.ratioLabelRes, ratio.toRatioLabel()),
             color = glass.style.contentColor,
-            maxLines = 1,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-    }
-}
-
-/**
- * ピンチ操作の対象をカメラズームとアバター拡縮で切り替えるチップ。
- *
- * 両方の対象を並べて現在の選択を強調表示し、押下で [onClick] を通じてもう一方へ切り替える。
- */
-@Composable
-private fun PinchTargetToggleChip(
-    pinchTarget: PinchGestureTarget,
-    onClick: () -> Unit,
-    glass: LiquidGlassAppearance,
-    modifier: Modifier = Modifier,
-) {
-    val toggleContentDescription = stringResource(
-        Res.string.pinch_target_toggle_content_description,
-    )
-    val selectedLabel = stringResource(pinchTarget.segmentLabelRes)
-
-    LiquidGlassSurface(
-        appearance = glass,
-        cornerStyle = LiquidGlassCornerStyle.Capsule,
-        modifier = modifier
-            .heightIn(min = OVERLAY_CHIP_MINIMUM_TOUCH_TARGET)
-            // 選択中の対象は stateDescription で読み上げ、セグメントの見た目と情報量を揃える。
-            .semantics(mergeDescendants = true) {
-                contentDescription = toggleContentDescription
-                stateDescription = selectedLabel
-            },
-    ) {
-        Row(
-            modifier = Modifier
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    role = Role.Button,
-                    onClick = onClick,
-                )
-                .padding(PINCH_TARGET_SEGMENT_GAP),
-            horizontalArrangement = Arrangement.spacedBy(PINCH_TARGET_SEGMENT_GAP),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            PinchGestureTarget.entries.forEach { target ->
-                PinchTargetSegment(
-                    target = target,
-                    isSelected = target == pinchTarget,
-                    glassStyle = glass.style,
-                )
-            }
-        }
-    }
-}
-
-/** ピンチ対象チップ内の 1 セグメント。選択中はガラス内側の塗りと縁を出して現在地を示す。 */
-@Composable
-private fun PinchTargetSegment(
-    target: PinchGestureTarget,
-    isSelected: Boolean,
-    glassStyle: LiquidGlassStyle,
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier = modifier
-            .background(
-                color = if (isSelected) glassStyle.innerSelectedFillColor else Color.Transparent,
-                shape = CircleShape,
-            )
-            .border(
-                width = LIQUID_GLASS_RIM_WIDTH,
-                color = if (isSelected) glassStyle.innerRimColor else Color.Transparent,
-                shape = CircleShape,
-            ),
-    ) {
-        Text(
-            text = stringResource(target.segmentLabelRes),
-            modifier = Modifier.padding(
-                horizontal = MaterialTheme.spacing.sm,
-                vertical = MaterialTheme.spacing.xs,
-            ),
-            color = if (isSelected) {
-                glassStyle.contentColor
-            } else {
-                glassStyle.contentVariantColor
-            },
             maxLines = 1,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -324,4 +227,3 @@ internal fun Float.toRatioLabel(): String {
 private const val RATIO_LABEL_SCALE = 10
 
 private val OVERLAY_CHIP_MINIMUM_TOUCH_TARGET = 48.dp
-private val PINCH_TARGET_SEGMENT_GAP = 4.dp
