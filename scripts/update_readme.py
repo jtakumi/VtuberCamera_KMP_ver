@@ -337,7 +337,7 @@ def render_generated_block() -> str:
         "- iOS の実カメラ実装は `composeApp/src/iosMain` にあり、`CameraPreviewHost` が AVFoundation preview と ARKit face tracking を担当します。",
         "- `iosApp` は現在も Compose Multiplatform host と Xcode プロジェクトの役割を持ちます。",
         "- Android / iOS とも、選択した VRM / GLB の raw bytes は `AvatarAssetStore` に置き、共有 state には軽量 handle と metadata を保持します。",
-        "- package 名と applicationId は現在サンプル値の `com.example.vtubercamera_kmp_ver` を使用しています。",
+        "- Android applicationId は `jtakumi.vtubercamera`、iOS bundle identifier は `io.github.jtakumi.vtubercamera` です。",
     ]
     return "\n".join(lines)
 
