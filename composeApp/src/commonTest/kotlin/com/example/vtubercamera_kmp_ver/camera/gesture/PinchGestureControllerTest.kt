@@ -5,20 +5,20 @@ import kotlin.test.assertEquals
 
 class PinchGestureControllerTest {
     @Test
-    fun initialState_targetsCameraZoom() {
+    fun initialState_targetsAvatarScale() {
         val controller = PinchGestureController()
 
-        assertEquals(PinchGestureTarget.CameraZoom, controller.state.value)
+        assertEquals(PinchGestureTarget.AvatarScale, controller.state.value)
     }
 
     @Test
-    fun onTogglePinchTarget_switchesBetweenCameraZoomAndAvatarScale() {
+    fun onTogglePinchTarget_switchesBetweenAvatarScaleAndCameraZoom() {
         val controller = PinchGestureController()
 
         controller.onTogglePinchTarget()
-        assertEquals(PinchGestureTarget.AvatarScale, controller.state.value)
+        assertEquals(PinchGestureTarget.CameraZoom, controller.state.value)
 
         controller.onTogglePinchTarget()
-        assertEquals(PinchGestureTarget.CameraZoom, controller.state.value)
+        assertEquals(PinchGestureTarget.AvatarScale, controller.state.value)
     }
 }
