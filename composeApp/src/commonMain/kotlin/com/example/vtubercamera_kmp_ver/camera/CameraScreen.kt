@@ -20,10 +20,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -40,6 +44,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
@@ -48,8 +54,15 @@ import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsActions
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsUiState
+import com.example.vtubercamera_kmp_ver.camera.settings.LocalStoredMediaReader
+import com.example.vtubercamera_kmp_ver.camera.settings.PickedMediaKind
 import com.example.vtubercamera_kmp_ver.camera.ui.CAMERA_CAPTURE_BAR_HEIGHT
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraBackgroundImageLayer
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
+import com.example.vtubercamera_kmp_ver.camera.ui.CameraSettingsDialog
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
@@ -88,10 +101,40 @@ fun CameraRoute(
         CameraViewModel(
             cameraRepository = repositories.cameraRepository,
             permissionRepository = repositories.permissionRepository,
+            settingsPlatform = repositories.settingsPlatform,
         )
     }
     val filePickerLauncher = rememberFilePickerLauncher(cameraViewModel::onFilePicked)
+    val bgmPickerLauncher = rememberMediaPickerLauncher(
+        kind = PickedMediaKind.Bgm,
+        onPicked = cameraViewModel::onBgmPickResult,
+    )
+    val backgroundImagePickerLauncher = rememberMediaPickerLauncher(
+        kind = PickedMediaKind.BackgroundImage,
+        onPicked = cameraViewModel::onBackgroundImagePickResult,
+    )
+    val settingsActions = remember(cameraViewModel, bgmPickerLauncher, backgroundImagePickerLauncher) {
+        CameraSettingsActions(
+            onPickBgm = bgmPickerLauncher.launch,
+            onClearBgm = cameraViewModel::onClearBgm,
+            onToggleBgmPlayback = cameraViewModel::onToggleBgmPlayback,
+            onBgmVolumeChanged = cameraViewModel::onBgmVolumeChanged,
+            onBgmVolumeChangeFinished = cameraViewModel::onBgmVolumeChangeFinished,
+            onToggleBgmStartsWithRecording = cameraViewModel::onToggleBgmStartsWithRecording,
+            onToggleNoiseSuppression = cameraViewModel::onToggleNoiseSuppression,
+            onPickBackgroundImage = backgroundImagePickerLauncher.launch,
+            onClearBackgroundImage = cameraViewModel::onClearBackgroundImage,
+            onBackgroundImageCropChanged = cameraViewModel::onBackgroundImageCropChanged,
+            onBackgroundImageCropChangeFinished = cameraViewModel::onBackgroundImageCropChangeFinished,
+            onDismissMessage = cameraViewModel::onDismissSettingsMessage,
+        )
+    }
     val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
+
+    // 設定画面で流している BGM が、アプリを離れた後も鳴り続けないようにする。
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+        cameraViewModel.onAppBackgrounded()
+    }
 
     LaunchedEffect(Unit) {
         cameraViewModel.initialize()
@@ -104,41 +147,46 @@ fun CameraRoute(
         )
     }
 
-    CameraScreen(
-        cameraRepository = repositories.cameraRepository,
-        session = uiState.session,
-        permission = uiState.permission,
-        zoom = uiState.zoom,
-        photoCapture = uiState.photoCapture,
-        photoDeletion = uiState.photoDeletion,
-        captureMode = uiState.captureMode.mode,
-        videoRecording = uiState.videoRecording,
-        avatarRender = uiState.avatarRender,
-        avatarSelection = uiState.avatarSelection.avatarSelection,
-        filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
-        avatarScale = uiState.avatarScale.currentAvatarScale,
-        backgroundMode = uiState.background.mode,
-        pinchTarget = uiState.effectivePinchTarget,
-        isUiHidden = uiState.uiVisibility.isHidden,
-        onRequestPermission = cameraViewModel::onRequestPermission,
-        onRetryPreview = cameraViewModel::onRetryPreview,
-        onOpenFilePicker = filePickerLauncher.launch,
-        onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
-        onAvatarRenderLoadFailed = cameraViewModel::onAvatarRenderLoadFailed,
-        onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
-        onLensFacingChanged = cameraViewModel::onLensFacingChanged,
-        onLensFacingToggle = cameraViewModel::onToggleLensFacing,
-        onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
-        onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
-        onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
-        onHideUi = cameraViewModel::onHideUi,
-        onShowUi = cameraViewModel::onShowUi,
-        onCapturePhoto = cameraViewModel::onCapturePhoto,
-        onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
-        onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
-        modifier = modifier,
-        rendererHost = rendererHost,
-    )
+    CompositionLocalProvider(
+        LocalStoredMediaReader provides repositories.settingsPlatform.settingsRepository,
+    ) {
+        CameraScreen(
+            cameraRepository = repositories.cameraRepository,
+            session = uiState.session,
+            permission = uiState.permission,
+            zoom = uiState.zoom,
+            photoCapture = uiState.photoCapture,
+            photoDeletion = uiState.photoDeletion,
+            captureMode = uiState.captureMode.mode,
+            videoRecording = uiState.videoRecording,
+            avatarRender = uiState.avatarRender,
+            avatarSelection = uiState.avatarSelection.avatarSelection,
+            filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
+            avatarScale = uiState.avatarScale.currentAvatarScale,
+            backgroundMode = uiState.background.mode,
+            settings = uiState.settings,
+            settingsActions = settingsActions,
+            pinchTarget = uiState.effectivePinchTarget,
+            isUiHidden = uiState.uiVisibility.isHidden,
+            onRequestPermission = cameraViewModel::onRequestPermission,
+            onRetryPreview = cameraViewModel::onRetryPreview,
+            onOpenFilePicker = filePickerLauncher.launch,
+            onDismissFilePickerError = cameraViewModel::onDismissFilePickerError,
+            onAvatarRenderLoadFailed = cameraViewModel::onAvatarRenderLoadFailed,
+            onFaceTrackingFrameChanged = cameraViewModel::onFaceTrackingFrameChanged,
+            onLensFacingChanged = cameraViewModel::onLensFacingChanged,
+            onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
+            onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
+            onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
+            onHideUi = cameraViewModel::onHideUi,
+            onShowUi = cameraViewModel::onShowUi,
+            onCapturePhoto = cameraViewModel::onCapturePhoto,
+            onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
+            onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
+            modifier = modifier,
+            rendererHost = rendererHost,
+        )
+    }
 }
 
 /**
@@ -149,6 +197,9 @@ fun CameraRoute(
  *
  * 動画の録画は画面そのものを撮るため、[videoRecording] が進行中のあいだは [isUiHidden] によらず操作 UI を
  * 描かず、映像へ映り込まないようにする。このとき画面タップは録画の停止（[onToggleVideoRecording]）になる。
+ *
+ * 設定画面は操作 UI の設定ボタンから開く。[settings] は設定画面と背景画像の描画に使う設定の状態で、
+ * 設定画面の操作は [settingsActions] を通じて伝える。
  *
  * @param rendererHost custom renderer slot の実装。既定値は [defaultCameraRendererHost] で、
  * 現在の overlay ベースの avatar body 表示を維持する。
@@ -168,6 +219,8 @@ fun CameraScreen(
     filePickerErrorMessageRes: StringResource?,
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
+    settings: CameraSettingsUiState,
+    settingsActions: CameraSettingsActions,
     pinchTarget: PinchGestureTarget,
     isUiHidden: Boolean,
     onRequestPermission: () -> Unit,
@@ -177,7 +230,6 @@ fun CameraScreen(
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
-    onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
     onToggleBackgroundMode: () -> Unit,
@@ -228,6 +280,8 @@ fun CameraScreen(
                 lensFacing = session.lensFacing,
                 zoomScale = zoom.currentCameraZoomRatio,
                 backgroundMode = backgroundMode,
+                settings = settings,
+                settingsActions = settingsActions,
                 avatarSelection = avatarSelection,
                 avatarRenderState = avatarRender,
                 avatarScale = avatarScale,
@@ -242,7 +296,6 @@ fun CameraScreen(
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
                 onLensFacingChanged = onLensFacingChanged,
-                onLensFacingToggle = onLensFacingToggle,
                 onCameraZoomChanged = onCameraZoomChanged,
                 onAvatarScaleChanged = onAvatarScaleChanged,
                 onToggleBackgroundMode = onToggleBackgroundMode,
@@ -286,6 +339,9 @@ fun CameraScreen(
 
 private const val CAMERA_MESSAGE_DURATION_MILLIS = 3_000L
 
+// 画面の大きさが決まる前に使う縦横比。縦向きの一般的なスマートフォンに合わせる。
+private const val DEFAULT_SCREEN_ASPECT_RATIO = 9f / 19.5f
+
 // カメラ画面のレイヤー重ね順。数値が大きいほど手前に描画される。アバターは画面全体を使えるため、
 // 操作 UI が常にアバターより手前になるようにここで順序を固定する。
 private const val CAMERA_BACKGROUND_LAYER_Z_INDEX = 0f
@@ -299,6 +355,8 @@ private fun CameraPreviewState(
     lensFacing: CameraLensFacing,
     zoomScale: Float,
     backgroundMode: CameraBackgroundMode,
+    settings: CameraSettingsUiState,
+    settingsActions: CameraSettingsActions,
     avatarSelection: AvatarSelectionData?,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
@@ -313,7 +371,6 @@ private fun CameraPreviewState(
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
-    onLensFacingToggle: () -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
     onToggleBackgroundMode: () -> Unit,
@@ -327,15 +384,27 @@ private fun CameraPreviewState(
     val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
     val stopRecordingActionLabel = stringResource(Res.string.camera_video_stop_action)
     val isRecordingInProgress = videoRecording.isInProgress
+    var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    // 背景画像の範囲は画面の縦横比で決まる。設定画面の調整枠にも同じ比率を渡し、見た範囲がそのまま映るようにする。
+    var screenAspectRatio by remember { mutableFloatStateOf(DEFAULT_SCREEN_ASPECT_RATIO) }
 
     // レイヤーは背景 → アバター → ジェスチャー → 操作 UI の順で重ねる。アバターを拡大しても
     // ボタン類が隠れないよう、z 順を zIndex で明示して操作 UI を常に最前面に置く。
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .onSizeChanged { size ->
+                if (size.width > 0 && size.height > 0) {
+                    screenAspectRatio = size.width.toFloat() / size.height
+                }
+            },
+    ) {
         CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = lensFacing,
             zoomScale = DEFAULT_CAMERA_ZOOM_SCALE,
             backgroundMode = backgroundMode,
+            backgroundImage = settings.settings.backgroundImage,
             captureMode = captureMode,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
             onLensFacingChanged = onLensFacingChanged,
@@ -347,6 +416,7 @@ private fun CameraPreviewState(
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
             backgroundMode = backgroundMode,
+            isBackgroundImageActive = settings.settings.backgroundImage.image != null,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
             rendererHost = rendererHost,
         )
@@ -393,7 +463,7 @@ private fun CameraPreviewState(
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onHideUi = onHideUi,
                 onOpenFilePicker = onOpenFilePicker,
-                onLensFacingToggle = onLensFacingToggle,
+                onOpenSettings = { isSettingsOpen = true },
                 onCapturePhoto = onCapturePhoto,
                 isCapturingPhoto = photoCapture == PhotoCaptureState.Capturing,
                 captureMode = captureMode,
@@ -401,6 +471,15 @@ private fun CameraPreviewState(
                 onToggleVideoRecording = onToggleVideoRecording,
                 glass = glass,
             )
+            if (isSettingsOpen) {
+                CameraSettingsDialog(
+                    state = settings,
+                    actions = settingsActions,
+                    viewportAspectRatio = screenAspectRatio,
+                    glass = glass,
+                    onDismissRequest = { isSettingsOpen = false },
+                )
+            }
         }
     }
 }
@@ -455,7 +534,9 @@ private fun Modifier.stopRecordingOnTap(
 /**
  * カメラ映像の背景レイヤーを全画面で表示し、face tracking 更新を preview host へ渡す。
  *
- * preview host の上へ常に不透明な単色を重ねて実際の顔が映らないようにする。
+ * preview host の上へ常に不透明な単色を重ね、設定した背景画像があればさらにその上へ重ねて、実際の顔が映らないようにする。
+ * iOS では preview host の native view が Compose の描画より前面に出るため、背景画像は [backgroundImage] として
+ * preview host 側へも渡し、native view の内側で描く。
  * preview host 自体は常に構成したままにして face tracking を
  * 止めないため、背景を隠してもアバターは顔の動きに追従し続ける。
  */
@@ -465,6 +546,7 @@ private fun CameraBackgroundLayer(
     lensFacing: CameraLensFacing,
     zoomScale: Float,
     backgroundMode: CameraBackgroundMode,
+    backgroundImage: BackgroundImageSettings,
     captureMode: CameraCaptureMode,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
@@ -485,6 +567,7 @@ private fun CameraBackgroundLayer(
             cameraRepository = cameraRepository,
             lensFacing = lensFacing,
             backgroundMode = backgroundMode,
+            backgroundImage = backgroundImage,
             captureMode = captureMode,
             onLensFacingChanged = onLensFacingChanged,
             onFaceTrackingFrameChanged = onFaceTrackingFrameChanged,
@@ -493,6 +576,11 @@ private fun CameraBackgroundLayer(
             modifier = Modifier
                 .matchParentSize()
                 .background(backgroundMode.overlayColor),
+        )
+        // 背景画像は単色の上に重ねる。画像を読み込む間や読み込めないときは、単色がそのまま見える。
+        CameraBackgroundImageLayer(
+            backgroundImage = backgroundImage,
+            modifier = Modifier.matchParentSize(),
         )
     }
 }
@@ -512,6 +600,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
+    isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -524,6 +613,7 @@ private fun BoxScope.CameraRendererLayer(
                 avatarRenderState = avatarRenderState,
                 avatarScale = avatarScale,
                 backgroundMode = backgroundMode,
+                isBackgroundImageActive = isBackgroundImageActive,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
                 // アバターの表示可能領域は画面全体。拡大しても操作 UI に隠されるだけで
                 // 画面外へ切り取られないよう、余白を持たせずに全面へ広げる。
@@ -559,6 +649,8 @@ data class RendererHostSlotState(
     val modifier: Modifier,
     /** renderer layer の背面に描画する背景。iOS の native renderer へも渡す。 */
     val backgroundMode: CameraBackgroundMode,
+    /** 背景画像を表示中か。true のとき、native renderer は単色で塗りつぶさず背面の画像を見せる。 */
+    val isBackgroundImageActive: Boolean,
 )
 
 /**
@@ -591,6 +683,7 @@ private fun DefaultAvatarRendererHost(
         avatarRenderState = state.avatarRenderState,
         avatarScale = state.avatarScale,
         backgroundMode = state.backgroundMode,
+        isBackgroundImageActive = state.isBackgroundImageActive,
         onAvatarRenderLoadFailed = state.onAvatarRenderLoadFailed,
         modifier = state.modifier,
     )
@@ -617,7 +710,7 @@ private fun BoxScope.CameraUiLayer(
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
     onOpenFilePicker: () -> Unit,
-    onLensFacingToggle: () -> Unit,
+    onOpenSettings: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
     captureMode: CameraCaptureMode,
@@ -653,7 +746,7 @@ private fun BoxScope.CameraUiLayer(
     }
     CameraCaptureBar(
         onOpenFilePicker = onOpenFilePicker,
-        onLensFacingToggle = onLensFacingToggle,
+        onOpenSettings = onOpenSettings,
         onCapturePhoto = onCapturePhoto,
         isCapturingPhoto = isCapturingPhoto,
         captureMode = captureMode,
