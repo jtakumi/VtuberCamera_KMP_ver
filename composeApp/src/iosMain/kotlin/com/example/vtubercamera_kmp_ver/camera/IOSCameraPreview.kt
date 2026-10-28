@@ -29,11 +29,16 @@ import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageCrop
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsPlatform
+import com.example.vtubercamera_kmp_ver.camera.settings.visibleRegion
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.get
 import kotlinx.cinterop.readValue
+import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import platform.ARKit.ARBlendShapeLocationEyeBlinkLeft
 import platform.ARKit.ARBlendShapeLocationEyeBlinkRight
@@ -66,6 +71,7 @@ import platform.AVFoundation.maxAvailableVideoZoomFactor
 import platform.AVFoundation.minAvailableVideoZoomFactor
 import platform.AVFoundation.requestAccessForMediaType
 import platform.AVFoundation.videoZoomFactor
+import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGRectZero
 import platform.Foundation.NSData
 import platform.Foundation.NSError
@@ -84,7 +90,10 @@ import platform.UIKit.UIColor
 import platform.UIKit.UIDocumentPickerDelegateProtocol
 import platform.UIKit.UIDocumentPickerMode
 import platform.UIKit.UIDocumentPickerViewController
+import platform.UIKit.UIImage
 import platform.UIKit.UIImageJPEGRepresentation
+import platform.UIKit.UIImageView
+import platform.UIKit.UIViewContentMode
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
 import platform.UIKit.UIWindow
@@ -192,6 +201,7 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    backgroundImage: BackgroundImageSettings,
     // iOS の画面録画は撮影モードに依らず使え、マイク権限は ReplayKit が録画開始時に要求するため参照しない。
     captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
@@ -202,6 +212,8 @@ actual fun CameraPreviewHost(
     val previewView = remember { CameraPreviewContainerView() }
     val usesFaceTracking = remember(lensFacing) { lensFacing.shouldUseIosFaceTracking() }
     val currentOnFaceTrackingFrameChanged = rememberUpdatedState(onFaceTrackingFrameChanged)
+    // 背景画像は native view の内側で描く。画像の読み込みは画像が変わったときだけ行う。
+    val backgroundUiImage = remember(backgroundImage.image) { backgroundImage.image?.let(::loadStoredUiImage) }
 
     UIKitView(
         modifier = modifier.fillMaxSize(),
@@ -216,6 +228,7 @@ actual fun CameraPreviewHost(
             previewView.hidden = false
             previewView.alpha = 1.0
             previewView.showSolidBackground(backgroundMode.overlayColor)
+            previewView.showBackgroundImage(backgroundUiImage, backgroundImage.crop)
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = previewView)
             } else {
@@ -228,6 +241,7 @@ actual fun CameraPreviewHost(
             it.hidden = false
             it.alpha = 1.0
             it.showSolidBackground(backgroundMode.overlayColor)
+            it.showBackgroundImage(backgroundUiImage, backgroundImage.crop)
             if (usesFaceTracking) {
                 faceTrackingSessionManager.bindPreview(to = it)
             } else {
@@ -334,6 +348,7 @@ actual fun AvatarBodyOverlay(
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
+    isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -366,8 +381,9 @@ actual fun AvatarBodyOverlay(
 
     // UIKitView は Compose の単色背景より前面に合成されるため、iOS の Filament 側でも
     // 同じ背景色をクリア色として描画する。これにより透明レイヤーの合成差で白くなるのを防ぐ。
-    LaunchedEffect(backgroundMode) {
-        IOSAvatarRenderInterop.publishBackgroundMode(backgroundMode)
+    // 背景画像を出している間は透明でクリアし、背面の画像を隠さない。
+    LaunchedEffect(backgroundMode, isBackgroundImageActive) {
+        IOSAvatarRenderInterop.publishBackgroundMode(backgroundMode, isBackgroundImageActive)
     }
 
     val hostView = remember { IOSAvatarRenderHost.makeHostView() }
@@ -410,8 +426,45 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
         layer.zPosition = SOLID_BACKGROUND_Z_POSITION
     }
 
+    // 背景画像を描く面。単色の覆いの上に重ね、映す範囲は layer の contentsRect で切り出す。
+    private val backgroundImageView = UIImageView(frame = CGRectZero.readValue()).apply {
+        userInteractionEnabled = false
+        contentMode = UIViewContentMode.UIViewContentModeScaleToFill
+        hidden = true
+        layer.zPosition = BACKGROUND_IMAGE_Z_POSITION
+    }
+    private var backgroundImageAspectRatio = 0f
+    private var backgroundImageCrop = BackgroundImageCrop()
+
     init {
         addSubview(solidBackgroundView)
+        addSubview(backgroundImageView)
+    }
+
+    // 背景画像と映す範囲を反映する。[image] が null のときは画像の面を隠し、単色の覆いだけにする。
+    fun showBackgroundImage(image: UIImage?, crop: BackgroundImageCrop) {
+        if (backgroundImageView.image !== image) {
+            backgroundImageView.image = image
+        }
+        backgroundImageCrop = crop
+        backgroundImageAspectRatio = image?.size?.useContents { if (height > 0.0) (width / height).toFloat() else 0f } ?: 0f
+        backgroundImageView.hidden = image == null
+        applyBackgroundImageRegion()
+    }
+
+    // 画面の縦横比に合わせた映す範囲を、画像全体を 0〜1 に正規化した矩形として contentsRect へ設定する。
+    private fun applyBackgroundImageRegion() {
+        val viewAspectRatio = bounds.useContents { if (size.height > 0.0) (size.width / size.height).toFloat() else 0f }
+        val region = backgroundImageCrop.visibleRegion(
+            imageAspectRatio = backgroundImageAspectRatio,
+            viewportAspectRatio = viewAspectRatio,
+        )
+        backgroundImageView.layer.contentsRect = CGRectMake(
+            region.left.toDouble(),
+            region.top.toDouble(),
+            region.width.toDouble(),
+            region.height.toDouble(),
+        )
     }
 
     // 単色で実映像を常に覆う。
@@ -469,11 +522,16 @@ private class CameraPreviewContainerView : UIView(frame = CGRectZero.readValue()
         hostedPreviewLayer?.frame = bounds
         hostedView?.setFrame(bounds)
         solidBackgroundView.setFrame(bounds)
+        backgroundImageView.setFrame(bounds)
+        applyBackgroundImageRegion()
     }
 }
 
 // 単色の覆いを preview layer と ARKit view より前面に置くための zPosition。
 private const val SOLID_BACKGROUND_Z_POSITION = 1.0
+
+// 背景画像を単色の覆いのさらに前面に置くための zPosition。
+private const val BACKGROUND_IMAGE_Z_POSITION = 1.5
 
 // Adapts UIDocumentPicker callbacks into shared file-picker results.
 private class IOSDocumentPickerDelegate(
@@ -500,7 +558,7 @@ private class IOSDocumentPickerDelegate(
 }
 
 // 現在画面上に表示中の UIViewController をたどって取得する。
-private fun currentPresentedViewController(): UIViewController? {
+internal fun currentPresentedViewController(): UIViewController? {
     var currentViewController = UIApplication.sharedApplication.windows
         .filterIsInstance<UIWindow>()
         .firstOrNull { window -> window.isKeyWindow() }
@@ -530,20 +588,6 @@ private fun NSURL.toFilePickerResult(): FilePickerResult {
     } finally {
         if (didAccessResource) {
             stopAccessingSecurityScopedResource()
-        }
-    }
-}
-
-// NSData を Kotlin の ByteArray へコピー変換する。
-private fun NSData.toByteArray(): ByteArray {
-    val byteCount = length().toInt()
-    if (byteCount == 0) {
-        return ByteArray(0)
-    }
-
-    return ByteArray(byteCount).apply {
-        usePinned { pinned ->
-            getBytes(pinned.addressOf(0), length())
         }
     }
 }
@@ -840,6 +884,7 @@ actual fun rememberCameraRepositories(
 ): CameraRepositories {
     return remember(permissionController) {
         val previewState = kotlinx.coroutines.flow.MutableStateFlow<PreviewState>(PreviewState.Preparing)
+        val settingsRepository = IOSCameraSettingsRepository()
         CameraRepositories(
             cameraRepository = IOSCameraRepository(
                 hasLens = { lensFacing -> cameraDevice(lensFacing.toDevicePosition()) != null },
@@ -866,6 +911,10 @@ actual fun rememberCameraRepositories(
                     return currentPermissionState()
                 }
             },
+            settingsPlatform = CameraSettingsPlatform(
+                settingsRepository = settingsRepository,
+                bgmPlayer = IOSBgmPlayer(),
+            ),
         )
     }
 }
