@@ -2,7 +2,7 @@
 
 VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS を対象に、Compose Multiplatform の共有 camera 画面、platform camera preview、face tracking、VRM / GLB avatar 表示基盤を段階的に統合しています。
 
-現時点では、カメラ権限、リアルタイムプレビュー、フロント / バックカメラ切り替え、ピンチズーム、ピンチ操作によるアバター表示倍率調整、face tracking、VRM / GLB ファイル選択、avatar render state 連携、Liquid Glass 表現のカメラ操作 UI（iOS 26 以降は OS 製 `UIGlassEffect`、それ以外は Compose 実装）、ライト / ダーク / システムテーマ切り替えまでを実装しています。
+現時点では、カメラ権限、リアルタイムプレビュー、設定（BGM・背景画像・雑音抑制）、ピンチズーム、ピンチ操作によるアバター表示倍率調整、face tracking、VRM / GLB ファイル選択、avatar render state 連携、Liquid Glass 表現のカメラ操作 UI（iOS 26 以降は OS 製 `UIGlassEffect`、それ以外は Compose 実装）、ライト / ダーク / システムテーマ切り替えまでを実装しています。
 
 <!-- BEGIN AUTO-GENERATED README STATUS -->
 
@@ -12,7 +12,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 
 - カメラ権限確認と権限リクエスト
 - CameraX によるリアルタイムプレビュー
-- フロント / バックカメラ切り替え
+- 設定ダイアログ（BGM の選択・音量・録画連動再生、背景画像と映す範囲、雑音抑制）
 - ピンチ操作によるカメラズーム制御とズーム倍率表示
 - ピンチ操作によるアバター表示倍率調整（カメラズームとの切り替え式）
 - OpenDocument による VRM / GLB ファイル選択
@@ -30,7 +30,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - Compose Multiplatform host + AVFoundation によるネイティブカメラプレビュー
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
 - カメラ権限確認と権限リクエスト
-- フロント / バックカメラ切り替え
+- 設定ダイアログ（BGM の選択・音量・録画連動再生、背景画像と映す範囲、雑音抑制）
 - ピンチ操作によるカメラズーム制御とズーム倍率表示
 - `UIDocumentPickerViewController` による VRM / GLB ファイル選択
 - Filament renderer host view を Compose のアバターレイヤーへ提供（`IOSAvatarRenderHost`）
@@ -45,7 +45,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - Compose Multiplatform のアプリ入口
 - カメラ画面の基本 UI
 - `CameraViewModel` による画面状態管理（権限・プレビュー・ズーム・アバター状態）
-- レンズ向き状態 (`Back` / `Front`)
+- レンズ向き状態 (`Back` / `Front`) と、設定 (`CameraSettings`) の保持・永続化
 - ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新
 - アバター表示倍率 (`AvatarScaleUiState`) とピンチ操作対象 (`PinchGestureTarget`) の管理
 - face tracking の共有表示モデルと avatar 反映 state
