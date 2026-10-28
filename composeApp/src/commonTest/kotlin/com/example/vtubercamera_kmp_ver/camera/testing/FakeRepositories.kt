@@ -10,6 +10,12 @@ import com.example.vtubercamera_kmp_ver.camera.PhotoCaptureState
 import com.example.vtubercamera_kmp_ver.camera.PhotoDeletionState
 import com.example.vtubercamera_kmp_ver.camera.PreviewState
 import com.example.vtubercamera_kmp_ver.camera.VideoRecordingState
+import com.example.vtubercamera_kmp_ver.camera.settings.BgmPlayer
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsPlatform
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsRepository
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +26,6 @@ internal class FakeCameraRepository(
         CameraLensFacing.Front,
     ),
     private val startPreviewResult: Result<CameraLensFacing>? = null,
-    private val switchLensResult: Result<CameraLensFacing> = Result.success(CameraLensFacing.Front),
     private val deletePhotoResult: Result<Unit> = Result.success(Unit),
     private val startVideoRecordingResult: Result<Unit> = Result.success(Unit),
     private val stopVideoRecordingResult: Result<String?> = Result.success("fake://video.mp4"),
@@ -43,9 +48,6 @@ internal class FakeCameraRepository(
     var resolveInitialLensCallCount: Int = 0
         private set
 
-    var switchLensCallCount: Int = 0
-        private set
-
     var startVideoRecordingCallCount: Int = 0
         private set
 
@@ -54,7 +56,7 @@ internal class FakeCameraRepository(
 
     val startPreviewRequests = mutableListOf<CameraLensFacing>()
     val resolveInitialLensRequests = mutableListOf<CameraLensFacing>()
-    val switchLensRequests = mutableListOf<CameraLensFacing>()
+    val startVideoRecordingRequests = mutableListOf<VideoRecordingAudioOptions>()
     val setZoomRatioRequests = mutableListOf<Float>()
     val deletePhotoRequests = mutableListOf<String>()
 
@@ -70,16 +72,6 @@ internal class FakeCameraRepository(
 
     override suspend fun stopPreview() {
         previewState.value = PreviewState.Preparing
-    }
-
-    override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-        switchLensCallCount += 1
-        switchLensRequests += current
-        val result = switchLensResult
-        if (result.isSuccess) {
-            previewState.value = PreviewState.Showing
-        }
-        return result
     }
 
     override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
@@ -106,8 +98,9 @@ internal class FakeCameraRepository(
         return videoRecordingState.asStateFlow()
     }
 
-    override suspend fun startVideoRecording(): Result<Unit> {
+    override suspend fun startVideoRecording(audioOptions: VideoRecordingAudioOptions): Result<Unit> {
         startVideoRecordingCallCount += 1
+        startVideoRecordingRequests += audioOptions
         return startVideoRecordingResult.also { result ->
             videoRecordingState.value = if (result.isSuccess) {
                 VideoRecordingState.Recording
@@ -187,4 +180,74 @@ internal class FakePermissionRepository(
     override suspend fun requestCameraPermission(): PermissionState {
         return checkCameraPermissionResult
     }
+}
+
+// 設定の保存先を持たないテスト用のリポジトリ。保存した設定と削除したファイルを記録する。
+internal class FakeCameraSettingsRepository(
+    initialSettings: CameraSettings = CameraSettings(),
+    private val loadResult: Result<CameraSettings> = Result.success(initialSettings),
+    private val saveResult: Result<Unit> = Result.success(Unit),
+) : CameraSettingsRepository {
+    val savedSettings = mutableListOf<CameraSettings>()
+    val deletedMedia = mutableListOf<StoredMedia>()
+
+    override fun load(): Result<CameraSettings> = loadResult
+
+    override fun save(settings: CameraSettings): Result<Unit> {
+        savedSettings += settings
+        return saveResult
+    }
+
+    override fun deleteMedia(media: StoredMedia): Result<Unit> {
+        deletedMedia += media
+        return Result.success(Unit)
+    }
+
+    override fun read(media: StoredMedia): ByteArray? = null
+}
+
+// 音を出さないテスト用の BGM プレーヤー。再生の要求と音量を記録する。
+internal class FakeBgmPlayer(
+    private val playResult: Result<Unit> = Result.success(Unit),
+) : BgmPlayer {
+    override var onPlaybackFailed: (() -> Unit)? = null
+    override var isPlaying: Boolean = false
+        private set
+    override var positionMs: Long = 0L
+
+    val playRequests = mutableListOf<PlayRequest>()
+    val volumeRequests = mutableListOf<Float>()
+    var stopCallCount: Int = 0
+        private set
+    var isReleased: Boolean = false
+        private set
+
+    override fun play(track: StoredMedia, volume: Float, startPositionMs: Long): Result<Unit> {
+        playRequests += PlayRequest(track, volume, startPositionMs)
+        isPlaying = playResult.isSuccess
+        return playResult
+    }
+
+    override fun stop() {
+        stopCallCount += 1
+        isPlaying = false
+    }
+
+    override fun setVolume(volume: Float) {
+        volumeRequests += volume
+    }
+
+    override fun release() {
+        isReleased = true
+    }
+
+    data class PlayRequest(val track: StoredMedia, val volume: Float, val startPositionMs: Long)
+}
+
+// ViewModel のテストへ渡す設定まわりの一式。中身を検証したいテストは repository / player を直接参照する。
+internal class FakeCameraSettingsPlatform(
+    val repository: FakeCameraSettingsRepository = FakeCameraSettingsRepository(),
+    val bgmPlayer: FakeBgmPlayer = FakeBgmPlayer(),
+) {
+    val platform = CameraSettingsPlatform(settingsRepository = repository, bgmPlayer = bgmPlayer)
 }
