@@ -51,9 +51,12 @@ actual fun rememberMediaPickerLauncher(
         }
     }
 
-    return remember(pickerLauncher, kind) {
-        FilePickerLauncher(launch = { pickerLauncher.launch(kind.mimeTypes()) })
+    // launch の関数オブジェクトだけを保持する。FilePickerLauncher の等価性は launch で決まるため、
+    // 再 composition でも同じ値になり、受け取る側の remember が無駄に作り直されない。
+    val launch: () -> Unit = remember(pickerLauncher, kind) {
+        { pickerLauncher.launch(kind.mimeTypes()) }
     }
+    return FilePickerLauncher(launch = launch)
 }
 
 // ピッカーに指定する MIME タイプ。
