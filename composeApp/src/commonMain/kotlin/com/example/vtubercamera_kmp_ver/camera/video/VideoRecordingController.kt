@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 class VideoRecordingController(
     private val cameraRepository: CameraRepository,
     private val scope: CoroutineScope,
+    private val audioOptionsProvider: () -> VideoRecordingAudioOptions = { VideoRecordingAudioOptions() },
 ) {
     private val _state = MutableStateFlow<VideoRecordingState>(VideoRecordingState.Idle)
     val state: StateFlow<VideoRecordingState> = _state.asStateFlow()
@@ -50,7 +51,8 @@ class VideoRecordingController(
         _state.value = VideoRecordingState.Starting
         scope.launch {
             delay(UI_HIDE_SETTLE_MILLIS)
-            val startResult = cameraRepository.startVideoRecording()
+            // 録画の頭で流れている BGM の位置を正しく渡すため、UI が消えるのを待った後に構成を確定する。
+            val startResult = cameraRepository.startVideoRecording(audioOptionsProvider())
             if (startResult.isFailure && _state.value == VideoRecordingState.Starting) {
                 _state.value = VideoRecordingState.Failed(CameraError.VideoRecordFailed)
             }
