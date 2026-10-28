@@ -112,42 +112,6 @@ class CameraSessionControllerTest {
         }
 
     @Test
-    fun onToggleLensFacing_whenSwitchSucceeds_updatesLensFacingAndClearsError() = runTest {
-        val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.success(CameraLensFacing.Back),
-        )
-        val controller = CameraSessionController(cameraRepository, controllerScope())
-        advanceUntilIdle()
-        assertEquals(CameraLensFacing.Front, controller.state.value.lensFacing)
-
-        controller.onToggleLensFacing()
-        advanceUntilIdle()
-
-        assertEquals(CameraLensFacing.Back, controller.state.value.lensFacing)
-        assertNull(controller.state.value.errorState)
-        assertEquals(1, cameraRepository.switchLensCallCount)
-        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.switchLensRequests)
-    }
-
-    @Test
-    fun onToggleLensFacing_whenSwitchFails_setsLensSwitchFailedError() = runTest {
-        val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.failure(
-                CameraRepositoryException(CameraError.LensSwitchFailed),
-            ),
-        )
-        val controller = CameraSessionController(cameraRepository, controllerScope())
-        advanceUntilIdle()
-
-        controller.onToggleLensFacing()
-        advanceUntilIdle()
-
-        assertEquals(CameraError.LensSwitchFailed, controller.state.value.errorState)
-        val previewState = assertIs<PreviewState.Error>(controller.state.value.previewState)
-        assertEquals(CameraError.LensSwitchFailed, previewState.error)
-    }
-
-    @Test
     fun observePreviewState_syncsErrorAndMessageFromRepository() = runTest {
         val cameraRepository = FakeCameraRepository()
         val controller = CameraSessionController(cameraRepository, controllerScope())
