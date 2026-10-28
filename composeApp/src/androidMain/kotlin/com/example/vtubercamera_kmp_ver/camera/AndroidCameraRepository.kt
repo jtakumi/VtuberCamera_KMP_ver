@@ -12,6 +12,9 @@ import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
 import com.example.vtubercamera_kmp_ver.avatar.render.AndroidAvatarFrameProvider
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -22,7 +25,7 @@ import java.io.File
 import java.net.URI
 import kotlin.coroutines.resume
 
-private fun Bitmap.withExifOrientation(file: File): Bitmap {
+internal fun Bitmap.withExifOrientation(file: File): Bitmap {
     val orientation = runCatching {
         ExifInterface(file).getAttributeInt(
             ExifInterface.TAG_ORIENTATION,
@@ -81,12 +84,15 @@ internal class AndroidCameraRepository(
     // 合成前の写真を一時ファイルへ撮影し、合成後の画像は photoBitmapSaver で保存する。
     private val photoOutputFactory: () -> PhotoCaptureOutput = ::createTempFilePhotoOutput,
     private val photoBitmapSaver: (Bitmap) -> String? = ::savePhotoBitmapToTempFile,
+    // 取り込み済みの背景画像や BGM を実体のファイルへ解決する。写真の合成と録画の BGM 混合で使う。
+    private val storedMediaFileResolver: (StoredMedia) -> File? = { null },
 ) : CameraRepository {
     private var pendingLensFacing: CameraLensFacing? = null
     private var cameraControl: CameraControl? = null
     private var imageCapture: ImageCapture? = null
     private var videoRecorder: AndroidVideoRecorder? = null
     private var photoBackgroundColor: Int = CAMERA_BACKGROUND_GREEN
+    private var photoBackgroundImage: BackgroundImageSettings = BackgroundImageSettings()
 
     // 録画セッションの管理。いずれも main thread からだけ触る（呼び出し元と recorder の完了通知が main）。
     private var activeRecording: AndroidVideoRecording? = null
@@ -107,18 +113,6 @@ internal class AndroidCameraRepository(
     override suspend fun stopPreview() {
         pendingLensFacing = null
         previewState.value = PreviewState.Preparing
-    }
-
-    override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-        val cameraAvailability = cameraAvailabilityProvider()
-        previewState.value = PreviewState.Preparing
-        val targetLens = current.toggled()
-        if (!cameraAvailability.hasCamera(targetLens)) {
-            previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
-            return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
-        }
-        pendingLensFacing = targetLens
-        return Result.success(targetLens)
     }
 
     override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> {
@@ -186,8 +180,10 @@ internal class AndroidCameraRepository(
             return failPhotoCapture()
         }
 
+        val backgroundImageSettings = photoBackgroundImage
         val photoUri = runCatching {
             withContext(Dispatchers.IO) {
+                val backgroundBitmap = backgroundImageSettings.image?.let(::decodeStoredBackgroundBitmap)
                 val cameraFile = output.file
                 val cameraBitmap = BitmapFactory.decodeFile(cameraFile.absolutePath)
                     ?: error("Captured photo could not be decoded")
@@ -196,7 +192,13 @@ internal class AndroidCameraRepository(
 
                 try {
                     val composedBitmap = avatarBitmap?.let {
-                        compositePhoto(uprightBitmap, it, photoBackgroundColor)
+                        compositePhoto(
+                            cameraBitmap = uprightBitmap,
+                            avatarBitmap = it,
+                            backgroundColor = photoBackgroundColor,
+                            backgroundImage = backgroundBitmap,
+                            backgroundImageCrop = backgroundImageSettings.crop,
+                        )
                     } ?: uprightBitmap
                     try {
                         photoBitmapSaver(composedBitmap)
@@ -206,6 +208,7 @@ internal class AndroidCameraRepository(
                 } finally {
                     uprightBitmap.recycle()
                     avatarBitmap?.recycle()
+                    backgroundBitmap?.recycle()
                 }
             }
         }.getOrNull()
@@ -228,12 +231,12 @@ internal class AndroidCameraRepository(
 
     // アプリ画面の録画を開始する。録画中、recorder が未準備、開始に失敗したときは
     // [CameraError.VideoRecordFailed] で失敗する。すでに録画中の呼び出しは状態を変えずに失敗だけ返す。
-    override suspend fun startVideoRecording(): Result<Unit> {
+    override suspend fun startVideoRecording(audioOptions: VideoRecordingAudioOptions): Result<Unit> {
         if (activeRecording != null) {
             return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
         }
         val recorder = videoRecorder ?: return failVideoRecordingStart()
-        val recording = runCatching { recorder.startRecording(::onVideoRecordingFinalized) }
+        val recording = runCatching { recorder.startRecording(audioOptions, ::onVideoRecordingFinalized) }
             .getOrElse { return failVideoRecordingStart() }
         activeRecording = recording
         videoRecordingState.value = VideoRecordingState.Recording
@@ -331,6 +334,18 @@ internal class AndroidCameraRepository(
             CameraBackgroundMode.Green -> CAMERA_BACKGROUND_GREEN
             CameraBackgroundMode.Blue -> CAMERA_BACKGROUND_BLUE
         }
+    }
+
+    /** 取り込み済みのメディアの実体を返す。解決できないときは null を返す。 */
+    fun resolveStoredMediaFile(media: StoredMedia): File? = storedMediaFileResolver(media)
+
+    // 取り込み済みの背景画像を Bitmap へ読み込む。読めないときは null を返し、写真の合成は単色の背景で続ける。
+    private fun decodeStoredBackgroundBitmap(media: StoredMedia): Bitmap? =
+        storedMediaFileResolver(media)?.let { file -> BitmapFactory.decodeFile(file.path) }
+
+    // 設定した背景画像を、撮影画像へ合成する背景として保持する。画像が無いときは単色の背景だけを合成する。
+    fun onPlatformBackgroundImageChanged(backgroundImage: BackgroundImageSettings) {
+        photoBackgroundImage = backgroundImage
     }
 
     // 画面録画の開始口。画面が破棄されるときは null に戻す。
