@@ -13,6 +13,10 @@ import com.example.vtubercamera_kmp_ver.camera.permission.PermissionChange
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoCaptureController
 import com.example.vtubercamera_kmp_ver.camera.photo.PhotoDeletionController
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionController
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageCrop
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsController
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsPlatform
+import com.example.vtubercamera_kmp_ver.camera.settings.MediaPickResult
 import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityController
 import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingController
 import com.example.vtubercamera_kmp_ver.camera.zoom.CameraZoomController
@@ -29,6 +33,7 @@ import org.jetbrains.compose.resources.StringResource
 class CameraViewModel(
     cameraRepository: CameraRepository,
     permissionRepository: PermissionRepository,
+    settingsPlatform: CameraSettingsPlatform,
 ) : ViewModel() {
     private val sessionController = CameraSessionController(
         cameraRepository = cameraRepository,
@@ -53,9 +58,14 @@ class CameraViewModel(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
     )
+    private val settingsController = CameraSettingsController(
+        repository = settingsPlatform.settingsRepository,
+        bgmPlayer = settingsPlatform.bgmPlayer,
+    )
     private val videoRecordingController = VideoRecordingController(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
+        audioOptionsProvider = settingsController::recordingAudioOptions,
     )
     private val captureModeController = CameraCaptureModeController()
     private val faceTrackingPresenter = FaceTrackingPresenter()
@@ -129,6 +139,12 @@ class CameraViewModel(
         mirrorScope.launch {
             videoRecordingController.state.collect { videoRecording ->
                 _uiState.update { it.copy(videoRecording = videoRecording) }
+                settingsController.onRecordingStateChanged(videoRecording)
+            }
+        }
+        mirrorScope.launch {
+            settingsController.state.collect { settings ->
+                _uiState.update { it.copy(settings = settings) }
             }
         }
         mirrorScope.launch {
@@ -188,15 +204,6 @@ class CameraViewModel(
         permissionCoordinator.onPermissionStateChanged(isGranted, isChecking)
     }
 
-    // 録画中はプレビューの再構成で録画が途切れるため、レンズ切り替えを受け付けない。
-    fun onToggleLensFacing() {
-        if (_uiState.value.isVideoRecordingActive) {
-            return
-        }
-        acknowledgeCaptureOutcomes()
-        sessionController.onToggleLensFacing()
-    }
-
     fun onFaceTrackingFrameChanged(frame: NormalizedFaceFrame?) {
         faceTrackingPresenter.onFaceTrackingFrameChanged(frame)
     }
@@ -226,6 +233,75 @@ class CameraViewModel(
     // カメラ映像を覆う背景モードを次のプリセットへ切り替える。
     fun onToggleBackgroundMode() {
         backgroundController.onToggleBackgroundMode()
+    }
+
+    // BGM のピッカーの結果を受け取る。選択済みなら差し替え、失敗なら案内を出し、キャンセルなら何もしない。
+    fun onBgmPickResult(result: MediaPickResult) {
+        when (result) {
+            is MediaPickResult.Success -> settingsController.onBgmPicked(result.media)
+            is MediaPickResult.Error -> settingsController.onMediaPickFailed(result.messageRes)
+            MediaPickResult.Cancelled -> Unit
+        }
+    }
+
+    // BGM の設定を外す。
+    fun onClearBgm() {
+        settingsController.onClearBgm()
+    }
+
+    // 設定画面から BGM を再生 / 停止する。
+    fun onToggleBgmPlayback() {
+        settingsController.onToggleBgmPlayback()
+    }
+
+    fun onBgmVolumeChanged(volume: Float) {
+        settingsController.onBgmVolumeChanged(volume)
+    }
+
+    fun onBgmVolumeChangeFinished() {
+        settingsController.onBgmVolumeChangeFinished()
+    }
+
+    // 録画の開始と同時に BGM を流す設定を反転する。
+    fun onToggleBgmStartsWithRecording() {
+        settingsController.onToggleBgmStartsWithRecording()
+    }
+
+    // 雑音抑制の設定を反転する。
+    fun onToggleNoiseSuppression() {
+        settingsController.onToggleNoiseSuppression()
+    }
+
+    // 背景画像のピッカーの結果を受け取る。選択済みなら背景に設定し、失敗なら案内を出し、キャンセルなら何もしない。
+    fun onBackgroundImagePickResult(result: MediaPickResult) {
+        when (result) {
+            is MediaPickResult.Success -> settingsController.onBackgroundImagePicked(result.media)
+            is MediaPickResult.Error -> settingsController.onMediaPickFailed(result.messageRes)
+            MediaPickResult.Cancelled -> Unit
+        }
+    }
+
+    // 背景画像の設定を外して単色の背景プリセットへ戻す。
+    fun onClearBackgroundImage() {
+        settingsController.onClearBackgroundImage()
+    }
+
+    fun onBackgroundImageCropChanged(crop: BackgroundImageCrop) {
+        settingsController.onBackgroundImageCropChanged(crop)
+    }
+
+    fun onBackgroundImageCropChangeFinished() {
+        settingsController.onBackgroundImageCropChangeFinished()
+    }
+
+    // 設定の保存や BGM 再生失敗の案内を閉じる。
+    fun onDismissSettingsMessage() {
+        settingsController.onDismissMessage()
+    }
+
+    // アプリが背面へ回ったとき、設定画面で流している BGM を止める。
+    fun onAppBackgrounded() {
+        settingsController.onAppBackgrounded()
     }
 
     // 操作 UI を隠す UI 非表示モードを ON にする。
@@ -291,6 +367,7 @@ class CameraViewModel(
     }
 
     override fun onCleared() {
+        settingsController.release()
         releaseCurrentAvatarAsset()
         super.onCleared()
     }
