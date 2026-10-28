@@ -1,9 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlinx.coroutines.flow.Flow
 import org.jetbrains.compose.resources.StringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_lens_switch_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_permission_denied
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_photo_capture_failed
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_photo_delete_failed
@@ -35,7 +35,6 @@ enum class CameraError {
     PermissionDenied,
     CameraUnavailable,
     PreviewInitializationFailed,
-    LensSwitchFailed,
     PhotoCaptureFailed,
     PhotoDeleteFailed,
     VideoRecordFailed,
@@ -116,7 +115,6 @@ fun CameraError.toCameraMessage(): CameraMessage {
         CameraError.PreviewInitializationFailed -> {
             Res.string.camera_error_preview_initialization_failed
         }
-        CameraError.LensSwitchFailed -> Res.string.camera_error_lens_switch_failed
         CameraError.PhotoCaptureFailed -> Res.string.camera_error_photo_capture_failed
         CameraError.PhotoDeleteFailed -> Res.string.camera_error_photo_delete_failed
         CameraError.VideoRecordFailed -> Res.string.camera_error_video_record_failed
@@ -171,8 +169,6 @@ interface CameraRepository {
 
     suspend fun stopPreview()
 
-    suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing>
-
     suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing>
 
     fun observePreviewState(): Flow<PreviewState>
@@ -184,8 +180,9 @@ interface CameraRepository {
     fun observeVideoRecordingState(): Flow<VideoRecordingState>
 
     // アプリ画面（カメラ映像とアバター）の録画を開始する。録画中や準備未完了のときは
-    // [CameraError.VideoRecordFailed] で失敗する。
-    suspend fun startVideoRecording(): Result<Unit>
+    // [CameraError.VideoRecordFailed] で失敗する。[audioOptions] は録音する音声の構成（BGM の混合と雑音抑制）で、
+    // プラットフォームごとに反映できる範囲が異なる。
+    suspend fun startVideoRecording(audioOptions: VideoRecordingAudioOptions): Result<Unit>
 
     // 録画を停止し、ギャラリーへの保存完了まで待って保存先の URI を返す。録画中でなければ失敗する。
     suspend fun stopVideoRecording(): Result<String?>
