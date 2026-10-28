@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import kotlin.test.Test
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -30,20 +31,6 @@ class IOSCameraRepositoryTest {
 
         val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
         assertEquals(CameraError.CameraUnavailable, exception.error)
-    }
-
-    @Test
-    fun switchLens_returnsLensSwitchFailedWhenTargetLensIsMissing() = runTest {
-        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
-
-        val result = repository.switchLens(CameraLensFacing.Back)
-
-        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
-        assertEquals(CameraError.LensSwitchFailed, exception.error)
-        assertEquals(
-            PreviewState.Error(CameraError.LensSwitchFailed),
-            repository.observePreviewState().first(),
-        )
     }
 
     @Test
@@ -84,7 +71,7 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
         assertEquals(CameraError.VideoRecordFailed, exception.error)
@@ -100,7 +87,7 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(recorder)
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         assertTrue(result.isFailure)
         assertEquals(0, recorder.startCount)
@@ -115,10 +102,10 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(
-            IOSVideoRecorder { throw IllegalStateException("screen recording is unavailable") },
+            IOSVideoRecorder { _, _ -> throw IllegalStateException("screen recording is unavailable") },
         )
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
         assertEquals(CameraError.VideoRecordFailed, exception.error)
@@ -135,8 +122,8 @@ class IOSCameraRepositoryTest {
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(recorder)
 
-        val first = repository.startVideoRecording()
-        val second = repository.startVideoRecording()
+        val first = repository.startVideoRecording(VideoRecordingAudioOptions())
+        val second = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         assertTrue(first.isSuccess)
         assertTrue(second.isFailure)
@@ -160,7 +147,7 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val stopResult = async { repository.stopVideoRecording() }
         advanceUntilIdle()
@@ -185,7 +172,7 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val stopResult = async { repository.stopVideoRecording() }
         advanceUntilIdle()
@@ -206,22 +193,21 @@ class IOSCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
         // 停止要求なしに録画側から終了（ReplayKit の権限拒否など）しても、次の録画を始められる状態へ戻る。
         recorder.finalize(uri = null, error = IllegalStateException("User declined screen recording"))
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         assertTrue(result.isSuccess)
         assertEquals(2, recorder.startCount)
     }
 
     @Test
-    fun onPlatformPreviewStarted_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
+    fun onPlatformPreviewStarted_ignoresStaleCallbackWhilePreviewIsPending() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front))
 
-        repository.startPreview(CameraLensFacing.Back)
-        repository.switchLens(CameraLensFacing.Back)
+        repository.startPreview(CameraLensFacing.Front)
 
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         assertEquals(PreviewState.Preparing, repository.observePreviewState().first())
@@ -231,11 +217,10 @@ class IOSCameraRepositoryTest {
     }
 
     @Test
-    fun onPlatformPreviewError_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
+    fun onPlatformPreviewError_ignoresStaleCallbackWhilePreviewIsPending() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front))
 
-        repository.startPreview(CameraLensFacing.Back)
-        repository.switchLens(CameraLensFacing.Back)
+        repository.startPreview(CameraLensFacing.Front)
 
         repository.onPlatformPreviewError(CameraLensFacing.Back, CameraError.CameraUnavailable)
         assertEquals(PreviewState.Preparing, repository.observePreviewState().first())
@@ -401,6 +386,7 @@ class IOSCameraRepositoryTest {
         private var onFinalized: ((uri: String?, error: Throwable?) -> Unit)? = null
 
         override fun startRecording(
+            audioOptions: VideoRecordingAudioOptions,
             onFinalized: (uri: String?, error: Throwable?) -> Unit,
         ): IOSVideoRecording {
             startCount += 1
