@@ -174,6 +174,26 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
+    fun stopVideoRecording_whenRecorderStopThrows_publishesFailed() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(
+            AndroidVideoRecorder { _, _ ->
+                AndroidVideoRecording { throw IllegalStateException("stop failed") }
+            },
+        )
+        repository.startVideoRecording(VideoRecordingAudioOptions())
+
+        val result = repository.stopVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
     fun startVideoRecording_afterRecorderEndsOnItsOwn_allowsNextRecording() = runTest {
         val recorder = FakeVideoRecorder()
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
