@@ -178,6 +178,32 @@ class CameraSettingsControllerTest {
     }
 
     @Test
+    fun onMicrophoneVolumeChanged_updatesSettingsAndPersistsWhenFinished() {
+        val repository = FakeCameraSettingsRepository()
+        val controller = createController(repository = repository)
+
+        controller.onMicrophoneVolumeChanged(1.5f)
+
+        assertEquals(1.5f, controller.state.value.settings.microphoneVolume)
+        assertTrue(repository.savedSettings.isEmpty())
+
+        controller.onMicrophoneVolumeChangeFinished()
+
+        assertEquals(1.5f, repository.savedSettings.last().microphoneVolume)
+    }
+
+    @Test
+    fun onMicrophoneVolumeChanged_clampsToZeroThroughTwoHundredPercent() {
+        val controller = createController()
+
+        controller.onMicrophoneVolumeChanged(2.5f)
+        assertEquals(MAX_MICROPHONE_VOLUME, controller.state.value.settings.microphoneVolume)
+
+        controller.onMicrophoneVolumeChanged(-1f)
+        assertEquals(MIN_MICROPHONE_VOLUME, controller.state.value.settings.microphoneVolume)
+    }
+
+    @Test
     fun toggles_flipAndPersistTheirSettings() {
         val repository = FakeCameraSettingsRepository()
         val controller = createController(repository = repository)
@@ -378,6 +404,15 @@ class CameraSettingsControllerTest {
 
         assertNull(controller.recordingAudioOptions().bgm)
         assertFalse(controller.recordingAudioOptions().isNoiseSuppressionEnabled)
+    }
+
+    @Test
+    fun recordingAudioOptions_includesConfiguredMicrophoneGain() {
+        val controller = createController(
+            repository = FakeCameraSettingsRepository(CameraSettings(microphoneVolume = 1.75f)),
+        )
+
+        assertEquals(1.75f, controller.recordingAudioOptions().microphoneGain)
     }
 
     @Test

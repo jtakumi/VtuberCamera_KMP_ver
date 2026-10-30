@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera.video
 
 import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.settings.DEFAULT_MICROPHONE_VOLUME
 
 /**
  * 録画する音声の構成。録画の開始時点で確定し、録画の途中では変わらない。
@@ -11,6 +12,8 @@ import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
 data class VideoRecordingAudioOptions(
     val bgm: RecordingBgm? = null,
     val isNoiseSuppressionEnabled: Boolean = false,
+    /** 録画へ入れるマイク音量。Android では 100% を 1.0 とし、0〜200% を扱う。 */
+    val microphoneGain: Float = DEFAULT_MICROPHONE_VOLUME,
 )
 
 /**

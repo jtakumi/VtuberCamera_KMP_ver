@@ -1,5 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.camera.settings.MAX_MICROPHONE_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.MIN_MICROPHONE_VOLUME
 import kotlin.math.floor
 import kotlin.math.roundToInt
 
@@ -7,7 +9,7 @@ import kotlin.math.roundToInt
  * マイクと BGM の 16 bit PCM を 1 チャンネルへ混ぜ合わせる。
  *
  * [mic] が null のときはマイクを無音として扱い、[bgm] が null のときは BGM を無音として扱う。
- * BGM には [bgmGain] を掛ける。和が 16 bit の範囲を超える場合は、波形が折り返して耳障りな音にならないよう
+ * マイクには [micGain]（0〜2、最大 200%）、BGM には [bgmGain] を掛ける。和が 16 bit の範囲を超える場合は、波形が折り返して耳障りな音にならないよう
  * 範囲の端へ収める。結果は [out] の先頭 [sampleCount] 個へ書く。
  */
 internal fun mixPcm16(
@@ -15,10 +17,12 @@ internal fun mixPcm16(
     bgm: ShortArray?,
     sampleCount: Int,
     bgmGain: Float,
+    micGain: Float = 1f,
     out: ShortArray,
 ) {
+    val effectiveMicGain = micGain.coerceIn(MIN_MICROPHONE_VOLUME, MAX_MICROPHONE_VOLUME)
     for (index in 0 until sampleCount) {
-        val micSample = mic?.get(index)?.toFloat() ?: 0f
+        val micSample = mic?.get(index)?.toFloat()?.times(effectiveMicGain) ?: 0f
         val bgmSample = bgm?.get(index)?.toFloat()?.times(bgmGain) ?: 0f
         out[index] = (micSample + bgmSample)
             .coerceIn(Short.MIN_VALUE.toFloat(), Short.MAX_VALUE.toFloat())
