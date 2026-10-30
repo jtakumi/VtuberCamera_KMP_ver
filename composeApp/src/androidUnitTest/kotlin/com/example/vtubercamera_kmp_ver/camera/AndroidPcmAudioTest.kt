@@ -21,6 +21,68 @@ class AndroidPcmAudioTest {
     }
 
     @Test
+    fun mixPcm16_appliesMicrophoneGainForAttenuationAndAmplification() {
+        val quieter = ShortArray(2)
+        val oneHundredFiftyPercent = ShortArray(2)
+        val twoHundredPercent = ShortArray(2)
+        val aboveMaximum = ShortArray(2)
+
+        mixPcm16(
+            mic = shortArrayOf(1_000, -2_000),
+            bgm = null,
+            sampleCount = 2,
+            bgmGain = 1f,
+            out = quieter,
+            micGain = 0.5f,
+        )
+        mixPcm16(
+            mic = shortArrayOf(1_000, -2_000),
+            bgm = null,
+            sampleCount = 2,
+            bgmGain = 1f,
+            out = oneHundredFiftyPercent,
+            micGain = 1.5f,
+        )
+        mixPcm16(
+            mic = shortArrayOf(1_000, -2_000),
+            bgm = null,
+            sampleCount = 2,
+            bgmGain = 1f,
+            out = twoHundredPercent,
+            micGain = 2f,
+        )
+        mixPcm16(
+            mic = shortArrayOf(1_000, -2_000),
+            bgm = null,
+            sampleCount = 2,
+            bgmGain = 1f,
+            out = aboveMaximum,
+            micGain = 2.5f,
+        )
+
+        assertContentEquals(shortArrayOf(500, -1_000), quieter)
+        assertContentEquals(shortArrayOf(1_500, -3_000), oneHundredFiftyPercent)
+        assertContentEquals(shortArrayOf(2_000, -4_000), twoHundredPercent)
+        assertContentEquals(shortArrayOf(2_000, -4_000), aboveMaximum)
+    }
+
+    @Test
+    fun mixPcm16_clipsAmplifiedMicrophoneSamples() {
+        val out = ShortArray(2)
+
+        mixPcm16(
+            mic = shortArrayOf(20_000, -20_000),
+            bgm = null,
+            sampleCount = 2,
+            bgmGain = 1f,
+            out = out,
+            micGain = 2f,
+        )
+
+        assertContentEquals(shortArrayOf(Short.MAX_VALUE, Short.MIN_VALUE), out)
+    }
+
+    @Test
     fun mixPcm16_clipsInsteadOfWrappingAround() {
         val out = ShortArray(2)
 
@@ -40,8 +102,8 @@ class AndroidPcmAudioTest {
         val micOnly = ShortArray(2)
         val bgmOnly = ShortArray(2)
 
-        mixPcm16(shortArrayOf(5, 6), null, 2, 1f, micOnly)
-        mixPcm16(null, shortArrayOf(1000, -1000), 2, 0.1f, bgmOnly)
+        mixPcm16(mic = shortArrayOf(5, 6), bgm = null, sampleCount = 2, bgmGain = 1f, out = micOnly)
+        mixPcm16(mic = null, bgm = shortArrayOf(1000, -1000), sampleCount = 2, bgmGain = 0.1f, out = bgmOnly)
 
         assertContentEquals(shortArrayOf(5, 6), micOnly)
         assertContentEquals(shortArrayOf(100, -100), bgmOnly)
@@ -51,7 +113,7 @@ class AndroidPcmAudioTest {
     fun mixPcm16_onlyWritesTheRequestedSampleCount() {
         val out = shortArrayOf(7, 7, 7)
 
-        mixPcm16(shortArrayOf(1, 2, 3), null, 2, 1f, out)
+        mixPcm16(mic = shortArrayOf(1, 2, 3), bgm = null, sampleCount = 2, bgmGain = 1f, out = out)
 
         assertContentEquals(shortArrayOf(1, 2, 7), out)
     }
