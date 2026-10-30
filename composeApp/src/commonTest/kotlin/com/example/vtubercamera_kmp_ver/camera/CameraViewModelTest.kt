@@ -10,9 +10,17 @@ import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.MediaPickResult
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.testing.FakeBgmPlayer
 import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraRepository
+import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraSettingsRepository
+import com.example.vtubercamera_kmp_ver.camera.testing.FakeCameraSettingsPlatform
 import com.example.vtubercamera_kmp_ver.camera.testing.FakePermissionRepository
 import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityUiState
+import com.example.vtubercamera_kmp_ver.camera.video.RecordingBgm
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -22,6 +30,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
+import vtubercamera_kmp_ver.composeapp.generated.resources.settings_error_bgm_invalid
 import vtubercamera_kmp_ver.composeapp.generated.resources.vrm_error_select_file
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -138,6 +147,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
 
         viewModel.initialize()
@@ -164,6 +174,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
 
         viewModel.initialize()
@@ -195,6 +206,7 @@ class CameraViewModelTest {
             val viewModel = CameraViewModel(
                 cameraRepository = cameraRepository,
                 permissionRepository = permissionRepository,
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
 
             viewModel.initialize()
@@ -231,6 +243,7 @@ class CameraViewModelTest {
             val firstLaunchViewModel = CameraViewModel(
                 cameraRepository = firstLaunchCameraRepository,
                 permissionRepository = firstLaunchPermissionRepository,
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             firstLaunchViewModel.initialize()
             advanceUntilIdle()
@@ -248,6 +261,7 @@ class CameraViewModelTest {
             val secondLaunchViewModel = CameraViewModel(
                 cameraRepository = secondLaunchCameraRepository,
                 permissionRepository = secondLaunchPermissionRepository,
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             secondLaunchViewModel.initialize()
             advanceUntilIdle()
@@ -283,6 +297,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -325,6 +340,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         viewModel.initialize()
         advanceUntilIdle()
@@ -354,6 +370,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -381,6 +398,7 @@ class CameraViewModelTest {
             val viewModel = CameraViewModel(
                 cameraRepository = cameraRepository,
                 permissionRepository = permissionRepository,
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             advanceUntilIdle()
 
@@ -406,6 +424,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = permissionRepository,
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -456,6 +475,7 @@ class CameraViewModelTest {
             val viewModel = CameraViewModel(
                 cameraRepository = cameraRepository,
                 permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             advanceUntilIdle()
 
@@ -483,6 +503,7 @@ class CameraViewModelTest {
             val viewModel = CameraViewModel(
                 cameraRepository = cameraRepository,
                 permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             advanceUntilIdle()
 
@@ -496,66 +517,12 @@ class CameraViewModelTest {
             assertEquals(1, cameraRepository.startPreviewCallCount)
         }
 
-    // ---------------------------------------------------------------------------
-    // onToggleLensFacing() – error type preserved from repository
-    // ---------------------------------------------------------------------------
-
-    /**
-     * When [CameraRepository.switchLens] fails with
-     * [CameraRepositoryException(CameraError.LensSwitchFailed)],
-     * [CameraViewModel.onToggleLensFacing] must set [CameraUiState.session.errorState] to
-     * [CameraError.LensSwitchFailed].
-     */
-    @Test
-    fun onToggleLensFacing_whenSwitchSucceeds_updatesLensFacing() = runTest {
-        val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.success(CameraLensFacing.Back),
-        )
-        val viewModel = CameraViewModel(
-            cameraRepository = cameraRepository,
-            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
-        )
-        advanceUntilIdle()
-        assertEquals(CameraLensFacing.Front, viewModel.uiState.value.session.lensFacing)
-
-        viewModel.onToggleLensFacing()
-        advanceUntilIdle()
-
-        val uiState = viewModel.uiState.value
-        assertEquals(CameraLensFacing.Back, uiState.session.lensFacing)
-        assertNull(uiState.session.errorState)
-        assertEquals(1, cameraRepository.switchLensCallCount)
-        assertEquals(listOf(CameraLensFacing.Front), cameraRepository.switchLensRequests)
-    }
-
-    @Test
-    fun onToggleLensFacing_whenSwitchFails_setsLensSwitchFailedError() = runTest {
-        val cameraRepository = FakeCameraRepository(
-            switchLensResult = Result.failure(
-                CameraRepositoryException(CameraError.LensSwitchFailed),
-            ),
-        )
-        val viewModel = CameraViewModel(
-            cameraRepository = cameraRepository,
-            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
-        )
-        advanceUntilIdle()
-
-        viewModel.onToggleLensFacing()
-        advanceUntilIdle()
-
-        val uiState = viewModel.uiState.value
-        assertEquals(CameraError.LensSwitchFailed, uiState.session.errorState)
-        val previewState = assertIs<PreviewState.Error>(uiState.session.previewState)
-        assertEquals(CameraError.LensSwitchFailed, previewState.error)
-        assertEquals(1, cameraRepository.switchLensCallCount)
-    }
-
     @Test
     fun onFaceTrackingFrameChanged_keepsRawFrameForDeferredDisplayFormatting() = runTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val frame = createFaceFrame(
             timestampMillis = 100L,
@@ -580,6 +547,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         viewModel.onFaceTrackingFrameChanged(createFaceFrame())
         advanceUntilIdle()
@@ -597,6 +565,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val highConfidenceFrame = createFaceFrame(
             timestampMillis = 200L,
@@ -629,6 +598,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val firstFrame = createFaceFrame(
             timestampMillis = 300L,
@@ -674,6 +644,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val firstSelection =
             createAvatarSelectionData("first.vrm", "Avatar A", byteArrayOf(1, 2, 3))
@@ -716,6 +687,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         val stateBefore = viewModel.uiState.value
@@ -736,6 +708,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
 
         viewModel.onFilePicked(FilePickerResult.Error(Res.string.vrm_error_select_file))
@@ -756,6 +729,7 @@ class CameraViewModelTest {
             val viewModel = CameraViewModel(
                 cameraRepository = FakeCameraRepository(),
                 permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+                settingsPlatform = FakeCameraSettingsPlatform().platform,
             )
             val selection =
                 createAvatarSelectionData("active.vrm", "Avatar C", byteArrayOf(7, 8, 9))
@@ -785,6 +759,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val staleSelection =
             createAvatarSelectionData("stale.vrm", "Avatar Stale", byteArrayOf(11, 12))
@@ -824,6 +799,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         assertEquals(1f, viewModel.uiState.value.zoom.currentCameraZoomRatio)
@@ -847,6 +823,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         assertEquals(DEFAULT_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
@@ -870,6 +847,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         assertEquals(CameraBackgroundMode.Green, viewModel.uiState.value.background.mode)
@@ -891,6 +869,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         assertEquals(false, viewModel.uiState.value.uiVisibility.isHidden)
@@ -909,6 +888,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         val before = viewModel.uiState.value
@@ -931,6 +911,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -949,6 +930,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -971,6 +953,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -991,6 +974,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -1014,6 +998,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         assertEquals(CameraCaptureMode.Photo, viewModel.uiState.value.captureMode.mode)
@@ -1033,6 +1018,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -1055,6 +1041,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         viewModel.onToggleCaptureMode()
@@ -1073,6 +1060,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -1087,20 +1075,64 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun onToggleLensFacing_whileRecording_doesNotSwitchLens() = runTest {
+    fun onToggleVideoRecording_forwardsSettingsAsAudioOptionsAndPlaysBgm() = runTest {
+        val track = StoredMedia(fileName = "bgm-1.mp3", displayName = "song.mp3")
         val cameraRepository = FakeCameraRepository()
+        val settingsPlatform = FakeCameraSettingsPlatform(
+            repository = FakeCameraSettingsRepository(
+                CameraSettings(bgmTrack = track, bgmVolume = 0.7f, isNoiseSuppressionEnabled = true),
+            ),
+        )
         val viewModel = CameraViewModel(
             cameraRepository = cameraRepository,
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = settingsPlatform.platform,
         )
         advanceUntilIdle()
+
         viewModel.onToggleVideoRecording()
         advanceUntilIdle()
 
-        viewModel.onToggleLensFacing()
+        assertEquals(
+            listOf(
+                VideoRecordingAudioOptions(
+                    bgm = RecordingBgm(track, volume = 0.7f, startPositionMs = 0L),
+                    isNoiseSuppressionEnabled = true,
+                ),
+            ),
+            cameraRepository.startVideoRecordingRequests,
+        )
+        assertEquals(
+            listOf(FakeBgmPlayer.PlayRequest(track, 0.7f, 0L)),
+            settingsPlatform.bgmPlayer.playRequests,
+        )
+        assertEquals(true, viewModel.uiState.value.settings.isBgmPlaying)
+
+        viewModel.onToggleVideoRecording()
         advanceUntilIdle()
 
-        assertEquals(0, cameraRepository.switchLensCallCount)
+        assertEquals(false, viewModel.uiState.value.settings.isBgmPlaying)
+        assertEquals(false, settingsPlatform.bgmPlayer.isPlaying)
+    }
+
+    @Test
+    fun onBgmPickResult_appliesSuccessAndReportsErrorsWithoutChangingTheTrack() = runTest {
+        val picked = StoredMedia(fileName = "bgm-9.mp3", displayName = "picked.mp3")
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
+        )
+
+        viewModel.onBgmPickResult(MediaPickResult.Cancelled)
+        assertNull(viewModel.uiState.value.settings.settings.bgmTrack)
+
+        viewModel.onBgmPickResult(MediaPickResult.Error(Res.string.settings_error_bgm_invalid))
+        assertNull(viewModel.uiState.value.settings.settings.bgmTrack)
+        assertEquals(Res.string.settings_error_bgm_invalid, viewModel.uiState.value.settings.messageRes)
+
+        viewModel.onBgmPickResult(MediaPickResult.Success(picked))
+        assertEquals(picked, viewModel.uiState.value.settings.settings.bgmTrack)
     }
 
     @Test
@@ -1112,6 +1144,7 @@ class CameraViewModelTest {
                 ),
             ),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
 
@@ -1129,6 +1162,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         viewModel.onToggleVideoRecording()
@@ -1149,6 +1183,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         viewModel.onToggleVideoRecording()
@@ -1167,6 +1202,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         viewModel.onCapturePhoto()
@@ -1186,6 +1222,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         advanceUntilIdle()
         viewModel.onCapturePhoto()
@@ -1202,6 +1239,7 @@ class CameraViewModelTest {
         val viewModel = CameraViewModel(
             cameraRepository = FakeCameraRepository(),
             permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
         )
         val selection = createAvatarSelectionData("active.vrm", "Avatar D", byteArrayOf(21, 22))
 

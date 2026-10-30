@@ -16,9 +16,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_retrying_preview
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_switching_lens
 
-// カメラセッションのライフサイクル (preview start / retry / lens 切替 / repository state 同期) を担う。
+// カメラセッションのライフサイクル (preview start / retry / repository state 同期) を担う。
 class CameraSessionController(
     private val cameraRepository: CameraRepository,
     private val scope: CoroutineScope,
@@ -67,36 +66,6 @@ class CameraSessionController(
                 }
                 .onFailure {
                     setError(it.toCameraError(CameraError.PreviewInitializationFailed))
-                }
-        }
-    }
-
-    // 前後カメラの切り替え要求を発行し、切り替え中の状態を表示する。
-    fun onToggleLensFacing() {
-        scope.launch {
-            val currentLens = _state.value.lensFacing
-            _state.update { current ->
-                current.copy(
-                    previewState = PreviewState.Preparing,
-                    message = CameraMessage(
-                        type = CameraMessageType.Guide,
-                        messageRes = Res.string.camera_error_switching_lens,
-                    ),
-                )
-            }
-
-            cameraRepository.switchLens(currentLens)
-                .onSuccess { switchedLens ->
-                    _state.update { current ->
-                        current.copy(
-                            lensFacing = switchedLens,
-                            errorState = null,
-                            message = null,
-                        )
-                    }
-                }
-                .onFailure {
-                    setError(CameraError.LensSwitchFailed)
                 }
         }
     }

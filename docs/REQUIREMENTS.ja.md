@@ -50,7 +50,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 
 - 共有コード (`composeApp/src/commonMain`) が UI・状態遷移・ドメインロジックの土台を担当し、カメラデバイス制御やネイティブ API 接続はプラットフォーム実装 (`androidMain` / `iosMain` / `iosApp`) が担当する。
 - `CameraViewModel` は薄い coordinator とし、ドメインごとの controller / presenter へ責務を委譲する。
-  - `CameraSessionController` (`camera/session`): プレビュー開始 / 再試行 / レンズ切り替え
+  - `CameraSessionController` (`camera/session`): プレビュー開始 / 再試行
   - `CameraPermissionCoordinator` (`camera/permission`): 権限の確認・要求・状態反映
   - `CameraZoomController` (`camera/zoom`): ズーム倍率の計算・反映
   - `PhotoCaptureController` (`camera/photo`): 写真撮影状態の管理
@@ -100,16 +100,16 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - プレビュー状態は `Preparing` / `Showing` / `Error` で管理し (`PreviewState`)、初期化失敗・カメラ利用不可などのエラー種別 (`CameraError`) ごとにメッセージを表示する。
 - プレビュー失敗時は再試行操作を提供する。
 
-### FR-03 フロント / バックカメラ切り替え
+### FR-03 初期レンズの解決（カメラ切り替えは廃止）
 
 | 項目 | 内容 |
 | --- | --- |
 | 対象 | 共通 / A / I |
-| 概要 | 前面・背面カメラを切り替える |
+| 概要 | 起動時に利用可能なカメラを 1 つ解決する。前面・背面の切り替え操作は設けない |
 
-- レンズ向きは共有の `CameraLensFacing` (`Back` / `Front`) で管理する。
+- レンズ向きは共有の `CameraLensFacing` (`Back` / `Front`) で管理し、既定は `Front`。
 - 起動時は利用可能なカメラから初期レンズを解決する (`resolveInitialLens`)。
-- 切り替え失敗時は `LensSwitchFailed` エラーを表示する。
+- 操作バーの右端には、カメラ切り替えに代わって設定ボタン（FR-16）を置く。
 
 ### FR-04 ピンチズーム
 
@@ -134,7 +134,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - Android は CameraX `ImageCapture`（`CAPTURE_MODE_MINIMIZE_LATENCY`）で撮影し、`MediaStore` の `Pictures/VtuberCamera` へ直接書き出す（`createGalleryPhotoOutput`）。書き込み中の保留状態と撮影失敗時の項目削除は CameraX が行う。Android 10 以降のため保存用の権限は不要。
 - iOS は `AVCapturePhotoOutput` で撮影し、撮影データを一時ファイルを介さず Photos へ追加する（`PHAssetCreationRequest`、add-only 権限）。保存先の識別子は `ph://<localIdentifier>` として返す。
 - 保存の成功を `Succeeded(uri)` で表し、`uri` はギャラリー項目を指す。成功時は案内「写真をギャラリーに保存しました。」、保存を含む撮影の失敗時は `PhotoCaptureFailed` エラーメッセージを表示する（Photos の権限拒否も撮影の失敗として扱う）。
-- 完了 / 失敗の結果は、次の操作（モード切り替え・レンズ切り替え・録画開始）で通知済みとして `Idle` へ戻し、古い写真の通知が別の操作の通知を隠さないようにする。直前に保存した写真の URI は保持する。
+- 完了 / 失敗の結果は、次の操作（モード切り替え・録画開始）で通知済みとして `Idle` へ戻し、古い写真の通知が別の操作の通知を隠さないようにする。直前に保存した写真の URI は保持する。
 - 注記: 撮影した写真のギャラリーからの削除と、ギャラリーの閲覧は未実装（第 5 章参照）。`CameraViewModel.onDeletePhoto` はローカルファイルの URI だけを削除でき、ギャラリー項目の URI に対しては `PhotoDeleteFailed` になる（画面からは未接続）。
 
 ### FR-06 VRM / GLB アバターファイル選択
@@ -212,7 +212,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 | 概要 | カメラ画面のエラー・案内をローカライズ済みメッセージで表示する |
 
 - メッセージは `Guide` / `Error` の種別 (`CameraMessageType`) を持つ。
-- エラー種別 (`CameraError`): 権限拒否 / カメラ利用不可 / プレビュー初期化失敗 / レンズ切り替え失敗 / 写真撮影失敗 / 写真削除失敗 / 動画録画失敗 / 不明。
+- エラー種別 (`CameraError`): 権限拒否 / カメラ利用不可 / プレビュー初期化失敗 / 写真撮影失敗 / 写真削除失敗 / 動画録画失敗 / 不明。
 - 文言は Compose Resources の `StringResource` で管理する。
 
 ### FR-13 ピンチ操作によるアバター表示倍率調整
@@ -258,12 +258,29 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - 開始: 録画ボタンを押すと `Starting` になり、操作 UI が画面から消えるのを待って（`UI_HIDE_SETTLE_MILLIS`）から録画を始める。操作 UI やバナーが映像の先頭へ映り込まないための順序。
 - 進行中は、FR-14 の UI 非表示モードかどうかに関わらず操作 UI を描かない。録画中インジケーターも映像に映るため出さない。撮影モードとレンズの切り替えは受け付けない（`CameraViewModel` 側で無視）。
 - 停止: 録画中は画面のどこをタップしても停止する（全画面レイヤーが「録画を停止」という名前のボタンとして読み上げられ、スクリーンリーダーの click 操作でも停止できる）。`Starting` / `Finalizing` 中のタップは無視する。ピンチ操作はタップとして扱わない。
-- 停止後はギャラリーへの保存が完了するまで `Finalizing`。完了すると `Succeeded(uri)`（案内「録画をギャラリーに保存しました。」）、失敗すると `Failed`（`VideoRecordFailed` のエラーメッセージ）になり、操作 UI が戻る。結果は次の操作（モード切り替え・レンズ切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーを再表示しない。
-- 音声はマイクから録音する。動画モードへ切り替えた時点（Android）または録画開始時（iOS、ReplayKit の許可ダイアログ）にマイク権限を要求し、拒否されても録画は止めず映像のみで録画する。
+- 停止後はギャラリーへの保存が完了するまで `Finalizing`。完了すると `Succeeded(uri)`（案内「録画をギャラリーに保存しました。」）、失敗すると `Failed`（`VideoRecordFailed` のエラーメッセージ）になり、操作 UI が戻る。結果は次の操作（モード切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーを再表示しない。
+- 音声はマイクから録音する（BGM の混合と雑音抑制は FR-16）。動画モードへ切り替えた時点（Android）または録画開始時（iOS、ReplayKit の許可ダイアログ）にマイク権限を要求し、拒否されても録画は止めず映像のみで録画する。
 - Android: ウィンドウを `PixelCopy` で 30 fps 相当に複製し、`MediaRecorder` の入力 Surface（H.264 / AAC、MP4）へ描き込む。`MediaStore` の `Movies/VtuberCamera` へ保留状態（`IS_PENDING`）で書き出し、停止後に確定する。Android 10 以降のため保存用の権限は不要。アプリが背面へ回るなどでウィンドウを複製できない状態が約 5 秒続いたら、それまでの分を保存して終了する。
 - iOS: `RPScreenRecorder`（ReplayKit）で画面とマイクを録画し、`stopRecording(withOutputURL:)` で一時ファイルへ書き出してから、add-only の権限で Photos（`PHAssetChangeRequest`）へ保存する。保存後に一時ファイルを削除する。ARKit face tracking 中も録画できる。
 - 失敗時の片付け: 録画が失敗したときの出力（MediaStore の保留項目、iOS の一時ファイル）は recorder が削除してから通知する。
 - 注記: 写真の保存は FR-05、削除は未実装（PR-01）。
+
+### FR-16 設定（BGM・背景画像・雑音抑制）
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象 | 共通 / A / I |
+| 概要 | 操作バーの設定ボタンからダイアログを開き、BGM・録音・背景画像を設定する。値はアプリを再起動しても保持する |
+
+- 状態は `CameraSettingsController`（`camera/settings`）が `CameraSettings` として保持し、`CameraViewModel` 経由で `CameraUiState.settings` へ公開する。永続化は `CameraSettingsRepository`（Android: `SharedPreferences`、iOS: `NSUserDefaults`）。保存に失敗しても画面上の設定は有効なままで、設定ダイアログへ案内を出す。
+- 取り込んだファイルはアプリ専用領域（Android: `filesDir`、iOS: Application Support）へコピーし、設定には相対ファイル名だけを保存する。差し替え・削除したファイルは削除する。ファイルが消えているときは未設定として扱う。
+- **BGM**: 音声ファイルを選択し（Android `OpenDocument`、iOS `UIDocumentPickerViewController`）、再生可能か検証してから取り込む。音量（0〜1、既定 0.5）をスライダーで調整し、設定ダイアログで再生 / 停止できる。常にループ再生する（Android `MediaPlayer`、iOS `AVAudioPlayer`）。アプリが背面へ回ると、録画中でなければ止める。
+- **録画開始と同時に BGM を再生**（トグル、既定オン）: オンのとき、録画の開始（`Recording` へ遷移）で BGM を頭から流し、録画の終了で止める（連動で流した BGM だけを止める）。オフのときは連動せず、設定ダイアログで流している BGM がそのまま録画へ入る。
+- **BGM の録画への混合**: iOS は ReplayKit がアプリの再生音を録るため追加処理なし。Android は `MediaRecorder` が映像だけを録り、音声を `MixedAudioRecorder`（`AudioRecord` のマイク + `BgmPcmDecoder` でデコードした BGM を 44.1kHz モノラルへ変換して加算 → `AacFileWriter` で AAC）で別録りし、停止後に `mergeVideoAndAudio` で 1 つの MP4 へ結合してから MediaStore へ書く。録画の開始時点の構成を `VideoRecordingAudioOptions` として `CameraRepository.startVideoRecording` へ渡す。BGM も雑音抑制も使わない録画は従来どおり `MediaRecorder` のマイク音声。音声だけ作れなかったときは映像のみで保存する。マイク権限が無くても、BGM があれば BGM だけの音声を入れる。
+- **雑音抑制**（トグル、既定オフ）: 次の録画から有効。Android は `AudioRecord` に `NoiseSuppressor` をかける（端末が非対応なら抑制なしで続け、ログに残す）。iOS は録画の間だけ音声セッションを `voiceChat` モードにして OS の処理に任せる（BGM の音質は録音モードより落ちる）。
+- **背景画像**: 画像を選択すると、取り込み時に長辺 2560 px 以内の JPEG へ縮小する（向きは反映済み）。画像は背景プリセットの単色の上に全面で重ね、削除すると単色の背景プリセットへ戻る。映す範囲は `BackgroundImageCrop`（中心 0〜1 と拡大率 1〜5）で、設定ダイアログの枠（画面と同じ縦横比）をドラッグ / ピンチして決める。実際の範囲は画面の縦横比から `visibleRegion` で求め、画面・設定ダイアログの枠・写真の合成・iOS の native view で同じ式を使う。iOS は native view が Compose の描画より前面に出るため、`CameraPreviewContainerView` の `UIImageView`（`contentsRect`）で描き、avatar の native renderer は透明（`Camera`）でクリアする。写真撮影（Android）は撮影画像へ同じ範囲で背景画像を合成する。
+- 設定ダイアログは録画中と UI 非表示モード中は開かない。
+- 注記: iOS の雑音抑制と BGM の録画への入り方は、ReplayKit と OS の音声処理に依存するため、実機での確認が必要。
 
 ## 5. 将来要件（未実装・計画中）
 

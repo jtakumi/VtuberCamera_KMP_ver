@@ -9,7 +9,7 @@
 ### 1.1 共通 (`composeApp/src/commonMain`)
 
 - Compose Multiplatform ベースの camera 画面構成 (`CameraRoute` / `CameraScreen`)
-- `CameraViewModel` による権限・プレビュー状態・レンズ向き・ズーム・アバター状態の一元管理
+- `CameraViewModel` による権限・プレビュー状態・レンズ向き・ズーム・アバター状態・設定の一元管理
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
 - ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
 - アバター表示倍率管理 (`AvatarScaleUiState` / `AvatarScaleController`) とピンチ操作対象の切り替え (`PinchGestureTarget` / `PinchGestureController`)
@@ -27,7 +27,7 @@
 
 - CameraX によるリアルタイム camera preview
 - カメラ権限確認と permission request
-- フロント / バック camera の切り替え
+- 設定（BGM・背景画像・雑音抑制）の永続化と、取り込んだメディアの管理
 - ピンチ操作によるズーム制御（`setZoomRatio` / ズームインジケーター）
 - ピンチ操作によるアバター表示倍率調整（Filament カメラ距離への反映 / カメラズームとの切り替え）
 - `OpenDocument` を使ったファイル選択
@@ -41,7 +41,7 @@
 
 - 実 camera 実装の中心は `composeApp/src/iosMain` の `IOSCameraPreview`（AVFoundation + UIKitView）
 - カメラ権限確認と permission request
-- フロント / バック camera の切り替え
+- 設定（BGM・背景画像・雑音抑制）の永続化と、取り込んだメディアの管理
 - ピンチ操作によるズーム制御
 - `UIDocumentPickerViewController` によるファイル選択
 - TrueDepth 対応デバイスの前面カメラで ARKit face tracking
@@ -81,7 +81,7 @@
 
 `CameraViewModel` は肥大化を避けるため、ドメインごとの controller / presenter へ責務を委譲する薄い coordinator として実装する。`CameraScreen` から見た公開 API（11 個のコールバックと単一の `uiState: StateFlow<CameraUiState>`）は変更せず、内部のみを分割している。
 
-- **CameraSessionController** (`camera/session`): プレビュー開始 / 再試行 / レンズ切り替えと `observePreviewState()` による repository state 同期を担う。依存は `CameraRepository`。
+- **CameraSessionController** (`camera/session`): プレビュー開始 / 再試行と `observePreviewState()` による repository state 同期を担う。依存は `CameraRepository`。
 - **CameraPermissionCoordinator** (`camera/permission`): 権限の確認・要求・状態反映を担う。`PermissionChange`（`GrantedEntered` / `GrantedRefreshed` / `DeniedReceived` / `UnknownReceived`）を発行し、`CameraViewModel` が session 側のエフェクトへ wiring する。依存は `PermissionRepository`。
 - **CameraZoomController** (`camera/zoom`): ズーム倍率の計算・反映と `observeZoomState()` を担う。依存は `CameraRepository`。
 - **FaceTrackingPresenter** (`camera/facetracking`): `NormalizedFaceFrame` から `FaceTrackingUiState` と `AvatarRenderState` への変換を担う。`FaceToAvatarMapper` への委譲もここに寄せている。

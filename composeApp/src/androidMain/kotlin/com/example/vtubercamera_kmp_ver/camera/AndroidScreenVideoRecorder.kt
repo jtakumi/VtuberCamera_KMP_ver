@@ -19,6 +19,9 @@ import android.view.PixelCopy
 import android.view.Surface
 import android.view.View
 import android.view.Window
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
+import java.io.File
 import java.io.FileDescriptor
 import java.io.IOException
 import kotlin.math.max
@@ -30,30 +33,52 @@ private const val TAG = "ScreenVideoRecorder"
 /**
  * アプリのウィンドウ（カメラ映像・アバター・背景を合成した画面）を動画としてギャラリーへ録画する。
  *
- * ウィンドウを [PixelCopy] で一定間隔に複製し、[MediaRecorder] の入力 Surface へ描き込む。エンコード・
- * 音声・mux は [MediaRecorder] に任せるため、映像と音声の同期を自前で扱わない。出力は MediaStore へ
- * 直接書き出すため、Android 10 以降では保存用の権限を必要としない。
+ * ウィンドウを [PixelCopy] で一定間隔に複製し、[MediaRecorder] の入力 Surface へ描き込む。エンコードと
+ * mux は [MediaRecorder] に任せる。出力は MediaStore へ直接書き出すため、Android 10 以降では保存用の権限を
+ * 必要としない。
  *
- * [isMicrophonePermitted] が true を返す録画開始時だけマイク音声を録る。権限がなければ映像のみで録画する。
+ * 音声は 2 通りある。BGM を混ぜない、かつ雑音抑制も使わない録画では、[isMicrophonePermitted] が true を返すときだけ
+ * [MediaRecorder] がマイク音声を録る。BGM を混ぜる、または雑音抑制を使う録画では、[MediaRecorder] は映像だけを
+ * 録り、音声は [MixedAudioRecorder] が別に作って、停止後に映像と結合する。どちらも権限がなければ映像のみで録画する。
+ * [resolveMediaFile] は、設定した BGM のファイルを実体へ解決する。
  */
 internal class AndroidScreenVideoRecorder(
     private val context: Context,
     private val windowProvider: () -> Window?,
     private val isMicrophonePermitted: () -> Boolean,
+    private val resolveMediaFile: (StoredMedia) -> File?,
 ) : AndroidVideoRecorder {
     override fun startRecording(
+        audioOptions: VideoRecordingAudioOptions,
         onFinalized: (uri: String?, error: Throwable?) -> Unit,
     ): AndroidVideoRecording {
         val window = checkNotNull(windowProvider()) { "Window is not available for screen recording" }
         val recordingSize = window.decorView.toRecordingSize()
-        val galleryOutput = GalleryVideoOutput.create(context.contentResolver)
+        val isMicrophoneAvailable = isMicrophonePermitted()
+        val mixedAudio = createMixedAudioOrNull(audioOptions, isMicrophoneAvailable)
+        val galleryOutput = try {
+            GalleryVideoOutput.create(context.contentResolver)
+        } catch (error: IOException) {
+            mixedAudio?.discard()
+            throw error
+        } catch (error: RuntimeException) {
+            mixedAudio?.discard()
+            throw error
+        }
         val recorder = try {
-            createPreparedRecorder(galleryOutput, recordingSize, withAudio = isMicrophonePermitted())
+            createPreparedRecorder(
+                galleryOutput = galleryOutput,
+                size = recordingSize,
+                withAudio = mixedAudio == null && isMicrophoneAvailable,
+                videoOnlyFile = mixedAudio?.videoFile,
+            )
         } catch (error: IOException) {
             galleryOutput.discard()
+            mixedAudio?.discard()
             throw error
         } catch (error: RuntimeException) {
             galleryOutput.discard()
+            mixedAudio?.discard()
             throw error
         }
         val session = ScreenRecordingSession(
@@ -61,17 +86,54 @@ internal class AndroidScreenVideoRecorder(
             recorder = recorder,
             size = recordingSize,
             galleryOutput = galleryOutput,
+            mixedAudio = mixedAudio,
             onFinalized = onFinalized,
         )
         session.begin()
         return session
     }
 
+    // BGM の混合か雑音抑制が必要なときだけ、別録りの音声と一時ファイルを用意する。不要なら null を返す。
+    // 設定した BGM のファイルが見つからないときは、利用者が期待する音にならないため録画の開始を失敗させる。
+    private fun createMixedAudioOrNull(
+        audioOptions: VideoRecordingAudioOptions,
+        isMicrophoneAvailable: Boolean,
+    ): MixedAudioParts? {
+        val bgm = audioOptions.bgm
+        val bgmFile = bgm?.let { resolveMediaFile(it.track) ?: throw IOException("The BGM file is missing") }
+        val needsMixer = bgmFile != null || (audioOptions.isNoiseSuppressionEnabled && isMicrophoneAvailable)
+        if (!needsMixer) return null
+
+        val videoFile = File.createTempFile(TEMP_VIDEO_PREFIX, TEMP_VIDEO_SUFFIX, context.cacheDir)
+        val audioFile = File.createTempFile(TEMP_AUDIO_PREFIX, TEMP_AUDIO_SUFFIX, context.cacheDir)
+        val mergedFile = File.createTempFile(TEMP_MERGED_PREFIX, TEMP_VIDEO_SUFFIX, context.cacheDir)
+        val tempFiles = listOf(videoFile, audioFile, mergedFile)
+        return try {
+            val audioRecorder = MixedAudioRecorder.create(
+                outputFile = audioFile,
+                useMicrophone = isMicrophoneAvailable,
+                isNoiseSuppressionEnabled = audioOptions.isNoiseSuppressionEnabled,
+                bgmFile = bgmFile,
+                bgmStartPositionMs = bgm?.startPositionMs ?: 0L,
+                bgmGain = bgm?.volume ?: 0f,
+            )
+            MixedAudioParts(audioRecorder, videoFile, audioFile, mergedFile)
+        } catch (error: IOException) {
+            tempFiles.forEach(File::delete)
+            throw error
+        } catch (error: RuntimeException) {
+            tempFiles.forEach(File::delete)
+            throw error
+        }
+    }
+
     // 画面サイズと音声の有無に合わせて MediaRecorder を構成し、録画を始められる状態まで準備する。
+    // [videoOnlyFile] があるときは、映像だけをそのファイルへ書く（音声は別録りして停止後に結合する）。
     private fun createPreparedRecorder(
         galleryOutput: GalleryVideoOutput,
         size: RecordingSize,
         withAudio: Boolean,
+        videoOnlyFile: File?,
     ): MediaRecorder {
         val recorder = createMediaRecorder()
         try {
@@ -89,7 +151,11 @@ internal class AndroidScreenVideoRecorder(
                 recorder.setAudioEncodingBitRate(AUDIO_BIT_RATE)
                 recorder.setAudioSamplingRate(AUDIO_SAMPLE_RATE)
             }
-            recorder.setOutputFile(galleryOutput.fileDescriptor)
+            if (videoOnlyFile != null) {
+                recorder.setOutputFile(videoOnlyFile.path)
+            } else {
+                recorder.setOutputFile(galleryOutput.fileDescriptor)
+            }
             recorder.prepare()
         } catch (error: IOException) {
             recorder.release()
@@ -138,6 +204,16 @@ private class GalleryVideoOutput private constructor(
     private val descriptor: ParcelFileDescriptor,
 ) {
     val fileDescriptor: FileDescriptor get() = descriptor.fileDescriptor
+
+    // 結合済みの動画 [source] を、書き込み用の記述子へそのまま書き出す。
+    // 記述子は書き込み後に [finish] / [discard] が閉じるため、ここでは閉じ忘れを心配しなくてよい。
+    fun writeFrom(source: File) {
+        source.inputStream().use { input ->
+            ParcelFileDescriptor.AutoCloseOutputStream(descriptor).use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
 
     // 録画の成否に合わせて出力を確定または破棄し、成功時は保存先の URI を返す。
     // 確定中の例外は握りつぶさず、失敗として呼び出し側へ返す。
@@ -200,6 +276,7 @@ private class ScreenRecordingSession(
     private val recorder: MediaRecorder,
     size: RecordingSize,
     private val galleryOutput: GalleryVideoOutput,
+    private val mixedAudio: MixedAudioParts?,
     private val onFinalized: (uri: String?, error: Throwable?) -> Unit,
 ) : AndroidVideoRecording {
     private val surface: Surface = recorder.surface
@@ -220,6 +297,18 @@ private class ScreenRecordingSession(
         } catch (error: RuntimeException) {
             releaseResources()
             galleryOutput.discard()
+            mixedAudio?.discard()
+            throw error
+        }
+        try {
+            mixedAudio?.recorder?.begin()
+        } catch (error: RuntimeException) {
+            // 映像だけが始まってしまったので、止めて片付けてから失敗として伝える。
+            runCatching { recorder.stop() }
+                .onFailure { Log.w(TAG, "Failed to stop the recorder after the audio failed to start", it) }
+            releaseResources()
+            galleryOutput.discard()
+            mixedAudio?.discard()
             throw error
         }
         workerHandler.post(::copyFrame)
@@ -296,6 +385,15 @@ private class ScreenRecordingSession(
             error = error ?: stopError
         }
         releaseResources()
+        if (mixedAudio != null) {
+            if (error == null) {
+                error = writeMixedRecording(mixedAudio)
+                mixedAudio.deleteTempFiles()
+            } else {
+                // 映像が失敗している。音声の録りも止めて、一時ファイルごと捨てる。
+                mixedAudio.discard()
+            }
+        }
         val savedUri = galleryOutput.finish(isRecordingSucceeded = error == null)
         val finalError = error ?: savedUri.exceptionOrNull()
         if (finalError != null) {
@@ -305,6 +403,27 @@ private class ScreenRecordingSession(
         mainHandler.post { onFinalized(savedUri.getOrNull(), finalError) }
     }
 
+    // 別録りの音声を止めて映像と結合し、ギャラリーの出力へ書く。失敗したときはその原因を返す。
+    // 音声だけが作れなかったときは、映像だけでも残すため、映像のみを書いて成功として扱う。
+    private fun writeMixedRecording(parts: MixedAudioParts): Throwable? {
+        val audioResult = parts.recorder.stop()
+        return try {
+            val audioFile = audioResult.getOrNull()
+            if (audioFile != null) {
+                mergeVideoAndAudio(parts.videoFile, audioFile, parts.mergedFile)
+                galleryOutput.writeFrom(parts.mergedFile)
+            } else {
+                Log.w(TAG, "Saving the recording without audio", audioResult.exceptionOrNull())
+                galleryOutput.writeFrom(parts.videoFile)
+            }
+            null
+        } catch (writeError: IOException) {
+            writeError
+        } catch (writeError: RuntimeException) {
+            writeError
+        }
+    }
+
     // フレーム用 Bitmap は解放しない。停止要求が複製の最中に届くと、PixelCopy がまだ書き込み中の可能性が
     // あるため、参照が切れた後の GC に任せる。
     private fun releaseResources() {
@@ -312,6 +431,38 @@ private class ScreenRecordingSession(
         surface.release()
     }
 }
+
+/**
+ * 別録りの音声を使う録画 1 回分の部品。映像だけの一時ファイル [videoFile]、音声の [audioFile]、
+ * 結合結果の [mergedFile] はいずれもキャッシュ領域に作り、使い終えたら削除する。
+ */
+private class MixedAudioParts(
+    val recorder: MixedAudioRecorder,
+    val videoFile: File,
+    val audioFile: File,
+    val mergedFile: File,
+) {
+    // 録画を始められなかったときに、音声の一時ファイルまで含めて片付ける。
+    fun discard() {
+        runCatching { recorder.stop() }
+            .onFailure { Log.w(TAG, "Failed to stop the discarded audio recorder", it) }
+        deleteTempFiles()
+    }
+
+    fun deleteTempFiles() {
+        listOf(videoFile, audioFile, mergedFile).forEach { file ->
+            if (file.exists() && !file.delete()) {
+                Log.w(TAG, "Failed to delete a temporary recording file: ${file.name}")
+            }
+        }
+    }
+}
+
+private const val TEMP_VIDEO_PREFIX = "vtuber-video-"
+private const val TEMP_AUDIO_PREFIX = "vtuber-audio-"
+private const val TEMP_MERGED_PREFIX = "vtuber-merged-"
+private const val TEMP_VIDEO_SUFFIX = ".mp4"
+private const val TEMP_AUDIO_SUFFIX = ".m4a"
 
 private const val VIDEO_FRAME_RATE = 30
 private const val FRAME_INTERVAL_MILLIS = 1_000L / VIDEO_FRAME_RATE

@@ -11,6 +11,7 @@ import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
 import org.jetbrains.compose.resources.StringResource
 
 // 最新のカメラ権限状態を保持し、この画面での権限リクエストを仲介する。
@@ -115,12 +116,14 @@ expect fun rememberCameraPermissionController(): CameraPermissionController
 expect fun rememberFilePickerLauncher(onFilePicked: (FilePickerResult) -> Unit): FilePickerLauncher
 
 // [captureMode] が動画のときは、プラットフォーム側が録画に必要なマイク権限を先に要求する。
+// [backgroundImage] は、native view が Compose の描画より前面に出るプラットフォームで、その内側へ背景画像を描くために渡す。
 @Composable
 expect fun CameraPreviewHost(
     modifier: Modifier = Modifier,
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    backgroundImage: BackgroundImageSettings,
     captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -138,6 +141,7 @@ expect fun AvatarBodyOverlay(
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
+    isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 )

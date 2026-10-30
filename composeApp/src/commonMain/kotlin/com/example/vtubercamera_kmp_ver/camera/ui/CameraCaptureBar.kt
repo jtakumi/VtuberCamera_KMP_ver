@@ -37,15 +37,15 @@ import org.jetbrains.compose.resources.stringResource
 import vtubercamera_kmp_ver.composeapp.generated.resources.Res
 import vtubercamera_kmp_ver.composeapp.generated.resources.avatar_picker_open_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_capture_button
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_switch_button
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_settings_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_record_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_avatar_picker
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_capture
-import vtubercamera_kmp_ver.composeapp.generated.resources.ic_camera_switch
+import vtubercamera_kmp_ver.composeapp.generated.resources.ic_settings
 import vtubercamera_kmp_ver.composeapp.generated.resources.ic_video_record
 
 /**
- * カメラ画面下部の操作バー。撮影モードのトグルを上段に、アバター選択・シャッター・レンズ切り替えを
+ * カメラ画面下部の操作バー。撮影モードのトグルを上段に、アバター選択・シャッター・設定を
  * 下段にアイコンで並べる。
  *
  * シャッターは [captureMode] で役割が変わる。写真モードでは [onCapturePhoto] を呼び、動画モードでは
@@ -58,7 +58,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.ic_video_record
 @Composable
 internal fun CameraCaptureBar(
     onOpenFilePicker: () -> Unit,
-    onLensFacingToggle: () -> Unit,
+    onOpenSettings: () -> Unit,
     onCapturePhoto: () -> Unit,
     isCapturingPhoto: Boolean,
     captureMode: CameraCaptureMode,
@@ -102,9 +102,9 @@ internal fun CameraCaptureBar(
                     glassStyle = glass.style,
                 )
                 CaptureBarIconButton(
-                    iconRes = Res.drawable.ic_camera_switch,
-                    contentDescriptionRes = Res.string.camera_switch_button,
-                    onClick = onLensFacingToggle,
+                    iconRes = Res.drawable.ic_settings,
+                    contentDescriptionRes = Res.string.camera_settings_button,
+                    onClick = onOpenSettings,
                     glassStyle = glass.style,
                 )
             }

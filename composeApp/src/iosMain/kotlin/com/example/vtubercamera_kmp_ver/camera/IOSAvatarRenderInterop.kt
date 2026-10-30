@@ -59,6 +59,8 @@ internal object IOSAvatarRenderInterop {
     const val trackingConfidenceKey = "trackingConfidence"
     const val isTrackingKey = "isTracking"
     const val backgroundModeKey = "backgroundMode"
+    // Matches IOSAvatarBackgroundMode.camera on the Swift side, which clears to a transparent color.
+    private const val transparentBackgroundModeName = "Camera"
 
     const val specVersionVrm0 = "vrm0"
     const val specVersionVrm1 = "vrm1"
@@ -154,11 +156,14 @@ internal object IOSAvatarRenderInterop {
 
     // UIKit interop views draw over sibling Compose content on iOS, so the native renderer must
     // clear to the selected solid background instead of relying on the Compose layer behind it.
-    fun publishBackgroundMode(backgroundMode: CameraBackgroundMode) {
+    // While a background image is shown, the renderer clears to transparent ("Camera") so the image
+    // drawn behind it by the camera preview container stays visible.
+    fun publishBackgroundMode(backgroundMode: CameraBackgroundMode, isBackgroundImageActive: Boolean) {
+        val publishedMode = if (isBackgroundImageActive) transparentBackgroundModeName else backgroundMode.name
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarBackgroundDidChangeNotification,
             null,
-            mapOf(backgroundModeKey to backgroundMode.name),
+            mapOf(backgroundModeKey to publishedMode),
         )
     }
 

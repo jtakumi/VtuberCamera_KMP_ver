@@ -5,6 +5,7 @@
 
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import platform.Foundation.NSError
 import platform.Foundation.NSTemporaryDirectory
 import platform.Foundation.NSURL
@@ -21,9 +22,13 @@ import platform.darwin.dispatch_get_main_queue
  * ReplayKit が録画開始時に画面録画とマイクの許可ダイアログを出す。拒否されたときは開始の callback が
  * エラーを返すため、録画の失敗として通知する。Photos への追加は add-only の権限で行い、保存後に
  * 一時ファイルを削除する。
+ *
+ * ReplayKit はアプリが再生した音（BGM）も録るため、BGM を混ぜる処理は不要。雑音抑制は ReplayKit 自体に
+ * 設定がないので、録画の間だけ音声セッションを通話向けのモードにして OS の処理に任せる。
  */
 internal class IOSScreenVideoRecorder : IOSVideoRecorder {
     override fun startRecording(
+        audioOptions: VideoRecordingAudioOptions,
         onFinalized: (uri: String?, error: Throwable?) -> Unit,
     ): IOSVideoRecording {
         val recorder = RPScreenRecorder.sharedRecorder()
@@ -31,7 +36,16 @@ internal class IOSScreenVideoRecorder : IOSVideoRecorder {
         check(recorder.available) { "Screen recording is unavailable on this device" }
         check(!recorder.recording) { "Screen recording is already in progress" }
 
-        val finalizeOnMain = onceOnMain(onFinalized)
+        // 音声セッションの設定に失敗しても録画は続ける（理由はログに残る）。雑音抑制が効かないだけで、映像と音は録れる。
+        if (audioOptions.isNoiseSuppressionEnabled) {
+            configureAudioSession(isNoiseSuppressionEnabled = true)
+        }
+        val finalizeOnMain = onceOnMain { uri, error ->
+            if (audioOptions.isNoiseSuppressionEnabled) {
+                restoreDefaultAudioSessionMode()
+            }
+            onFinalized(uri, error)
+        }
         recorder.microphoneEnabled = true
         recorder.startRecordingWithHandler { error ->
             // 権限拒否など、開始に失敗したときだけここで録画の終了を通知する。成功時は何もしない。

@@ -1,6 +1,9 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import java.io.File
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.video.RecordingBgm
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -42,20 +45,6 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
-    fun switchLens_returnsLensSwitchFailedWhenTargetLensIsMissing() = runTest {
-        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
-
-        val result = repository.switchLens(CameraLensFacing.Back)
-
-        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
-        assertEquals(CameraError.LensSwitchFailed, exception.error)
-        assertEquals(
-            PreviewState.Error(CameraError.LensSwitchFailed),
-            repository.observePreviewState().first(),
-        )
-    }
-
-    @Test
     fun capturePhoto_returnsPhotoCaptureFailedWhenImageCaptureIsNotReady() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
 
@@ -73,7 +62,7 @@ class AndroidCameraRepositoryTest {
     fun startVideoRecording_returnsVideoRecordFailedWhenRecorderIsNotReady() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
         assertEquals(CameraError.VideoRecordFailed, exception.error)
@@ -89,8 +78,8 @@ class AndroidCameraRepositoryTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(recorder)
 
-        val first = repository.startVideoRecording()
-        val second = repository.startVideoRecording()
+        val first = repository.startVideoRecording(VideoRecordingAudioOptions())
+        val second = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         assertTrue(first.isSuccess)
         assertTrue(second.isFailure)
@@ -99,13 +88,28 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
+    fun startVideoRecording_passesAudioOptionsToTheRecorder() = runTest {
+        val recorder = FakeVideoRecorder()
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(recorder)
+        val options = VideoRecordingAudioOptions(
+            bgm = RecordingBgm(StoredMedia("bgm-1.mp3", "song.mp3"), volume = 0.5f, startPositionMs = 0L),
+            isNoiseSuppressionEnabled = true,
+        )
+
+        repository.startVideoRecording(options)
+
+        assertEquals(options, recorder.lastAudioOptions)
+    }
+
+    @Test
     fun startVideoRecording_returnsVideoRecordFailedWhenRecorderThrows() = runTest {
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(
-            AndroidVideoRecorder { throw IllegalStateException("window is not laid out") },
+            AndroidVideoRecorder { _, _ -> throw IllegalStateException("window is not laid out") },
         )
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
         assertEquals(CameraError.VideoRecordFailed, exception.error)
@@ -130,7 +134,7 @@ class AndroidCameraRepositoryTest {
         val recorder = FakeVideoRecorder()
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val stopResult = async { repository.stopVideoRecording() }
         advanceUntilIdle()
@@ -154,7 +158,7 @@ class AndroidCameraRepositoryTest {
         val recorder = FakeVideoRecorder()
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
 
         val stopResult = async { repository.stopVideoRecording() }
         advanceUntilIdle()
@@ -170,15 +174,35 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
+    fun stopVideoRecording_whenRecorderStopThrows_publishesFailed() = runTest {
+        val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
+        repository.onPlatformVideoRecorderReady(
+            AndroidVideoRecorder { _, _ ->
+                AndroidVideoRecording { throw IllegalStateException("stop failed") }
+            },
+        )
+        repository.startVideoRecording(VideoRecordingAudioOptions())
+
+        val result = repository.stopVideoRecording()
+
+        val exception = assertIs<CameraRepositoryException>(result.exceptionOrNull())
+        assertEquals(CameraError.VideoRecordFailed, exception.error)
+        assertEquals(
+            VideoRecordingState.Failed(CameraError.VideoRecordFailed),
+            repository.observeVideoRecordingState().first(),
+        )
+    }
+
+    @Test
     fun startVideoRecording_afterRecorderEndsOnItsOwn_allowsNextRecording() = runTest {
         val recorder = FakeVideoRecorder()
         val repository = createRepository(availableLens = setOf(CameraLensFacing.Back))
         repository.onPlatformVideoRecorderReady(recorder)
-        repository.startVideoRecording()
+        repository.startVideoRecording(VideoRecordingAudioOptions())
         // 停止要求なしに録画側から終了（ウィンドウの破棄など）しても、次の録画を始められる状態へ戻る。
         recorder.finalize(uri = null, error = IllegalStateException("window destroyed"))
 
-        val result = repository.startVideoRecording()
+        val result = repository.startVideoRecording(VideoRecordingAudioOptions())
 
         assertTrue(result.isSuccess)
         assertEquals(2, recorder.startCount)
@@ -215,13 +239,12 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
-    fun onPlatformPreviewStarted_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
+    fun onPlatformPreviewStarted_ignoresStaleCallbackWhilePreviewIsPending() = runTest {
         val repository = createRepository(
             availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front),
         )
 
-        repository.startPreview(CameraLensFacing.Back)
-        repository.switchLens(CameraLensFacing.Back)
+        repository.startPreview(CameraLensFacing.Front)
 
         repository.onPlatformPreviewStarted(CameraLensFacing.Back)
         assertEquals(PreviewState.Preparing, repository.observePreviewState().first())
@@ -231,13 +254,12 @@ class AndroidCameraRepositoryTest {
     }
 
     @Test
-    fun onPlatformPreviewError_ignoresStaleCallbackWhileSwitchIsPending() = runTest {
+    fun onPlatformPreviewError_ignoresStaleCallbackWhilePreviewIsPending() = runTest {
         val repository = createRepository(
             availableLens = setOf(CameraLensFacing.Back, CameraLensFacing.Front),
         )
 
-        repository.startPreview(CameraLensFacing.Back)
-        repository.switchLens(CameraLensFacing.Back)
+        repository.startPreview(CameraLensFacing.Front)
 
         repository.onPlatformPreviewError(CameraLensFacing.Back, CameraError.CameraUnavailable)
         assertEquals(PreviewState.Preparing, repository.observePreviewState().first())
@@ -263,12 +285,16 @@ class AndroidCameraRepositoryTest {
             private set
         var stopCount = 0
             private set
+        var lastAudioOptions: VideoRecordingAudioOptions? = null
+            private set
         private var onFinalized: ((uri: String?, error: Throwable?) -> Unit)? = null
 
         override fun startRecording(
+            audioOptions: VideoRecordingAudioOptions,
             onFinalized: (uri: String?, error: Throwable?) -> Unit,
         ): AndroidVideoRecording {
             startCount += 1
+            lastAudioOptions = audioOptions
             this.onFinalized = onFinalized
             return AndroidVideoRecording { stopCount += 1 }
         }

@@ -8,6 +8,7 @@ import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureModeUiSt
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
 import com.example.vtubercamera_kmp_ver.camera.permission.CameraPermissionUiState
 import com.example.vtubercamera_kmp_ver.camera.session.CameraSessionUiState
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsUiState
 import com.example.vtubercamera_kmp_ver.camera.uivisibility.CameraUiVisibilityUiState
 
 // カメラ画面で描画する共有 UI 状態を、ドメインごとの sub-state を束ねて保持する。
@@ -27,6 +28,7 @@ data class CameraUiState(
     val background: CameraBackgroundUiState = CameraBackgroundUiState(),
     val pinchTarget: PinchGestureTarget = PinchGestureTarget.AvatarScale,
     val uiVisibility: CameraUiVisibilityUiState = CameraUiVisibilityUiState(),
+    val settings: CameraSettingsUiState = CameraSettingsUiState(),
 ) {
     val isPermissionGranted: Boolean
         get() = permission.permissionState == PermissionState.Granted
@@ -48,7 +50,7 @@ data class CameraUiState(
             pinchTarget
         }
 
-    // 録画の開始から保存完了まで。この間は操作 UI を隠し、撮影モードやレンズの切り替えを受け付けない。
+    // 録画の開始から保存完了まで。この間は操作 UI を隠し、撮影モードの切り替えを受け付けない。
     val isVideoRecordingActive: Boolean
         get() = videoRecording.isInProgress
 

@@ -65,6 +65,13 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
+import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.BgmPlayer
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettings
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsPlatform
+import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsRepository
+import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import com.example.vtubercamera_kmp_ver.theme.spacing
 import com.google.common.util.concurrent.ListenableFuture
 import kotlinx.coroutines.flow.Flow
@@ -164,6 +171,7 @@ actual fun CameraPreviewHost(
     cameraRepository: CameraRepository,
     lensFacing: CameraLensFacing,
     backgroundMode: CameraBackgroundMode,
+    backgroundImage: BackgroundImageSettings,
     captureMode: CameraCaptureMode,
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onFaceTrackingFrameChanged: (NormalizedFaceFrame?) -> Unit,
@@ -187,6 +195,7 @@ actual fun CameraPreviewHost(
     val lifecycleOwner = LocalLifecycleOwner.current
     SideEffect {
         (cameraRepository as? AndroidCameraRepository)?.onPlatformBackgroundModeChanged(backgroundMode)
+        (cameraRepository as? AndroidCameraRepository)?.onPlatformBackgroundImageChanged(backgroundImage)
     }
     val cameraProviderFuture = remember(context) { ProcessCameraProvider.getInstance(context) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -315,6 +324,9 @@ actual fun CameraPreviewHost(
             windowProvider = { screenRecorderView.context.findActivity()?.window },
             // 録画開始のたびに権限を確かめ、許可されていれば音声も録る。
             isMicrophonePermitted = { context.hasMicrophonePermission() },
+            resolveMediaFile = { media ->
+                (cameraRepository as? AndroidCameraRepository)?.resolveStoredMediaFile(media)
+            },
         )
         (cameraRepository as? AndroidCameraRepository)?.onPlatformVideoRecorderReady(screenRecorder)
         onDispose {
@@ -425,6 +437,7 @@ actual fun AvatarBodyOverlay(
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
     backgroundMode: CameraBackgroundMode,
+    isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier,
 ) {
@@ -480,7 +493,7 @@ private fun Context.hasCameraPermission(): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
 }
 
-private fun Context.resolveDisplayName(uri: Uri): String? {
+internal fun Context.resolveDisplayName(uri: Uri): String? {
     return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
         ?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -542,9 +555,6 @@ private fun createMockCameraRepositories(): CameraRepositories {
                 Result.success(lensFacing)
 
             override suspend fun stopPreview() {}
-            override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> =
-                Result.success(current)
-
             override suspend fun resolveInitialLens(preferred: CameraLensFacing): Result<CameraLensFacing> =
                 Result.success(preferred)
 
@@ -552,7 +562,8 @@ private fun createMockCameraRepositories(): CameraRepositories {
             override fun observePhotoCaptureState(): Flow<PhotoCaptureState> = emptyFlow()
             override suspend fun capturePhoto(): Result<String?> = Result.success(null)
             override fun observeVideoRecordingState(): Flow<VideoRecordingState> = emptyFlow()
-            override suspend fun startVideoRecording(): Result<Unit> = Result.success(Unit)
+            override suspend fun startVideoRecording(audioOptions: VideoRecordingAudioOptions): Result<Unit> =
+                Result.success(Unit)
             override suspend fun stopVideoRecording(): Result<String?> = Result.success(null)
             override fun observePhotoDeletionState(): Flow<PhotoDeletionState> = emptyFlow()
             override suspend fun deletePhoto(uri: String): Result<Unit> = Result.success(Unit)
@@ -565,6 +576,30 @@ private fun createMockCameraRepositories(): CameraRepositories {
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState = PermissionState.Granted
             override suspend fun requestCameraPermission(): PermissionState = PermissionState.Granted
+        },
+        settingsPlatform = createMockCameraSettingsPlatform(),
+    )
+}
+
+// プレビュー用の設定。保存せず、BGM も鳴らさない。
+private fun createMockCameraSettingsPlatform(): CameraSettingsPlatform {
+    return CameraSettingsPlatform(
+        settingsRepository = object : CameraSettingsRepository {
+            override fun load(): Result<CameraSettings> = Result.success(CameraSettings())
+            override fun save(settings: CameraSettings): Result<Unit> = Result.success(Unit)
+            override fun deleteMedia(media: StoredMedia): Result<Unit> = Result.success(Unit)
+            override fun read(media: StoredMedia): ByteArray? = null
+        },
+        bgmPlayer = object : BgmPlayer {
+            override var onPlaybackFailed: (() -> Unit)? = null
+            override val isPlaying: Boolean = false
+            override val positionMs: Long = 0L
+            override fun play(track: StoredMedia, volume: Float, startPositionMs: Long): Result<Unit> =
+                Result.success(Unit)
+
+            override fun stop() {}
+            override fun setVolume(volume: Float) {}
+            override fun release() {}
         },
     )
 }
@@ -583,6 +618,11 @@ private fun createCameraRepositories(
 ): CameraRepositories {
     val previewState = MutableStateFlow<PreviewState>(PreviewState.Preparing)
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+    val settingsRepository = AndroidCameraSettingsRepository(context)
+    val settingsPlatform = CameraSettingsPlatform(
+        settingsRepository = settingsRepository,
+        bgmPlayer = AndroidBgmPlayer(resolveFile = settingsRepository::resolveMediaFile),
+    )
     return CameraRepositories(
         cameraRepository = AndroidCameraRepository(
             cameraAvailabilityProvider = {
@@ -591,6 +631,7 @@ private fun createCameraRepositories(
             previewState = previewState,
             photoOutputFactory = ::createTempFilePhotoOutput,
             photoBitmapSaver = { bitmap -> savePhotoBitmapToGallery(context.contentResolver, bitmap) },
+            storedMediaFileResolver = settingsRepository::resolveMediaFile,
         ),
         permissionRepository = object : PermissionRepository {
             override suspend fun checkCameraPermission(): PermissionState {
@@ -606,6 +647,7 @@ private fun createCameraRepositories(
                 return checkCameraPermission()
             }
         },
+        settingsPlatform = settingsPlatform,
     )
 }
 

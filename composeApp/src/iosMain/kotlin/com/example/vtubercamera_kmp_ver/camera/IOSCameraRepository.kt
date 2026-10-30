@@ -1,5 +1,6 @@
 package com.example.vtubercamera_kmp_ver.camera
 
+import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,10 +22,14 @@ internal fun interface IOSPhotoCapturer {
 
 // アプリ画面の録画を repository から切り離すための録画開始口。repository のテストでは fake へ差し替える。
 internal fun interface IOSVideoRecorder {
-    // 録画を開始する。[onFinalized] は録画の終了と Photos への保存が済んだ時点で main thread から
+    // 録画を開始する。[audioOptions] は録音する音声の構成で、雑音抑制を反映する。BGM はアプリが再生した音を
+    // ReplayKit が録るため、ここでは混ぜない。[onFinalized] は録画の終了と Photos への保存が済んだ時点で main thread から
     // 1 度だけ呼ばれ、成功なら保存先の識別子、失敗なら原因を受け取る。失敗した録画の一時ファイルは、
     // 実装側が片付けてから通知する。開始できないときは例外を投げる。
-    fun startRecording(onFinalized: (uri: String?, error: Throwable?) -> Unit): IOSVideoRecording
+    fun startRecording(
+        audioOptions: VideoRecordingAudioOptions,
+        onFinalized: (uri: String?, error: Throwable?) -> Unit,
+    ): IOSVideoRecording
 }
 
 // 開始済みの録画への停止要求。停止後の保存完了は [IOSVideoRecorder.startRecording] の callback で届く。
@@ -68,19 +73,6 @@ internal class IOSCameraRepository(
         pendingLensFacing = null
         photoCapturer = null
         previewState.value = PreviewState.Preparing
-    }
-
-    // 現在と反対側のレンズへ切り替え可能か確認して反映する。
-    override suspend fun switchLens(current: CameraLensFacing): Result<CameraLensFacing> {
-        photoCapturer = null
-        previewState.value = PreviewState.Preparing
-        val targetLens = current.toggled()
-        if (!hasLens(targetLens)) {
-            previewState.value = PreviewState.Error(CameraError.LensSwitchFailed)
-            return Result.failure(CameraRepositoryException(CameraError.LensSwitchFailed))
-        }
-        pendingLensFacing = targetLens
-        return Result.success(targetLens)
     }
 
     // 初回表示時に利用できるレンズを決定する。
@@ -127,7 +119,7 @@ internal class IOSCameraRepository(
 
     // アプリ画面の録画を開始する。録画中、プレビュー未表示、recorder が未準備、開始に失敗したときは
     // [CameraError.VideoRecordFailed] で失敗する。すでに録画中の呼び出しは状態を変えずに失敗だけ返す。
-    override suspend fun startVideoRecording(): Result<Unit> {
+    override suspend fun startVideoRecording(audioOptions: VideoRecordingAudioOptions): Result<Unit> {
         if (activeRecording != null) {
             return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
         }
@@ -135,7 +127,7 @@ internal class IOSCameraRepository(
         if (previewState.value !is PreviewState.Showing || recorder == null) {
             return failVideoRecordingStart()
         }
-        val recording = runCatching { recorder.startRecording(::onVideoRecordingFinalized) }
+        val recording = runCatching { recorder.startRecording(audioOptions, ::onVideoRecordingFinalized) }
             .getOrElse { return failVideoRecordingStart() }
         activeRecording = recording
         videoRecordingState.value = VideoRecordingState.Recording
