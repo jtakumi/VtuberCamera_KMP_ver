@@ -10,11 +10,14 @@ import androidx.compose.runtime.Stable
  */
 @Stable
 data class CameraSettingsActions(
+    val supportsMicrophoneGain: Boolean,
     val onPickBgm: () -> Unit,
     val onClearBgm: () -> Unit,
     val onToggleBgmPlayback: () -> Unit,
     val onBgmVolumeChanged: (Float) -> Unit,
     val onBgmVolumeChangeFinished: () -> Unit,
+    val onMicrophoneVolumeChanged: (Float) -> Unit,
+    val onMicrophoneVolumeChangeFinished: () -> Unit,
     val onToggleBgmStartsWithRecording: () -> Unit,
     val onToggleNoiseSuppression: () -> Unit,
     val onPickBackgroundImage: () -> Unit,
