@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -30,39 +31,82 @@ import kotlin.math.max
 
 private const val TAG = "MediaPicker"
 
+/**
+ * [kind] のメディアを選ぶピッカーの起動処理を生成する。
+ *
+ * 背景画像は端末のギャラリー (Photo Picker) から、BGM はファイルのドキュメントピッカーから選ぶ。
+ * Photo Picker は権限が要らず、使えない端末ではドキュメントピッカーへ自動で切り替わる。
+ */
 @Composable
 actual fun rememberMediaPickerLauncher(
     kind: PickedMediaKind,
     onPicked: (MediaPickResult) -> Unit,
+): FilePickerLauncher = when (kind) {
+    PickedMediaKind.Bgm -> rememberDocumentPickerLauncher(kind, onPicked)
+    PickedMediaKind.BackgroundImage -> rememberGalleryImagePickerLauncher(kind, onPicked)
+}
+
+// ファイルのドキュメントピッカーで音声を選ぶランチャーを生成する。
+@Composable
+private fun rememberDocumentPickerLauncher(
+    kind: PickedMediaKind,
+    onPicked: (MediaPickResult) -> Unit,
 ): FilePickerLauncher {
-    val context = LocalContext.current
-    val onPickedState = rememberUpdatedState(onPicked)
-    val scope = rememberCoroutineScope()
+    val onPickedUri = rememberPickedUriHandler(kind, onPicked)
     val pickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) {
-            onPickedState.value(MediaPickResult.Cancelled)
-            return@rememberLauncherForActivityResult
-        }
-        scope.launch {
-            val result = withContext(Dispatchers.IO) { importPickedMedia(context, uri, kind) }
-            onPickedState.value(result)
-        }
-    }
+        onResult = onPickedUri,
+    )
 
     // launch の関数オブジェクトだけを保持する。FilePickerLauncher の等価性は launch で決まるため、
     // 再 composition でも同じ値になり、受け取る側の remember が無駄に作り直されない。
-    val launch: () -> Unit = remember(pickerLauncher, kind) {
-        { pickerLauncher.launch(kind.mimeTypes()) }
+    val launch: () -> Unit = remember(pickerLauncher) {
+        { pickerLauncher.launch(arrayOf("audio/*")) }
     }
     return FilePickerLauncher(launch = launch)
 }
 
-// ピッカーに指定する MIME タイプ。
-private fun PickedMediaKind.mimeTypes(): Array<String> = when (this) {
-    PickedMediaKind.Bgm -> arrayOf("audio/*")
-    PickedMediaKind.BackgroundImage -> arrayOf("image/*")
+// ギャラリー (Photo Picker) で画像を選ぶランチャーを生成する。Photo Picker を使えない端末では、画像に絞ったドキュメントピッカーになる。
+@Composable
+private fun rememberGalleryImagePickerLauncher(
+    kind: PickedMediaKind,
+    onPicked: (MediaPickResult) -> Unit,
+): FilePickerLauncher {
+    val onPickedUri = rememberPickedUriHandler(kind, onPicked)
+    val pickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = onPickedUri,
+    )
+
+    val launch: () -> Unit = remember(pickerLauncher) {
+        {
+            pickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        }
+    }
+    return FilePickerLauncher(launch = launch)
+}
+
+// ピッカーが返した Uri を取り込み、結果を [onPicked] へ渡す処理を生成する。Uri が null のときは取り消しとして扱う。
+@Composable
+private fun rememberPickedUriHandler(
+    kind: PickedMediaKind,
+    onPicked: (MediaPickResult) -> Unit,
+): (Uri?) -> Unit {
+    val context = LocalContext.current
+    val onPickedState = rememberUpdatedState(onPicked)
+    val scope = rememberCoroutineScope()
+    return { uri ->
+        if (uri == null) {
+            onPickedState.value(MediaPickResult.Cancelled)
+        } else {
+            scope.launch {
+                val result = withContext(Dispatchers.IO) { importPickedMedia(context, uri, kind) }
+                onPickedState.value(result)
+            }
+        }
+    }
 }
 
 // 選ばれたファイルをアプリ専用領域へ取り込む。読み出しや検証に失敗したときは、取り込みかけたファイルを消して案内を返す。
