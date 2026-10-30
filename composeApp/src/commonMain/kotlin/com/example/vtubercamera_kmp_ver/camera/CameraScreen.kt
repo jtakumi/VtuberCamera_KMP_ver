@@ -115,11 +115,14 @@ fun CameraRoute(
     )
     val settingsActions = remember(cameraViewModel, bgmPickerLauncher, backgroundImagePickerLauncher) {
         CameraSettingsActions(
+            supportsMicrophoneGain = cameraViewModel.supportsMicrophoneGain,
             onPickBgm = bgmPickerLauncher.launch,
             onClearBgm = cameraViewModel::onClearBgm,
             onToggleBgmPlayback = cameraViewModel::onToggleBgmPlayback,
             onBgmVolumeChanged = cameraViewModel::onBgmVolumeChanged,
             onBgmVolumeChangeFinished = cameraViewModel::onBgmVolumeChangeFinished,
+            onMicrophoneVolumeChanged = cameraViewModel::onMicrophoneVolumeChanged,
+            onMicrophoneVolumeChangeFinished = cameraViewModel::onMicrophoneVolumeChangeFinished,
             onToggleBgmStartsWithRecording = cameraViewModel::onToggleBgmStartsWithRecording,
             onToggleNoiseSuppression = cameraViewModel::onToggleNoiseSuppression,
             onPickBackgroundImage = backgroundImagePickerLauncher.launch,
