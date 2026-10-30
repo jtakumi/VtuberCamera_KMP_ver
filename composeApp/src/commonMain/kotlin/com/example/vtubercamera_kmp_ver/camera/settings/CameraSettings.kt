@@ -40,12 +40,14 @@ data class BackgroundImageSettings(
  * カメラ画面の設定。アプリを再起動しても保持する対象をまとめる。
  *
  * [isBgmStartedWithRecording] が true のとき、録画の開始と同時に BGM を頭から再生し、録画の終了で止める。
- * false のときは録画に連動させず、設定画面で再生中の BGM がそのまま録画へ入る。
+ * false のときは録画に連動させず、設定画面で再生中の BGM がそのまま録画へ入る。[microphoneVolume] は録画時の
+ * マイク音量で、100% を標準として最大 200% まで設定できる。
  */
 @Immutable
 data class CameraSettings(
     val bgmTrack: StoredMedia? = null,
     val bgmVolume: Float = DEFAULT_BGM_VOLUME,
+    val microphoneVolume: Float = DEFAULT_MICROPHONE_VOLUME,
     val isBgmStartedWithRecording: Boolean = true,
     val isNoiseSuppressionEnabled: Boolean = false,
     val backgroundImage: BackgroundImageSettings = BackgroundImageSettings(),
@@ -54,6 +56,9 @@ data class CameraSettings(
 const val DEFAULT_BGM_VOLUME = 0.5f
 const val MIN_BGM_VOLUME = 0f
 const val MAX_BGM_VOLUME = 1f
+const val DEFAULT_MICROPHONE_VOLUME = 1f
+const val MIN_MICROPHONE_VOLUME = 0f
+const val MAX_MICROPHONE_VOLUME = 2f
 
 const val MIN_BACKGROUND_IMAGE_ZOOM = 1f
 const val MAX_BACKGROUND_IMAGE_ZOOM = 5f
