@@ -30,6 +30,7 @@
     <string name="camera_photo_capture_succeeded">写真をギャラリーに保存しました。</string>
     <string name="camera_photo_delete_succeeded">写真を削除しました。</string>
     <string name="camera_video_record_succeeded">録画をギャラリーに保存しました。</string>
+    <string name="camera_video_saving">録画を保存中です。アプリを閉じずにお待ちください。</string>
     <string name="avatar_picker_open_button">アバターを選択</string>
     <string name="camera_ui_hide_button">UIを非表示</string>
     <string name="camera_ui_show_action">UIを再表示</string>

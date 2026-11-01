@@ -83,6 +83,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_permission_req
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_retry_button
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_ui_show_action
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_stop_action
+import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_saving
 
 /**
  * 共有 camera route を構成し、必要に応じて renderer layer へ custom renderer host を注入する。
@@ -482,6 +483,36 @@ private fun CameraPreviewState(
                     glass = glass,
                     onDismissRequest = { isSettingsOpen = false },
                 )
+            }
+        }
+
+        if (videoRecording == VideoRecordingState.Finalizing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX + 1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                LiquidGlassSurface(
+                    appearance = glass,
+                    cornerStyle = LiquidGlassCornerStyle.Rounded(MaterialTheme.spacing.md),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(
+                            horizontal = MaterialTheme.spacing.xl,
+                            vertical = MaterialTheme.spacing.lg,
+                        ),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md),
+                    ) {
+                        CircularProgressIndicator(color = glass.style.contentColor)
+                        Text(
+                            text = stringResource(Res.string.camera_video_saving),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = glass.style.contentColor,
+                        )
+                    }
+                }
             }
         }
     }
