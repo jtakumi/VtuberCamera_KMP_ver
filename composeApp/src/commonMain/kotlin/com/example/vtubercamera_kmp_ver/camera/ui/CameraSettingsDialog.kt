@@ -37,7 +37,9 @@ import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettings
 import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsActions
 import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsUiState
 import com.example.vtubercamera_kmp_ver.camera.settings.MAX_BGM_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.MAX_MICROPHONE_VOLUME
 import com.example.vtubercamera_kmp_ver.camera.settings.MIN_BGM_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.MIN_MICROPHONE_VOLUME
 import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
 import com.example.vtubercamera_kmp_ver.theme.LIQUID_GLASS_RIM_WIDTH
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
@@ -66,6 +68,8 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.settings_bgm_start_wi
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_bgm_stop
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_bgm_volume_content_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_bgm_volume_label
+import vtubercamera_kmp_ver.composeapp.generated.resources.settings_microphone_volume_content_description
+import vtubercamera_kmp_ver.composeapp.generated.resources.settings_microphone_volume_label
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_noise_suppression
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_noise_suppression_description
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_section_audio
@@ -238,12 +242,52 @@ private fun AudioSection(
     glass: LiquidGlassAppearance,
 ) {
     SettingsSection(title = stringResource(Res.string.settings_section_audio), glass = glass) {
+        if (actions.supportsMicrophoneGain) {
+            MicrophoneVolumeSlider(
+                volume = settings.microphoneVolume,
+                onVolumeChanged = actions.onMicrophoneVolumeChanged,
+                onVolumeChangeFinished = actions.onMicrophoneVolumeChangeFinished,
+                glassStyle = glass.style,
+            )
+        }
         SettingsToggleRow(
             label = stringResource(Res.string.settings_noise_suppression),
             description = stringResource(Res.string.settings_noise_suppression_description),
             checked = settings.isNoiseSuppressionEnabled,
             onCheckedChange = actions.onToggleNoiseSuppression,
             glassStyle = glass.style,
+        )
+    }
+}
+
+// 録画に入れるマイク音量。標準を100%として、最大200%まで調整できる。
+@Composable
+private fun MicrophoneVolumeSlider(
+    volume: Float,
+    onVolumeChanged: (Float) -> Unit,
+    onVolumeChangeFinished: () -> Unit,
+    glassStyle: LiquidGlassStyle,
+) {
+    val microphoneVolumeDescription = stringResource(Res.string.settings_microphone_volume_content_description)
+    val percent = (volume * PERCENT_SCALE).roundToInt()
+
+    Column {
+        Text(
+            text = stringResource(Res.string.settings_microphone_volume_label, "$percent%"),
+            style = MaterialTheme.typography.bodyMedium,
+            color = glassStyle.contentColor,
+        )
+        Slider(
+            value = volume,
+            onValueChange = onVolumeChanged,
+            onValueChangeFinished = onVolumeChangeFinished,
+            valueRange = MIN_MICROPHONE_VOLUME..MAX_MICROPHONE_VOLUME,
+            modifier = Modifier.semantics { contentDescription = microphoneVolumeDescription },
+            colors = SliderDefaults.colors(
+                thumbColor = glassStyle.contentColor,
+                activeTrackColor = glassStyle.contentColor,
+                inactiveTrackColor = glassStyle.contentVariantColor,
+            ),
         )
     }
 }

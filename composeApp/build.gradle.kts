@@ -1,6 +1,10 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.nio.file.Files
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -104,7 +108,7 @@ android {
         applicationId = "jtakumi.vtubercamera"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 7
+        versionCode = 9
         versionName = "1.1.0"
     }
     signingConfigs {
@@ -141,4 +145,50 @@ android {
 
 dependencies {
     debugImplementation(libs.compose.uiTooling)
+}
+
+fun nextDatedArtifact(directory: java.io.File, extension: String): java.io.File {
+    val today = LocalDate.now(ZoneId.of("Asia/Tokyo"))
+        .format(DateTimeFormatter.BASIC_ISO_DATE)
+
+    var number = 1
+    var destination: java.io.File
+    do {
+        destination = directory.resolve("VtuberCamera_${today}_${number}.${extension}")
+        number++
+    } while (destination.exists())
+
+    return destination
+}
+
+tasks.register("saveReleaseApkWithDate") {
+    dependsOn("assembleRelease")
+
+    doLast {
+        val apkDir = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+        val sourceApk = apkDir.resolve("composeApp-release.apk")
+        check(sourceApk.isFile) {
+            "コピー元のAPKが見つかりません: ${sourceApk.absolutePath}"
+        }
+
+        val destination = nextDatedArtifact(apkDir, "apk")
+        Files.move(sourceApk.toPath(), destination.toPath())
+        println("APKをリネームしました: ${destination.absolutePath}")
+    }
+}
+
+tasks.register("saveReleaseBundleWithDate") {
+    dependsOn("bundleRelease")
+
+    doLast {
+        val bundleDir = layout.buildDirectory.dir("outputs/bundle/release").get().asFile
+        val sourceBundle = bundleDir.resolve("composeApp-release.aab")
+        check(sourceBundle.isFile) {
+            "コピー元のAABが見つかりません: ${sourceBundle.absolutePath}"
+        }
+
+        val destination = nextDatedArtifact(bundleDir, "aab")
+        Files.move(sourceBundle.toPath(), destination.toPath())
+        println("AABをリネームしました: ${destination.absolutePath}")
+    }
 }

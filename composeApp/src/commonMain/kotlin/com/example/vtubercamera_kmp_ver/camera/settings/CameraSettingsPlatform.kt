@@ -66,4 +66,5 @@ interface BgmPlayer {
 data class CameraSettingsPlatform(
     val settingsRepository: CameraSettingsRepository,
     val bgmPlayer: BgmPlayer,
+    val supportsMicrophoneGain: Boolean = true,
 )

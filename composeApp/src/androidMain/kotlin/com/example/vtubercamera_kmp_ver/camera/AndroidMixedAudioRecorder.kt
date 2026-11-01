@@ -26,6 +26,7 @@ internal class MixedAudioRecorder private constructor(
     private val noiseSuppressor: NoiseSuppressor?,
     private val bgmDecoder: BgmPcmDecoder?,
     private val bgmGain: Float,
+    private val micGain: Float,
     private val writer: AacFileWriter,
     private val outputFile: File,
 ) {
@@ -109,6 +110,7 @@ internal class MixedAudioRecorder private constructor(
                     sampleCount = sampleCount,
                     bgmGain = bgmGain,
                     out = mixedBuffer,
+                    micGain = micGain,
                 )
                 writer.write(mixedBuffer, sampleCount)
                 hasAudio = true
@@ -175,7 +177,7 @@ internal class MixedAudioRecorder private constructor(
          *
          * [useMicrophone] が true のときだけマイクを録り、[isNoiseSuppressionEnabled] ならマイクへ雑音抑制を
          * かける（端末が対応しないときは抑制なしで続ける）。[bgmFile] があれば [bgmStartPositionMs] から
-         * [bgmGain] の音量で混ぜる。準備に失敗したときは確保した資源を解放して例外を投げる。
+         * マイクには [micGain]、BGM には [bgmGain] の音量を適用する。準備に失敗したときは確保した資源を解放して例外を投げる。
          */
         @SuppressLint("MissingPermission")
         fun create(
@@ -185,6 +187,7 @@ internal class MixedAudioRecorder private constructor(
             bgmFile: File?,
             bgmStartPositionMs: Long,
             bgmGain: Float,
+            micGain: Float = 1f,
         ): MixedAudioRecorder {
             val audioRecord = if (useMicrophone) createAudioRecord() else null
             val noiseSuppressor = audioRecord?.let { createNoiseSuppressor(it, isNoiseSuppressionEnabled) }
@@ -192,7 +195,7 @@ internal class MixedAudioRecorder private constructor(
             try {
                 bgmDecoder = bgmFile?.let { BgmPcmDecoder.open(it, bgmStartPositionMs) }
                 val writer = AacFileWriter(outputFile, MIX_SAMPLE_RATE)
-                return MixedAudioRecorder(audioRecord, noiseSuppressor, bgmDecoder, bgmGain, writer, outputFile)
+                return MixedAudioRecorder(audioRecord, noiseSuppressor, bgmDecoder, bgmGain, micGain, writer, outputFile)
             } catch (error: IOException) {
                 releaseOnCreateFailure(audioRecord, noiseSuppressor, bgmDecoder)
                 throw error

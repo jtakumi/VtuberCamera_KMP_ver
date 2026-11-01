@@ -11,10 +11,13 @@ import com.example.vtubercamera_kmp_ver.camera.settings.BgmPlayer
 import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettings
 import com.example.vtubercamera_kmp_ver.camera.settings.CameraSettingsRepository
 import com.example.vtubercamera_kmp_ver.camera.settings.DEFAULT_BGM_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.DEFAULT_MICROPHONE_VOLUME
 import com.example.vtubercamera_kmp_ver.camera.settings.MAX_BACKGROUND_IMAGE_ZOOM
 import com.example.vtubercamera_kmp_ver.camera.settings.MAX_BGM_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.MAX_MICROPHONE_VOLUME
 import com.example.vtubercamera_kmp_ver.camera.settings.MIN_BACKGROUND_IMAGE_ZOOM
 import com.example.vtubercamera_kmp_ver.camera.settings.MIN_BGM_VOLUME
+import com.example.vtubercamera_kmp_ver.camera.settings.MIN_MICROPHONE_VOLUME
 import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
 import java.io.File
 import java.io.IOException
@@ -37,6 +40,8 @@ internal class AndroidCameraSettingsRepository(context: Context) : CameraSetting
             bgmTrack = preferences.readMedia(KEY_BGM_FILE_NAME, KEY_BGM_DISPLAY_NAME),
             bgmVolume = preferences.getFloat(KEY_BGM_VOLUME, DEFAULT_BGM_VOLUME)
                 .coerceIn(MIN_BGM_VOLUME, MAX_BGM_VOLUME),
+            microphoneVolume = preferences.getFloat(KEY_MICROPHONE_VOLUME, DEFAULT_MICROPHONE_VOLUME)
+                .coerceIn(MIN_MICROPHONE_VOLUME, MAX_MICROPHONE_VOLUME),
             isBgmStartedWithRecording = preferences.getBoolean(KEY_BGM_STARTS_WITH_RECORDING, true),
             isNoiseSuppressionEnabled = preferences.getBoolean(KEY_NOISE_SUPPRESSION, false),
             backgroundImage = BackgroundImageSettings(
@@ -54,6 +59,7 @@ internal class AndroidCameraSettingsRepository(context: Context) : CameraSetting
     override fun save(settings: CameraSettings): Result<Unit> = runCatching {
         val editor = preferences.edit()
             .putFloat(KEY_BGM_VOLUME, settings.bgmVolume)
+            .putFloat(KEY_MICROPHONE_VOLUME, settings.microphoneVolume)
             .putBoolean(KEY_BGM_STARTS_WITH_RECORDING, settings.isBgmStartedWithRecording)
             .putBoolean(KEY_NOISE_SUPPRESSION, settings.isNoiseSuppressionEnabled)
             .putFloat(KEY_BACKGROUND_CENTER_X, settings.backgroundImage.crop.centerX)
@@ -209,6 +215,7 @@ private const val MEDIA_DIRECTORY_NAME = "camera_settings_media"
 private const val KEY_BGM_FILE_NAME = "bgm_file_name"
 private const val KEY_BGM_DISPLAY_NAME = "bgm_display_name"
 private const val KEY_BGM_VOLUME = "bgm_volume"
+private const val KEY_MICROPHONE_VOLUME = "microphone_volume"
 private const val KEY_BGM_STARTS_WITH_RECORDING = "bgm_starts_with_recording"
 private const val KEY_NOISE_SUPPRESSION = "noise_suppression"
 private const val KEY_BACKGROUND_FILE_NAME = "background_image_file_name"

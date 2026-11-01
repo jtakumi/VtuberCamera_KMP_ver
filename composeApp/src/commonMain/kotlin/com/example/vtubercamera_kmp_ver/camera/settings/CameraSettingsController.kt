@@ -78,6 +78,17 @@ class CameraSettingsController(
         persist()
     }
 
+    // スライダー操作中は録画音声へ渡す値を更新し、確定時に保存する。
+    fun onMicrophoneVolumeChanged(volume: Float) {
+        val clampedVolume = volume.coerceIn(MIN_MICROPHONE_VOLUME, MAX_MICROPHONE_VOLUME)
+        _state.update { it.copy(settings = it.settings.copy(microphoneVolume = clampedVolume)) }
+    }
+
+    // マイク音量スライダーの操作を確定して保存する。
+    fun onMicrophoneVolumeChangeFinished() {
+        persist()
+    }
+
     // 録画の開始と同時に BGM を流すかどうかを反転する。
     fun onToggleBgmStartsWithRecording() {
         updateSettings { it.copy(isBgmStartedWithRecording = !it.isBgmStartedWithRecording) }
@@ -171,6 +182,7 @@ class CameraSettingsController(
         return VideoRecordingAudioOptions(
             bgm = bgm,
             isNoiseSuppressionEnabled = settings.isNoiseSuppressionEnabled,
+            microphoneGain = settings.microphoneVolume,
         )
     }
 

@@ -45,6 +45,8 @@
     <string name="settings_bgm_stop">停止</string>
     <string name="settings_bgm_volume_label">音量 %1$s</string>
     <string name="settings_bgm_volume_content_description">BGMの音量</string>
+    <string name="settings_microphone_volume_label">マイク音量 %1$s</string>
+    <string name="settings_microphone_volume_content_description">録画に入れるマイク音量</string>
     <string name="settings_bgm_start_with_recording">録画開始と同時にBGMを再生</string>
     <string name="settings_bgm_start_with_recording_description">オフのときは、ここで再生しておいたBGMがそのまま録画に入ります。</string>
     <string name="settings_section_audio">録音</string>

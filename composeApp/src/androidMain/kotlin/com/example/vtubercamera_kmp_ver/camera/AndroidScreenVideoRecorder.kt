@@ -93,7 +93,7 @@ internal class AndroidScreenVideoRecorder(
         return session
     }
 
-    // BGM の混合か雑音抑制が必要なときだけ、別録りの音声と一時ファイルを用意する。不要なら null を返す。
+    // BGM の混合、マイク音量調整、雑音抑制が必要なときだけ、別録りの音声と一時ファイルを用意する。不要なら null を返す。
     // 設定した BGM のファイルが見つからないときは、利用者が期待する音にならないため録画の開始を失敗させる。
     private fun createMixedAudioOrNull(
         audioOptions: VideoRecordingAudioOptions,
@@ -101,7 +101,8 @@ internal class AndroidScreenVideoRecorder(
     ): MixedAudioParts? {
         val bgm = audioOptions.bgm
         val bgmFile = bgm?.let { resolveMediaFile(it.track) ?: throw IOException("The BGM file is missing") }
-        val needsMixer = bgmFile != null || (audioOptions.isNoiseSuppressionEnabled && isMicrophoneAvailable)
+        val needsMixer = bgmFile != null ||
+            (isMicrophoneAvailable && (audioOptions.isNoiseSuppressionEnabled || audioOptions.microphoneGain != 1f))
         if (!needsMixer) return null
 
         val videoFile = File.createTempFile(TEMP_VIDEO_PREFIX, TEMP_VIDEO_SUFFIX, context.cacheDir)
@@ -116,6 +117,7 @@ internal class AndroidScreenVideoRecorder(
                 bgmFile = bgmFile,
                 bgmStartPositionMs = bgm?.startPositionMs ?: 0L,
                 bgmGain = bgm?.volume ?: 0f,
+                micGain = audioOptions.microphoneGain,
             )
             MixedAudioParts(audioRecorder, videoFile, audioFile, mergedFile)
         } catch (error: IOException) {

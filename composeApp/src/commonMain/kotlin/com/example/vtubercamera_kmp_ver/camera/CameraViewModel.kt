@@ -35,6 +35,8 @@ class CameraViewModel(
     permissionRepository: PermissionRepository,
     settingsPlatform: CameraSettingsPlatform,
 ) : ViewModel() {
+    val supportsMicrophoneGain: Boolean = settingsPlatform.supportsMicrophoneGain
+
     private val sessionController = CameraSessionController(
         cameraRepository = cameraRepository,
         scope = viewModelScope,
@@ -260,6 +262,14 @@ class CameraViewModel(
 
     fun onBgmVolumeChangeFinished() {
         settingsController.onBgmVolumeChangeFinished()
+    }
+
+    fun onMicrophoneVolumeChanged(volume: Float) {
+        settingsController.onMicrophoneVolumeChanged(volume)
+    }
+
+    fun onMicrophoneVolumeChangeFinished() {
+        settingsController.onMicrophoneVolumeChangeFinished()
     }
 
     // 録画の開始と同時に BGM を流す設定を反転する。
