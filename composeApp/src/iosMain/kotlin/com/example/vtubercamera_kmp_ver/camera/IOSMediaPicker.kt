@@ -43,9 +43,23 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.file_picker_read_fail
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_error_bgm_invalid
 import vtubercamera_kmp_ver.composeapp.generated.resources.settings_error_image_invalid
 
+/**
+ * [kind] のメディアを選ぶピッカーの起動処理を生成する。
+ *
+ * 背景画像は写真ライブラリのピッカーから、BGM はファイルのドキュメントピッカーから選ぶ。
+ */
 @Composable
-// BGM / 背景画像のドキュメントピッカーを起動するランチャーを生成する。
 actual fun rememberMediaPickerLauncher(
+    kind: PickedMediaKind,
+    onPicked: (MediaPickResult) -> Unit,
+): FilePickerLauncher = when (kind) {
+    PickedMediaKind.Bgm -> rememberDocumentPickerLauncher(kind, onPicked)
+    PickedMediaKind.BackgroundImage -> rememberGalleryImagePickerLauncher(onPicked)
+}
+
+// ファイルのドキュメントピッカーを起動するランチャーを生成する。
+@Composable
+private fun rememberDocumentPickerLauncher(
     kind: PickedMediaKind,
     onPicked: (MediaPickResult) -> Unit,
 ): FilePickerLauncher {
@@ -141,7 +155,8 @@ private fun importBgm(sourcePath: String, displayName: String): MediaPickResult 
 
 // 画像を長辺 [MAX_BACKGROUND_IMAGE_LONG_SIDE] 以内の JPEG に縮小して取り込む。向きは反映済みの画像にする。
 // 端末の写真は数千万画素になりうるため、そのままではデコードの負荷とメモリが画面の描画に響く。
-private fun importBackgroundImage(sourcePath: String, displayName: String): MediaPickResult {
+// 書き込めないときは [IllegalStateException] を投げる。
+internal fun importBackgroundImage(sourcePath: String, displayName: String): MediaPickResult {
     val image = UIImage.imageWithContentsOfFile(sourcePath)
         ?: return MediaPickResult.Error(Res.string.settings_error_image_invalid)
     val resized = image.resizedToFit(MAX_BACKGROUND_IMAGE_LONG_SIDE)
