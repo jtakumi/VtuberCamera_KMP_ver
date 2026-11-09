@@ -914,7 +914,7 @@ actual fun rememberCameraRepositories(
             settingsPlatform = CameraSettingsPlatform(
                 settingsRepository = settingsRepository,
                 bgmPlayer = IOSBgmPlayer(),
-                supportsMicrophoneGain = false,
+                supportsMicrophoneGain = true,
             ),
         )
     }
