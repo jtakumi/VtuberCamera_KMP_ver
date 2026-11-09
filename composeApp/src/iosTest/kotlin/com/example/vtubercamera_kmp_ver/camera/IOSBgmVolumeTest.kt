@@ -26,6 +26,26 @@ class IOSBgmVolumeTest {
         assertEquals(volume, loadedSettings.bgmVolume)
     }
 
+    @Test
+    fun iosBgmPlayer_setVolume_remembersRequestedVolumeWithoutPlayback() {
+        val player = IOSBgmPlayer(resolvePath = { null })
+
+        player.setVolume(0.3f)
+
+        assertEquals(0.3f, player.requestedVolume)
+    }
+
+    @Test
+    fun iosBgmPlayer_setVolume_clampsOutOfRangeValues() {
+        val player = IOSBgmPlayer(resolvePath = { null })
+
+        player.setVolume(1.5f)
+        assertEquals(1f, player.requestedVolume)
+
+        player.setVolume(-0.2f)
+        assertEquals(0f, player.requestedVolume)
+    }
+
     private class RecordingBgmPlayer : BgmPlayer {
         override var onPlaybackFailed: (() -> Unit)? = null
         override val isPlaying: Boolean = false

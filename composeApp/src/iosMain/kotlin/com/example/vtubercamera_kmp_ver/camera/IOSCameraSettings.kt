@@ -248,6 +248,13 @@ internal class IOSBgmPlayer(
 
     private var player: AVAudioPlayer? = null
 
+    /**
+     * 最後に要求された音量（0〜1）。フェード中は [AVAudioPlayer.volume] が途中の値になるため、目標値をここに持つ。
+     * 再生中でなくても [setVolume] で更新される。
+     */
+    internal var requestedVolume: Float = DEFAULT_BGM_VOLUME
+        private set
+
     override val isPlaying: Boolean
         get() = player?.playing == true
 
@@ -268,7 +275,9 @@ internal class IOSBgmPlayer(
                     IllegalStateException("Failed to open the BGM: ${error.value?.localizedDescription}"),
                 )
             newPlayer.numberOfLoops = -1
-            newPlayer.volume = volume
+            val clampedVolume = volume.coerceIn(MIN_BGM_VOLUME, MAX_BGM_VOLUME)
+            requestedVolume = clampedVolume
+            newPlayer.volume = clampedVolume
             newPlayer.currentTime = startPositionMs / MILLIS_PER_SECOND
             if (!newPlayer.prepareToPlay() || !newPlayer.play()) {
                 return@memScoped Result.failure(IllegalStateException("Failed to start the BGM"))
@@ -283,8 +292,11 @@ internal class IOSBgmPlayer(
         player = null
     }
 
+    // スライダーのドラッグ中に呼ばれる。段差によるプチノイズを避けるため、ごく短いフェードで目標の音量へ寄せる。
     override fun setVolume(volume: Float) {
-        player?.volume = volume
+        val clamped = volume.coerceIn(MIN_BGM_VOLUME, MAX_BGM_VOLUME)
+        requestedVolume = clamped
+        player?.setVolume(clamped, fadeDuration = VOLUME_FADE_SECONDS)
     }
 
     override fun release() {
@@ -306,6 +318,9 @@ internal fun openAudioPlayer(path: String, error: ObjCObjectVar<NSError?>): AVAu
 }
 
 private const val MILLIS_PER_SECOND = 1_000.0
+
+// スライダー操作で音量を変えるときのフェード時間（秒）。操作に遅れを感じない程度に短くする。
+private const val VOLUME_FADE_SECONDS = 0.05
 private const val MEDIA_DIRECTORY_NAME = "camera_settings_media"
 private const val KEY_BGM_FILE_NAME = "camera_settings.bgm_file_name"
 private const val KEY_BGM_DISPLAY_NAME = "camera_settings.bgm_display_name"
