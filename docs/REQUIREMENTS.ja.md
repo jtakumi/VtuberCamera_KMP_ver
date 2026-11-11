@@ -259,9 +259,9 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - 進行中は、FR-14 の UI 非表示モードかどうかに関わらず操作 UI を描かない。録画中インジケーターも映像に映るため出さない。撮影モードとレンズの切り替えは受け付けない（`CameraViewModel` 側で無視）。
 - 停止: 録画中は画面のどこをタップしても停止する（全画面レイヤーが「録画を停止」という名前のボタンとして読み上げられ、スクリーンリーダーの click 操作でも停止できる）。`Starting` / `Finalizing` 中のタップは無視する。ピンチ操作はタップとして扱わない。
 - 停止後はギャラリーへの保存が完了するまで `Finalizing`。完了すると `Succeeded(uri)`（案内「録画をギャラリーに保存しました。」）、失敗すると `Failed`（`VideoRecordFailed` のエラーメッセージ）になり、操作 UI が戻る。結果は次の操作（モード切り替え・写真撮影）で通知済みとして `Idle` へ戻し、古いバナーを再表示しない。
-- 音声はマイクから録音する（BGM の混合と雑音抑制は FR-16）。動画モードへ切り替えた時点（Android）または録画開始時（iOS、ReplayKit の許可ダイアログ）にマイク権限を要求し、拒否されても録画は止めず映像のみで録画する。
+- 音声はマイクから録音する（BGM の混合と雑音抑制は FR-16）。動画モードへ切り替えた時点（Android）または録画開始時（iOS、マイク権限ダイアログ）にマイク権限を要求し、拒否されても録画は止めず映像と取得可能なアプリ音声を保存する。
 - Android: ウィンドウを `PixelCopy` で 30 fps 相当に複製し、`MediaRecorder` の入力 Surface（H.264 / AAC、MP4）へ描き込む。`MediaStore` の `Movies/VtuberCamera` へ保留状態（`IS_PENDING`）で書き出し、停止後に確定する。Android 10 以降のため保存用の権限は不要。アプリが背面へ回るなどでウィンドウを複製できない状態が約 5 秒続いたら、それまでの分を保存して終了する。
-- iOS: `RPScreenRecorder`（ReplayKit）で画面とマイクを録画し、`stopRecording(withOutputURL:)` で一時ファイルへ書き出してから、add-only の権限で Photos（`PHAssetChangeRequest`）へ保存する。保存後に一時ファイルを削除する。ARKit face tracking 中も録画できる。
+- iOS: ReplayKit で画面とアプリ音声を録画し、`AVAudioEngine` input tap で gain を適用したマイク音声を別録りする。停止後に合成した MP4 を add-only の権限で Photos（`PHAssetChangeRequest`）へ保存し、一時ファイルを削除する。ARKit face tracking 中も録画できる。
 - 失敗時の片付け: 録画が失敗したときの出力（MediaStore の保留項目、iOS の一時ファイル）は recorder が削除してから通知する。
 - 注記: 写真の保存は FR-05、削除は未実装（PR-01）。
 
@@ -277,6 +277,7 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - **BGM**: 音声ファイルを選択し（Android `OpenDocument`、iOS `UIDocumentPickerViewController`）、再生可能か検証してから取り込む。音量（0〜1、既定 0.5）をスライダーで調整し、設定ダイアログで再生 / 停止できる。常にループ再生する（Android `MediaPlayer`、iOS `AVAudioPlayer`）。アプリが背面へ回ると、録画中でなければ止める。
 - **録画開始と同時に BGM を再生**（トグル、既定オン）: オンのとき、録画の開始（`Recording` へ遷移）で BGM を頭から流し、録画の終了で止める（連動で流した BGM だけを止める）。オフのときは連動せず、設定ダイアログで流している BGM がそのまま録画へ入る。
 - **BGM の録画への混合**: iOS は ReplayKit がアプリの再生音を録るため追加処理なし。Android は `MediaRecorder` が映像だけを録り、音声を `MixedAudioRecorder`（`AudioRecord` のマイク + `BgmPcmDecoder` でデコードした BGM を 44.1kHz モノラルへ変換して加算 → `AacFileWriter` で AAC）で別録りし、停止後に `mergeVideoAndAudio` で 1 つの MP4 へ結合してから MediaStore へ書く。録画の開始時点の構成を `VideoRecordingAudioOptions` として `CameraRepository.startVideoRecording` へ渡す。BGM も雑音抑制も使わない録画は従来どおり `MediaRecorder` のマイク音声。音声だけ作れなかったときは映像のみで保存する。マイク権限が無くても、BGM があれば BGM だけの音声を入れる。
+- **マイク録音音量**（スライダー、0〜200%、既定 100%）: `VideoRecordingAudioOptions.microphoneGain` を録画開始時に固定し、マイク音声にのみ適用する。Android は `MixedAudioRecorder` の PCM ミックス時に適用する。iOS は ReplayKit で画面とアプリ音声を録り、`AVAudioEngine` input tap で gain を適用したマイク音声を別トラックへ記録する。停止後に `AVMutableComposition` と `AVAudioMix` で音声を合成して MP4 へ書き出す。マイク権限が拒否された場合はマイクなしで録画する。設計と制約は [`IOS_RECORDING_MICROPHONE_GAIN_DESIGN.ja.md`](IOS_RECORDING_MICROPHONE_GAIN_DESIGN.ja.md) を参照。
 - **雑音抑制**（トグル、既定オフ）: 次の録画から有効。Android は `AudioRecord` に `NoiseSuppressor` をかける（端末が非対応なら抑制なしで続け、ログに残す）。iOS は録画の間だけ音声セッションを `voiceChat` モードにして OS の処理に任せる（BGM の音質は録音モードより落ちる）。
 - **背景画像**: 画像を選択すると、取り込み時に長辺 2560 px 以内の JPEG へ縮小する（向きは反映済み）。画像は背景プリセットの単色の上に全面で重ね、削除すると単色の背景プリセットへ戻る。映す範囲は `BackgroundImageCrop`（中心 0〜1 と拡大率 1〜5）で、設定ダイアログの枠（画面と同じ縦横比）をドラッグ / ピンチして決める。実際の範囲は画面の縦横比から `visibleRegion` で求め、画面・設定ダイアログの枠・写真の合成・iOS の native view で同じ式を使う。iOS は native view が Compose の描画より前面に出るため、`CameraPreviewContainerView` の `UIImageView`（`contentsRect`）で描き、avatar の native renderer は透明（`Camera`）でクリアする。写真撮影（Android）は撮影画像へ同じ範囲で背景画像を合成する。
 - 設定ダイアログは録画中と UI 非表示モード中は開かない。
