@@ -250,7 +250,8 @@ fun CameraScreen(
     val cameraMessage = photoDeletion.toCameraMessage()
         ?: photoCapture.toCameraMessage()
         ?: videoRecording.toCameraMessage()
-        ?: session.message
+        // 権限拒否は専用の画面で案内するため、バナーは出さない。
+        ?: session.message?.takeUnless { session.errorState == CameraError.PermissionDenied }
     var visibleCameraMessage by remember { mutableStateOf<CameraMessage?>(null) }
 
     LaunchedEffect(cameraMessage) {
