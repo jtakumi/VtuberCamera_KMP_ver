@@ -26,10 +26,8 @@ class PhotoCaptureControllerTest {
     }
 
     @Test
-    fun succeededState_announcesGallerySaveAsGuide() {
-        val message = PhotoCaptureState.Succeeded("fake://photo.jpg").toCameraMessage()
-
-        assertEquals(CameraMessageType.Guide, message?.type)
+    fun succeededState_staysSilent() {
+        assertNull(PhotoCaptureState.Succeeded("fake://photo.jpg").toCameraMessage())
     }
 
     @Test
