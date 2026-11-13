@@ -11,9 +11,7 @@ import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_preview_
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unavailable
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_unknown
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_error_video_record_failed
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_capture_succeeded
 import vtubercamera_kmp_ver.composeapp.generated.resources.camera_photo_delete_succeeded
-import vtubercamera_kmp_ver.composeapp.generated.resources.camera_video_record_succeeded
 
 // 画面から参照する共有のカメラ権限状態。
 enum class PermissionState {
@@ -129,11 +127,9 @@ fun CameraError.toCameraMessage(): CameraMessage {
 fun PhotoCaptureState.toCameraMessage(): CameraMessage? = when (this) {
     PhotoCaptureState.Idle,
     PhotoCaptureState.Capturing,
+    // 保存成功時は通知を出さない。
+    is PhotoCaptureState.Succeeded,
     -> null
-    is PhotoCaptureState.Succeeded -> CameraMessage(
-        type = CameraMessageType.Guide,
-        messageRes = Res.string.camera_photo_capture_succeeded,
-    )
     is PhotoCaptureState.Failed -> error.toCameraMessage()
 }
 
@@ -142,11 +138,9 @@ fun VideoRecordingState.toCameraMessage(): CameraMessage? = when (this) {
     VideoRecordingState.Starting,
     VideoRecordingState.Recording,
     VideoRecordingState.Finalizing,
+    // 保存成功時は通知を出さない。
+    is VideoRecordingState.Succeeded,
     -> null
-    is VideoRecordingState.Succeeded -> CameraMessage(
-        type = CameraMessageType.Guide,
-        messageRes = Res.string.camera_video_record_succeeded,
-    )
     is VideoRecordingState.Failed -> error.toCameraMessage()
 }
 
