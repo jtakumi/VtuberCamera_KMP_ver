@@ -14,6 +14,9 @@ adbを使ったアプリ起動・画面遷移・バグ再現・権限ダイア�
 iPhone実機またはiOS Simulatorをユーザ指示に従って操作するスキル。
 `xcrun simctl` / `xcrun devicectl` を使ったアプリ起動・バグ再現・権限対応・スクリーンショット取得を行い、標準CLIで不足する場合はXCTest / Appium / WebDriverAgentへの切り替え判断も行う。
 
+### app-engineer-growth
+Git履歴、実装、テスト、PRを根拠にAndroid/KMPエンジニアのスキルを可視化し、経験段階との比較、成長課題、練習案を提示する。仕事上の傾向は慎重に扱い、完成した分析を独立したサブエージェントで最終確認する。
+
 ### implementation-branch-and-file-commit
 実装作業をmain直コミットせずに安全に進めるためのGitワークフロースキル。
 現在のブランチがmainなら `feature/<task-name>` または `fix/<task-name>` で作業ブランチを作成し、実装後は変更ファイルを1ファイルずつ整理してコミットする手順を提供する。
