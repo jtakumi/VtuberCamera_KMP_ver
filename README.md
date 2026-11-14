@@ -15,6 +15,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - 設定ダイアログ（BGM の選択・音量・録画連動再生、背景画像と映す範囲、雑音抑制）
 - ピンチ操作によるカメラズーム制御とズーム倍率表示
 - ピンチ操作によるアバター表示倍率調整（カメラズームとの切り替え式）
+- ドラッグ操作によるアバター表示位置の移動
 - OpenDocument による VRM / GLB ファイル選択
 - ML Kit Face Detection による face tracking 解析と共有 state 反映
 - face tracking 結果をアバター表情・ボーン状態へマッピング
@@ -36,6 +37,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - Filament renderer host view を Compose のアバターレイヤーへ提供（`IOSAvatarRenderHost`）
 - avatar render state を Filament ブリッジへ伝達
 - ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達
+- ドラッグ操作によるアバター表示位置を native renderer bridge へ伝達
 - `AVCapturePhotoOutput` による写真撮影と Photos（ギャラリー）への保存
 - ReplayKit による画面（カメラ映像とアバターの合成）の音声つき録画と Photos（ギャラリー）への保存
 - ライト / ダーク / システムテーマ切り替え
@@ -48,6 +50,7 @@ VTuberCamera の Kotlin Multiplatform 版リポジトリです。Android と iOS
 - レンズ向き状態 (`Back` / `Front`) と、設定 (`CameraSettings`) の保持・永続化
 - ズーム状態 (`CameraZoomUiState`) と zoom ratio の更新
 - アバター表示倍率 (`AvatarScaleUiState`) とピンチ操作対象 (`PinchGestureTarget`) の管理
+- アバター表示位置 (`AvatarPositionUiState`) のドラッグ操作による管理
 - face tracking の共有表示モデルと avatar 反映 state
 - VRM / GLB バイナリのパースと選択済み avatar metadata 抽出
 - VRM runtime descriptor による humanoid bone / expression / lookAt 情報の保持

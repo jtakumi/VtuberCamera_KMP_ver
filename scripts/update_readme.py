@@ -93,6 +93,8 @@ def render_generated_block() -> str:
         android_items.append("ピンチ操作によるカメラズーム制御とズーム倍率表示")
     if "avatarScale" in android_avatar_host and "AvatarScaleController" in camera_view_model:
         android_items.append("ピンチ操作によるアバター表示倍率調整（カメラズームとの切り替え式）")
+    if "avatarOffset" in android_avatar_host and "AvatarPositionController" in camera_view_model:
+        android_items.append("ドラッグ操作によるアバター表示位置の移動")
     if "ActivityResultContracts.OpenDocument" in android_preview:
         android_items.append("OpenDocument による VRM / GLB ファイル選択")
     if "libs.mlkit.face.detection" in build_gradle and "AndroidFaceTrackingAnalyzer" in android_preview:
@@ -141,6 +143,8 @@ def render_generated_block() -> str:
         ios_items.append("avatar render state を Filament ブリッジへ伝達")
     if "avatarScaleKey" in ios_avatar_interop:
         ios_items.append("ピンチ操作によるアバター表示倍率を native renderer bridge へ伝達")
+    if "avatarOffsetXKey" in ios_avatar_interop:
+        ios_items.append("ドラッグ操作によるアバター表示位置を native renderer bridge へ伝達")
     if all_in(ios_preview, ("AVCapturePhotoOutput", "saveToPhotoLibrary")):
         ios_items.append("`AVCapturePhotoOutput` による写真撮影と Photos（ギャラリー）への保存")
     if all_in(read_text("composeApp/src/iosMain/kotlin/com/example/vtubercamera_kmp_ver/camera/IOSScreenVideoRecorder.kt"), ("RPScreenRecorder", "saveToPhotoLibrary")):
@@ -163,6 +167,8 @@ def render_generated_block() -> str:
         shared_items.append(
             "アバター表示倍率 (`AvatarScaleUiState`) とピンチ操作対象 (`PinchGestureTarget`) の管理",
         )
+    if "onAvatarDragged" in camera_view_model:
+        shared_items.append("アバター表示位置 (`AvatarPositionUiState`) のドラッグ操作による管理")
     if all_in(camera_module, ("FaceTrackingUiState", "FaceToAvatarMapper")):
         shared_items.append("face tracking の共有表示モデルと avatar 反映 state")
     if all_in(vrm_avatar_parser, ("supportedExtensions", "vrm", "glb")):
