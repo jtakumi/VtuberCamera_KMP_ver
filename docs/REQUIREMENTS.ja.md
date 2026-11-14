@@ -229,6 +229,14 @@ VTuberCamera を Kotlin Multiplatform で再構築し、Android / iOS の両プ�
 - iOS: 倍率を `IOSAvatarRenderInterop` の render state 通知へ載せ、`VTCAvatarRenderState.avatarScale` として native 側へ伝達する。native 側は現状の static preview に倍率を適用する（Filament renderer への適用は FR-10 と同じく未実装）。
 - 拡大時もアバターは画面全体まで広がるだけで、操作 UI より前面には出ない（FR-10 のレイヤー順参照）。
 
+#### アバターのドラッグ移動
+
+- アバター選択済みのとき、画面上のドラッグ（ピンチ検出レイヤーのパン）でアバターの表示位置を動かせる。ピンチの割り当て先（カメラズーム / アバター拡縮）には依存しない。
+- 表示位置は共有の `AvatarPositionUiState` で管理し、既定位置からのずれ (`AvatarOffset`) を画面の幅・高さに対する割合で保持する（x は右、y は下が正）。可動域は各軸 ±0.5（アバター中心が画面外へ出ない範囲）で、既定は (0, 0)。
+- Android: 注視点とカメラを一緒に平行移動する。移動量は注視点距離で見える幅・高さに対する割合で決まるため、倍率に関わらず指の動きに追従する。写真撮影もレンダラーのフレームを使うため位置が反映される。
+- iOS: `avatarOffsetX` / `avatarOffsetY` を render state 通知へ載せ、`VTCAvatarRenderState` 経由で Filament カメラへ同じ平行移動を適用する。static preview では表示を平行移動する。
+- 位置は画面を開いている間だけ保持し、永続化はしない。
+
 ### FR-14 UI 非表示モード
 
 | 項目 | 内容 |

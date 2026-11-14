@@ -25,6 +25,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) float mouthSmile;
 /// Pinch-driven avatar display scale where `1.0` keeps the default size.
 @property (nonatomic) float avatarScale;
+/// Drag-driven horizontal avatar offset as a fraction of the view width, positive toward the right.
+@property (nonatomic) float avatarOffsetX;
+/// Drag-driven vertical avatar offset as a fraction of the view height, positive toward the bottom.
+@property (nonatomic) float avatarOffsetY;
 /// Face-tracking confidence normalized to 0.0...1.0.
 @property (nonatomic) float trackingConfidence;
 /// `YES` while face tracking actively drives the avatar.

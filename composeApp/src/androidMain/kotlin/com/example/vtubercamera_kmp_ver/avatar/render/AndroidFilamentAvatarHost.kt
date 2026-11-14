@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import kotlinx.coroutines.isActive
 
 @Composable
@@ -18,6 +19,7 @@ internal fun AndroidFilamentAvatarHost(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -36,6 +38,7 @@ internal fun AndroidFilamentAvatarHost(
                 avatarSelection = avatarSelection,
                 nextRenderState = latestRenderState.value,
                 avatarScale = avatarScale,
+                avatarOffset = avatarOffset,
                 onAvatarLoadFailure = latestLoadFailureHandler.value,
             )
         },

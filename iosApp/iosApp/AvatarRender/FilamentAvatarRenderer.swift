@@ -9,6 +9,7 @@ final class FilamentAvatarRenderer {
     private static let defaultAvatarScale: Float = 1
     private static let minimumAvatarScale: Float = 0.5
     private static let maximumAvatarScale: Float = 3
+    private static let maximumAvatarOffset: Float = 0.5
 
     private let previewBackgroundView = UIView()
     private let previewImageView = UIImageView()
@@ -20,6 +21,7 @@ final class FilamentAvatarRenderer {
     /// Tracked separately from the bridge's own copy because `IOSAvatarRenderBridge` reuses a
     /// single render-state object per notification, so holding onto it would alias live data.
     private var latestAvatarScale = FilamentAvatarRenderer.defaultAvatarScale
+    private var latestAvatarOffset = CGPoint.zero
     private(set) var isPaused = true
 
     /// Set to `true` only when the underlying renderer needs a continuous draw loop.
@@ -97,12 +99,13 @@ final class FilamentAvatarRenderer {
     }
 
     /// Forwards the latest tracking state to the renderer. While the static preview stands in for a
-    /// rendered avatar, the pinch-driven scale is applied to that preview instead.
+    /// rendered avatar, the pinch-driven scale and drag-driven offset are applied to that preview instead.
     func updateAvatarState(_ state: VTCAvatarRenderState) {
         latestAvatarScale = state.avatarScale
+        latestAvatarOffset = CGPoint(x: CGFloat(state.avatarOffsetX), y: CGFloat(state.avatarOffsetY))
         bridge.updateAvatarState(state)
         if isStaticPreviewVisible {
-            applyAvatarScaleToStaticPreview(state.avatarScale)
+            applyAvatarTransformToStaticPreview()
         }
     }
 
@@ -165,7 +168,7 @@ final class FilamentAvatarRenderer {
         subtitleLabel.text = subtitleParts.isEmpty
             ? payload.preview.fileName
             : subtitleParts.joined(separator: Self.previewSubtitleSeparator)
-        applyAvatarScaleToStaticPreview(latestAvatarScale)
+        applyAvatarTransformToStaticPreview()
     }
 
     private func hideStaticPreview() {
@@ -178,15 +181,27 @@ final class FilamentAvatarRenderer {
         subtitleLabel.text = nil
     }
 
-    /// Applies the pinch-driven avatar scale to the static preview, clamping unusable values so a
-    /// malformed scale cannot collapse or explode the preview.
-    private func applyAvatarScaleToStaticPreview(_ avatarScale: Float) {
-        let requestedScale = avatarScale.isNaN ? Self.defaultAvatarScale : avatarScale
+    /// Applies the pinch-driven avatar scale and drag-driven offset to the static preview, clamping
+    /// unusable values so a malformed scale or offset cannot collapse, explode or lose the preview.
+    private func applyAvatarTransformToStaticPreview() {
+        let requestedScale = latestAvatarScale.isNaN ? Self.defaultAvatarScale : latestAvatarScale
         let clampedScale = min(max(requestedScale, Self.minimumAvatarScale), Self.maximumAvatarScale)
         let previewScale = CGFloat(clampedScale)
-        guard previewBackgroundView.transform.a != previewScale else { return }
+        let bounds = bridge.renderView.bounds
+        let translation = CGPoint(
+            x: CGFloat(Self.sanitizedAvatarOffset(latestAvatarOffset.x)) * bounds.width,
+            y: CGFloat(Self.sanitizedAvatarOffset(latestAvatarOffset.y)) * bounds.height
+        )
+        let transform = CGAffineTransform(translationX: translation.x, y: translation.y)
+            .scaledBy(x: previewScale, y: previewScale)
+        guard previewBackgroundView.transform != transform else { return }
 
-        previewBackgroundView.transform = CGAffineTransform(scaleX: previewScale, y: previewScale)
+        previewBackgroundView.transform = transform
+    }
+
+    private static func sanitizedAvatarOffset(_ offset: CGFloat) -> Float {
+        let value = Float(offset)
+        return value.isNaN ? 0 : min(max(value, -maximumAvatarOffset), maximumAvatarOffset)
     }
 
     private func configureRenderView() {

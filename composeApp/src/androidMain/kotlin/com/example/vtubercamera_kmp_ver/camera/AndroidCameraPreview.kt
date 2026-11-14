@@ -63,6 +63,7 @@ import com.example.vtubercamera_kmp_ver.avatar.render.AndroidFilamentAvatarHost
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadException
 import com.example.vtubercamera_kmp_ver.avatar.render.AvatarAssetLoadFailureKind
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageSettings
@@ -436,6 +437,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     backgroundMode: CameraBackgroundMode,
     isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -445,6 +447,7 @@ actual fun AvatarBodyOverlay(
         avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
         avatarScale = avatarScale,
+        avatarOffset = avatarOffset,
         onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
         modifier = modifier.fillMaxSize(),
     )
@@ -455,6 +458,7 @@ private fun AvatarRendererHostView(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -462,6 +466,7 @@ private fun AvatarRendererHostView(
         avatarSelection = avatarSelection,
         avatarRenderState = avatarRenderState,
         avatarScale = avatarScale,
+        avatarOffset = avatarOffset,
         onAvatarLoadFailure = { throwable ->
             onAvatarRenderLoadFailed(
                 avatarSelection.assetHandle,

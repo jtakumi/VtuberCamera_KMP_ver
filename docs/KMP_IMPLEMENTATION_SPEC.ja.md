@@ -13,6 +13,7 @@
 - face tracking 表示用の共有モデル (`NormalizedFaceFrame` / `FaceTrackingUiState`)
 - ズーム状態管理 (`CameraZoomUiState`) と zoom ratio 更新 API
 - アバター表示倍率管理 (`AvatarScaleUiState` / `AvatarScaleController`) とピンチ操作対象の切り替え (`PinchGestureTarget` / `PinchGestureController`)
+- アバター表示位置管理 (`AvatarPositionUiState` / `AvatarPositionController`)。ドラッグ量を画面の幅・高さに対する割合 (`AvatarOffset`) で保持する
 - ファイルピッカー結果を反映する avatar preview UI。操作バーのアバター選択ボタンは人型アイコン (`ic_avatar_picker`) で表す
 - 操作 UI を隠す UI 非表示モード (`CameraUiVisibilityUiState` / `CameraUiVisibilityController`)。ON の間は上部バーと操作バーを composition から外し、全画面のピンチ検出レイヤーに足したタップ検出で再表示する
 - GLB / VRM バイナリのパース (`VrmExtensionParser` / `VrmAvatarParser`)
@@ -30,6 +31,7 @@
 - 設定（BGM・背景画像・雑音抑制）の永続化と、取り込んだメディアの管理
 - ピンチ操作によるズーム制御（`setZoomRatio` / ズームインジケーター）
 - ピンチ操作によるアバター表示倍率調整（Filament カメラ距離への反映 / カメラズームとの切り替え）
+- ドラッグ操作によるアバター表示位置の移動（Filament カメラの平行移動への反映）
 - `OpenDocument` を使ったファイル選択
 - ML Kit Face Detection を使った face tracking 解析と共有 state への反映
 - face tracking 結果をアバター状態へマッピング (`AndroidFaceTrackingToAvatarMapper`)

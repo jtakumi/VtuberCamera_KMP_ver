@@ -4,7 +4,9 @@ import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarTrackingStatus
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeAssetDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmRuntimeMeta
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_OFFSET
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
@@ -836,6 +838,30 @@ class CameraViewModelTest {
 
         viewModel.onAvatarScaleChanged(0.01f)
         assertEquals(MIN_AVATAR_SCALE, viewModel.uiState.value.avatarScale.currentAvatarScale)
+    }
+
+    // ---------------------------------------------------------------------------
+    // onAvatarDragged()
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun onAvatarDragged_appliesDragWithinBounds() = runTest {
+        val viewModel = CameraViewModel(
+            cameraRepository = FakeCameraRepository(),
+            permissionRepository = FakePermissionRepository(PermissionState.Unknown),
+            settingsPlatform = FakeCameraSettingsPlatform().platform,
+        )
+        advanceUntilIdle()
+        assertEquals(AvatarOffset.Zero, viewModel.uiState.value.avatarPosition.offset)
+
+        viewModel.onAvatarDragged(0.1f, -0.2f)
+        assertEquals(AvatarOffset(0.1f, -0.2f), viewModel.uiState.value.avatarPosition.offset)
+
+        viewModel.onAvatarDragged(10f, 10f)
+        assertEquals(
+            AvatarOffset(MAX_AVATAR_OFFSET, MAX_AVATAR_OFFSET),
+            viewModel.uiState.value.avatarPosition.offset,
+        )
     }
 
     // ---------------------------------------------------------------------------
