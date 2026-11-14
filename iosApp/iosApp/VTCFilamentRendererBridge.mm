@@ -137,6 +137,8 @@ static VTCAvatarRenderState *VTCCopyAvatarRenderState(VTCAvatarRenderState *stat
     copy.jawOpen = state.jawOpen;
     copy.mouthSmile = state.mouthSmile;
     copy.avatarScale = state.avatarScale;
+    copy.avatarOffsetX = state.avatarOffsetX;
+    copy.avatarOffsetY = state.avatarOffsetY;
     copy.trackingConfidence = state.trackingConfidence;
     copy.tracking = state.tracking;
     return copy;
@@ -176,6 +178,8 @@ constexpr double kFarPlane = 100.0;
 // Matches MIN_AVATAR_SCALE / MAX_AVATAR_SCALE in the shared Compose avatar module.
 constexpr float kMinAvatarScale = 0.5f;
 constexpr float kMaxAvatarScale = 3.0f;
+// Matches MAX_AVATAR_OFFSET in the shared Compose avatar module.
+constexpr float kMaxAvatarOffset = 0.5f;
 
 // Relaxed arm pose keeps imported VRM avatars out of their bind/T-pose.
 constexpr float kRelaxedLeftArmRollDegrees = -75.0f;
@@ -223,6 +227,14 @@ float sanitizeAvatarScale(float scale) {
         return VTCDefaultAvatarScale;
     }
     return clampFloat(scale, kMinAvatarScale, kMaxAvatarScale);
+}
+
+// NaN or out-of-range offsets would otherwise push the camera far away from the avatar.
+float sanitizeAvatarOffset(float offset) {
+    if (std::isnan(offset)) {
+        return 0.0f;
+    }
+    return clampFloat(offset, -kMaxAvatarOffset, kMaxAvatarOffset);
 }
 
 double toRadians(double degrees) {
@@ -540,6 +552,8 @@ public:
         mJawOpen = state.jawOpen;
         mMouthSmile = state.mouthSmile;
         mAvatarScale = sanitizeAvatarScale(state.avatarScale);
+        mAvatarOffsetX = sanitizeAvatarOffset(state.avatarOffsetX);
+        mAvatarOffsetY = sanitizeAvatarOffset(state.avatarOffsetY);
         mTrackingConfidence = state.trackingConfidence;
         mIsTracking = state.tracking;
         applyAvatarState();
@@ -922,9 +936,18 @@ private:
     }
 
     // Mirrors AndroidFilamentAvatarRenderer.updateCameraLookAt: a larger avatar scale pulls the
-    // camera closer so the model appears to grow inside the 3D scene.
+    // camera closer so the model appears to grow inside the 3D scene. The drag offset pans the
+    // camera and its look-at point together, opposite to the avatar's on-screen movement, by a
+    // fraction of the visible width/height at the avatar's distance so it tracks the finger.
     void updateCamera() {
         const double scaledCameraDistance = mFraming.cameraDistance / static_cast<double>(mAvatarScale);
+        const double visibleHeight = 2.0 * scaledCameraDistance * std::tan(toRadians(kFieldOfViewDegrees) / 2.0);
+        const double aspect = (mWidth > 0 && mHeight > 0)
+            ? static_cast<double>(mWidth) / static_cast<double>(mHeight)
+            : 1.0;
+        const double visibleWidth = visibleHeight * aspect;
+        const double panX = -static_cast<double>(mAvatarOffsetX) * visibleWidth;
+        const double panY = static_cast<double>(mAvatarOffsetY) * visibleHeight;
         const double trackingInfluence =
             mIsTracking ? clampDouble(static_cast<double>(mTrackingConfidence), 0.0, 1.0) : 0.0;
         const double expressionInfluence = clampDouble(
@@ -942,12 +965,12 @@ private:
 
         mCamera->lookAt(
             double3{
-                mFraming.targetX + std::sin(yawRadians) * kCameraYawOffsetScale * trackingInfluence,
-                mFraming.targetY + std::sin(pitchRadians) * kCameraPitchOffsetScale * trackingInfluence +
+                mFraming.targetX + panX + std::sin(yawRadians) * kCameraYawOffsetScale * trackingInfluence,
+                mFraming.targetY + panY + std::sin(pitchRadians) * kCameraPitchOffsetScale * trackingInfluence +
                     expressionInfluence * kExpressionYOffsetScale,
                 mFraming.targetZ + scaledCameraDistance - expressionInfluence * kExpressionZOffsetScale,
             },
-            double3{mFraming.targetX, mFraming.targetY, mFraming.targetZ},
+            double3{mFraming.targetX + panX, mFraming.targetY + panY, mFraming.targetZ},
             double3{0.0, 1.0, 0.0});
     }
 
@@ -990,6 +1013,8 @@ private:
     float mJawOpen = 0.0f;
     float mMouthSmile = 0.0f;
     float mAvatarScale = VTCDefaultAvatarScale;
+    float mAvatarOffsetX = 0.0f;
+    float mAvatarOffsetY = 0.0f;
     float mTrackingConfidence = 0.0f;
     bool mIsTracking = false;
     bool mIsVrm0 = false;

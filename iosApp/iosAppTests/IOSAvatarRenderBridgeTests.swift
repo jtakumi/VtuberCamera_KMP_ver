@@ -66,6 +66,9 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state?.mouthSmile == 0.31)
         // アバター倍率キーが無い通知では、既定倍率のままにする。
         #expect(state?.avatarScale == IOSAvatarRenderBridge.defaultAvatarScale)
+        // アバター位置キーが無い通知では、既定位置のままにする。
+        #expect(state?.avatarOffsetX == 0)
+        #expect(state?.avatarOffsetY == 0)
     }
 
     @Test
@@ -86,7 +89,9 @@ struct IOSAvatarRenderBridgeTests {
                 IOSAvatarRenderBridge.rightEyeBlinkKey: NSNumber(value: 0.6),
                 IOSAvatarRenderBridge.jawOpenKey: NSNumber(value: 0.8),
                 IOSAvatarRenderBridge.mouthSmileKey: NSNumber(value: 0.2),
-                IOSAvatarRenderBridge.avatarScaleKey: NSNumber(value: 1.8)
+                IOSAvatarRenderBridge.avatarScaleKey: NSNumber(value: 1.8),
+                IOSAvatarRenderBridge.avatarOffsetXKey: NSNumber(value: -0.25),
+                IOSAvatarRenderBridge.avatarOffsetYKey: NSNumber(value: 0.3)
             ]
         )
         NotificationCenter.default.post(
@@ -103,6 +108,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(state?.jawOpen == 0.8)
         #expect(state?.mouthSmile == 0.2)
         #expect(state?.avatarScale == 1.8)
+        #expect(state?.avatarOffsetX == -0.25)
+        #expect(state?.avatarOffsetY == 0.3)
         #expect(renderer.clearAvatarCallCount == 1)
     }
 
@@ -134,11 +141,15 @@ struct IOSAvatarRenderBridgeTests {
         state.jawOpen = 0.75
         state.mouthSmile = 1
         state.avatarScale = 2.5
+        state.avatarOffsetX = 0.2
+        state.avatarOffsetY = -0.1
 
         bridge.updateAvatarState(state)
         state.headYawDegrees = 99
         state.jawOpen = 0
         state.avatarScale = 1
+        state.avatarOffsetX = 0
+        state.avatarOffsetY = 0
 
         #expect(bridge.latestAvatarState.headYawDegrees == 22)
         #expect(bridge.latestAvatarState.headPitchDegrees == -6)
@@ -148,6 +159,8 @@ struct IOSAvatarRenderBridgeTests {
         #expect(bridge.latestAvatarState.jawOpen == 0.75)
         #expect(bridge.latestAvatarState.mouthSmile == 1)
         #expect(bridge.latestAvatarState.avatarScale == 2.5)
+        #expect(bridge.latestAvatarState.avatarOffsetX == 0.2)
+        #expect(bridge.latestAvatarState.avatarOffsetY == -0.1)
     }
 }
 

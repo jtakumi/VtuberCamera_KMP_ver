@@ -52,6 +52,8 @@ final class IOSAvatarRenderBridge {
     nonisolated static let jawOpenKey = "jawOpen"
     nonisolated static let mouthSmileKey = "mouthSmile"
     nonisolated static let avatarScaleKey = "avatarScale"
+    nonisolated static let avatarOffsetXKey = "avatarOffsetX"
+    nonisolated static let avatarOffsetYKey = "avatarOffsetY"
     nonisolated static let trackingConfidenceKey = "trackingConfidence"
     nonisolated static let isTrackingKey = "isTracking"
     nonisolated static let backgroundModeKey = "backgroundMode"
@@ -159,13 +161,15 @@ final class IOSAvatarRenderBridge {
         state.jawOpen = floatValue(userInfo, key: jawOpenKey)
         state.mouthSmile = floatValue(userInfo, key: mouthSmileKey)
         state.avatarScale = floatValue(userInfo, key: avatarScaleKey, defaultValue: defaultAvatarScale)
+        state.avatarOffsetX = floatValue(userInfo, key: avatarOffsetXKey)
+        state.avatarOffsetY = floatValue(userInfo, key: avatarOffsetYKey)
         state.trackingConfidence = floatValue(userInfo, key: trackingConfidenceKey)
         state.isTracking = (userInfo?[isTrackingKey] as? NSNumber)?.boolValue ?? false
     }
 
     /// Returns the bridged float value or `defaultValue` when the key is absent, which the renderer
     /// treats as the neutral/default value for that channel. Tracking channels default to `0`;
-    /// the avatar scale defaults to its neutral `1`.
+    /// the avatar scale defaults to its neutral `1`, and the avatar offsets default to `0` (no drag).
     private static func floatValue(
         _ userInfo: [AnyHashable: Any]?,
         key: String,
