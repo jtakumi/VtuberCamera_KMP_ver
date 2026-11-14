@@ -49,6 +49,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.gesture.PinchGestureTarget
@@ -167,6 +168,7 @@ fun CameraRoute(
             avatarSelection = uiState.avatarSelection.avatarSelection,
             filePickerErrorMessageRes = uiState.avatarSelection.filePickerErrorMessageRes,
             avatarScale = uiState.avatarScale.currentAvatarScale,
+            avatarOffset = uiState.avatarPosition.offset,
             backgroundMode = uiState.background.mode,
             settings = uiState.settings,
             settingsActions = settingsActions,
@@ -181,6 +183,7 @@ fun CameraRoute(
             onLensFacingChanged = cameraViewModel::onLensFacingChanged,
             onCameraZoomChanged = cameraViewModel::onCameraZoomChanged,
             onAvatarScaleChanged = cameraViewModel::onAvatarScaleChanged,
+            onAvatarDragged = cameraViewModel::onAvatarDragged,
             onToggleBackgroundMode = cameraViewModel::onToggleBackgroundMode,
             onHideUi = cameraViewModel::onHideUi,
             onShowUi = cameraViewModel::onShowUi,
@@ -222,6 +225,7 @@ fun CameraScreen(
     avatarSelection: AvatarSelectionData?,
     filePickerErrorMessageRes: StringResource?,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     backgroundMode: CameraBackgroundMode,
     settings: CameraSettingsUiState,
     settingsActions: CameraSettingsActions,
@@ -236,6 +240,7 @@ fun CameraScreen(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
+    onAvatarDragged: (deltaX: Float, deltaY: Float) -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
@@ -290,6 +295,7 @@ fun CameraScreen(
                 avatarSelection = avatarSelection,
                 avatarRenderState = avatarRender,
                 avatarScale = avatarScale,
+                avatarOffset = avatarOffset,
                 pinchTarget = pinchTarget,
                 glass = glass,
                 photoCapture = photoCapture,
@@ -303,6 +309,7 @@ fun CameraScreen(
                 onLensFacingChanged = onLensFacingChanged,
                 onCameraZoomChanged = onCameraZoomChanged,
                 onAvatarScaleChanged = onAvatarScaleChanged,
+                onAvatarDragged = onAvatarDragged,
                 onToggleBackgroundMode = onToggleBackgroundMode,
                 onHideUi = onHideUi,
                 onShowUi = onShowUi,
@@ -365,6 +372,7 @@ private fun CameraPreviewState(
     avatarSelection: AvatarSelectionData?,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     pinchTarget: PinchGestureTarget,
     glass: LiquidGlassAppearance,
     photoCapture: PhotoCaptureState,
@@ -378,6 +386,7 @@ private fun CameraPreviewState(
     onLensFacingChanged: (CameraLensFacing) -> Unit,
     onCameraZoomChanged: (Float) -> Unit,
     onAvatarScaleChanged: (Float) -> Unit,
+    onAvatarDragged: (deltaX: Float, deltaY: Float) -> Unit,
     onToggleBackgroundMode: () -> Unit,
     onHideUi: () -> Unit,
     onShowUi: () -> Unit,
@@ -420,6 +429,7 @@ private fun CameraPreviewState(
             avatarPreview = avatarPreview,
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
+            avatarOffset = avatarOffset,
             backgroundMode = backgroundMode,
             isBackgroundImageActive = settings.settings.backgroundImage.image != null,
             onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -447,11 +457,17 @@ private fun CameraPreviewState(
                         else -> Modifier
                     },
                 )
-                .pointerInput(pinchTarget) {
-                    detectTransformGestures { _, _, zoomChange, _ ->
+                .pointerInput(pinchTarget, avatarSelection != null) {
+                    val canDragAvatar = avatarSelection != null
+                    detectTransformGestures { _, pan, zoomChange, _ ->
                         when (pinchTarget) {
                             PinchGestureTarget.CameraZoom -> onCameraZoomChanged(zoomChange)
                             PinchGestureTarget.AvatarScale -> onAvatarScaleChanged(zoomChange)
+                        }
+                        // ドラッグはピンチ対象に関わらずアバターの移動に使う。移動量はピクセルのままだと
+                        // 画面サイズに依存するため、レイヤーの幅・高さに対する割合へ直して渡す。
+                        if (canDragAvatar && size.width > 0 && size.height > 0) {
+                            onAvatarDragged(pan.x / size.width, pan.y / size.height)
                         }
                     }
                 },
@@ -634,6 +650,7 @@ private fun BoxScope.CameraRendererLayer(
     avatarPreview: AvatarPreviewData?,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     backgroundMode: CameraBackgroundMode,
     isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
@@ -647,6 +664,7 @@ private fun BoxScope.CameraRendererLayer(
                 avatarPreview = avatarPreview,
                 avatarRenderState = avatarRenderState,
                 avatarScale = avatarScale,
+                avatarOffset = avatarOffset,
                 backgroundMode = backgroundMode,
                 isBackgroundImageActive = isBackgroundImageActive,
                 onAvatarRenderLoadFailed = onAvatarRenderLoadFailed,
@@ -678,6 +696,8 @@ data class RendererHostSlotState(
     val avatarRenderState: AvatarRenderState,
     /** ピンチ操作で決まったアバター表示倍率。1.0 が既定サイズを表す。 */
     val avatarScale: Float,
+    /** ドラッグ操作で決まったアバターの表示位置。既定位置からのずれを画面の幅・高さに対する割合で表す。 */
+    val avatarOffset: AvatarOffset,
     /** renderer 側の読み込み失敗を UI へ戻す callback。 */
     val onAvatarRenderLoadFailed: (AvatarAssetHandle, StringResource) -> Unit,
     /** CameraScreen 側で決めた renderer layer の配置。画面全体を占める layer を表す。 */
@@ -717,6 +737,7 @@ private fun DefaultAvatarRendererHost(
         avatarSelection = state.avatarSelection,
         avatarRenderState = state.avatarRenderState,
         avatarScale = state.avatarScale,
+        avatarOffset = state.avatarOffset,
         backgroundMode = state.backgroundMode,
         isBackgroundImageActive = state.isBackgroundImageActive,
         onAvatarRenderLoadFailed = state.onAvatarRenderLoadFailed,

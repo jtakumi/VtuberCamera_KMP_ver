@@ -1,6 +1,7 @@
 package com.example.vtubercamera_kmp_ver.camera
 
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarPositionUiState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleUiState
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionUiState
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundUiState
@@ -25,6 +26,7 @@ data class CameraUiState(
     val avatarRender: AvatarRenderState = AvatarRenderState.Neutral,
     val avatarSelection: AvatarSelectionUiState = AvatarSelectionUiState(),
     val avatarScale: AvatarScaleUiState = AvatarScaleUiState(),
+    val avatarPosition: AvatarPositionUiState = AvatarPositionUiState(),
     val background: CameraBackgroundUiState = CameraBackgroundUiState(),
     val pinchTarget: PinchGestureTarget = PinchGestureTarget.AvatarScale,
     val uiVisibility: CameraUiVisibilityUiState = CameraUiVisibilityUiState(),

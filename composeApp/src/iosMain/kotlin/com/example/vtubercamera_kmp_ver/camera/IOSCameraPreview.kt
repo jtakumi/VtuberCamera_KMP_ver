@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.UIKitView
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
 import com.example.vtubercamera_kmp_ver.camera.capturemode.CameraCaptureMode
 import com.example.vtubercamera_kmp_ver.camera.settings.BackgroundImageCrop
@@ -347,6 +348,7 @@ actual fun AvatarBodyOverlay(
     avatarSelection: AvatarSelectionData,
     avatarRenderState: AvatarRenderState,
     avatarScale: Float,
+    avatarOffset: AvatarOffset,
     backgroundMode: CameraBackgroundMode,
     isBackgroundImageActive: Boolean,
     onAvatarRenderLoadFailed: (AvatarAssetHandle, org.jetbrains.compose.resources.StringResource) -> Unit,
@@ -372,10 +374,11 @@ actual fun AvatarBodyOverlay(
         }
     }
 
-    LaunchedEffect(avatarRenderState, avatarScale) {
+    LaunchedEffect(avatarRenderState, avatarScale, avatarOffset) {
         IOSAvatarRenderInterop.publishRenderState(
             avatarRenderState = avatarRenderState,
             avatarScale = avatarScale,
+            avatarOffset = avatarOffset,
         )
     }
 

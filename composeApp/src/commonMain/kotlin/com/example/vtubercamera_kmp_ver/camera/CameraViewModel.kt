@@ -2,6 +2,7 @@ package com.example.vtubercamera_kmp_ver.camera
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarPositionController
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarScaleController
 import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarSelectionController
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundController
@@ -73,6 +74,7 @@ class CameraViewModel(
     private val faceTrackingPresenter = FaceTrackingPresenter()
     private val avatarSelectionController = AvatarSelectionController()
     private val avatarScaleController = AvatarScaleController()
+    private val avatarPositionController = AvatarPositionController()
     private val backgroundController = CameraBackgroundController()
     private val pinchGestureController = PinchGestureController()
     private val uiVisibilityController = CameraUiVisibilityController()
@@ -229,6 +231,12 @@ class CameraViewModel(
     fun onAvatarScaleChanged(scaleChange: Float) {
         avatarScaleController.onAvatarScaleChanged(scaleChange)
         _uiState.update { it.copy(avatarScale = avatarScaleController.state) }
+    }
+
+    // ドラッグ操作の移動量(画面の幅・高さに対する割合)をアバター表示位置へ反映する。
+    fun onAvatarDragged(deltaX: Float, deltaY: Float) {
+        avatarPositionController.onAvatarDragged(deltaX, deltaY)
+        _uiState.update { it.copy(avatarPosition = avatarPositionController.state) }
     }
 
 

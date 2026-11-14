@@ -23,10 +23,13 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.gltfio.Gltfio
 import com.example.vtubercamera_kmp_ver.camera.AvatarSelectionData
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_OFFSET
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import kotlin.math.sin
+import kotlin.math.tan
 import android.view.View as AndroidView
 import com.google.android.filament.View as FilamentView
 
@@ -56,6 +59,9 @@ internal class AndroidFilamentAvatarRenderer(
     private var appliedRenderState: AvatarRenderState? = null
     private var avatarScale: Float = DEFAULT_AVATAR_SCALE
     private var appliedAvatarScale: Float? = null
+    private var avatarOffset: AvatarOffset = AvatarOffset.Zero
+    private var appliedAvatarOffset: AvatarOffset? = null
+    private var viewportAspect: Double = DEFAULT_VIEWPORT_ASPECT
     private var destroyed = false
 
     init {
@@ -112,14 +118,16 @@ internal class AndroidFilamentAvatarRenderer(
         AndroidAvatarFrameProvider.register(this, ::captureAvatarBitmap)
     }
 
-    // 選択中アバターと tracking state に加えて、ピンチ操作で決まった表示倍率も次フレームへ反映する。
+    // 選択中アバターと tracking state に加えて、ピンチ操作で決まった表示倍率とドラッグで決まった表示位置も次フレームへ反映する。
     fun updateRendererState(
         avatarSelection: AvatarSelectionData,
         nextRenderState: AvatarRenderState,
         avatarScale: Float,
+        avatarOffset: AvatarOffset,
         onAvatarLoadFailure: (AvatarAssetLoadException) -> Unit,
     ) {
         this.avatarScale = avatarScale.sanitizedAvatarScale()
+        this.avatarOffset = avatarOffset.sanitized()
         renderBridge.update(
             avatarSelection = avatarSelection,
             avatarRenderState = nextRenderState,
@@ -182,7 +190,7 @@ internal class AndroidFilamentAvatarRenderer(
         view.blendMode = FilamentView.BlendMode.TRANSLUCENT
         // 既定の ACES は明るい色を白寄りに潰すため、VRoid で設定した服や肌の色が残るよう Linear にする。
         view.colorGrading = colorGrading
-        updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral, avatarScale)
+        updateCameraLookAt(sceneFraming, AvatarRenderState.Neutral, avatarScale, avatarOffset)
     }
 
     private fun configureLight() {
@@ -201,16 +209,19 @@ internal class AndroidFilamentAvatarRenderer(
     private fun applyRenderState() {
         val currentSceneFraming = sceneFraming
         val currentAvatarScale = avatarScale
+        val currentAvatarOffset = avatarOffset
         val isUpToDate = renderState == appliedRenderState &&
             currentSceneFraming == appliedSceneFraming &&
-            currentAvatarScale == appliedAvatarScale
+            currentAvatarScale == appliedAvatarScale &&
+            currentAvatarOffset == appliedAvatarOffset
         if (isUpToDate) {
             return
         }
-        updateCameraLookAt(currentSceneFraming, renderState, currentAvatarScale)
+        updateCameraLookAt(currentSceneFraming, renderState, currentAvatarScale, currentAvatarOffset)
         appliedRenderState = renderState
         appliedSceneFraming = currentSceneFraming
         appliedAvatarScale = currentAvatarScale
+        appliedAvatarOffset = currentAvatarOffset
     }
 
     private fun configureSurface() {
@@ -241,8 +252,11 @@ internal class AndroidFilamentAvatarRenderer(
         val aspect = safeWidth.toDouble() / safeHeight.toDouble()
 
         view.viewport = Viewport(0, 0, safeWidth, safeHeight)
+        // 表示位置のずれは画面の幅に対する割合なので、縦横比が変わったらカメラ位置を計算し直す。
+        viewportAspect = aspect
+        appliedAvatarOffset = null
         camera.setProjection(
-            45.0,
+            FIELD_OF_VIEW_DEGREES,
             aspect,
             0.1,
             100.0,
@@ -259,13 +273,21 @@ internal class AndroidFilamentAvatarRenderer(
     }
 
     // 表示倍率が大きいほどカメラをアバターへ寄せ、3D シーン内で拡大縮小したように見せる。
+    // 表示位置はカメラを注視点ごと平行移動して表現する。アバターを右へ動かすならカメラは左へ、
+    // 下へ動かすならカメラは上へ動かす。移動量は注視点の距離で見える幅・高さに対する割合で決まるため、
+    // 倍率に関わらずドラッグした量だけアバターが画面上で動く。
     private fun updateCameraLookAt(
         sceneFraming: AvatarSceneFraming,
         renderState: AvatarRenderState,
         avatarScale: Float,
+        avatarOffset: AvatarOffset,
     ) {
         val scaledCameraDistance =
             sceneFraming.cameraDistance / avatarScale.sanitizedAvatarScale().toDouble()
+        val visibleHeight = 2.0 * scaledCameraDistance * tan(Math.toRadians(FIELD_OF_VIEW_DEGREES / 2.0))
+        val visibleWidth = visibleHeight * viewportAspect
+        val panX = -avatarOffset.x.toDouble() * visibleWidth
+        val panY = avatarOffset.y.toDouble() * visibleHeight
         val trackingInfluence = if (renderState.isTracking) {
             renderState.trackingConfidence.coerceIn(0f, 1f).toDouble()
         } else {
@@ -284,13 +306,13 @@ internal class AndroidFilamentAvatarRenderer(
         )
 
         camera.lookAt(
-            sceneFraming.targetX + sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
-            sceneFraming.targetY +
+            sceneFraming.targetX + panX + sin(yawRadians) * CAMERA_YAW_OFFSET_SCALE * trackingInfluence,
+            sceneFraming.targetY + panY +
                 sin(pitchRadians) * CAMERA_PITCH_OFFSET_SCALE * trackingInfluence +
                 expressionInfluence * EXPRESSION_Y_OFFSET_SCALE,
             sceneFraming.targetZ + scaledCameraDistance - expressionInfluence * EXPRESSION_Z_OFFSET_SCALE,
-            sceneFraming.targetX,
-            sceneFraming.targetY,
+            sceneFraming.targetX + panX,
+            sceneFraming.targetY + panY,
             sceneFraming.targetZ,
             0.0,
             1.0,
@@ -304,6 +326,12 @@ internal class AndroidFilamentAvatarRenderer(
         else -> coerceIn(MIN_AVATAR_SCALE, MAX_AVATAR_SCALE)
     }
 
+    // NaN や可動域外の位置が渡ってもカメラ位置が壊れないよう、想定可変域へ丸める。
+    private fun AvatarOffset.sanitized(): AvatarOffset = AvatarOffset(
+        x = if (x.isNaN()) 0f else x.coerceIn(-MAX_AVATAR_OFFSET, MAX_AVATAR_OFFSET),
+        y = if (y.isNaN()) 0f else y.coerceIn(-MAX_AVATAR_OFFSET, MAX_AVATAR_OFFSET),
+    )
+
     private fun destroySwapChain() {
         swapChain?.let { currentSwapChain ->
             engine.destroySwapChain(currentSwapChain)
@@ -316,6 +344,10 @@ internal class AndroidFilamentAvatarRenderer(
         // be created on different threads before they converge on the synchronized init block.
         @Volatile
         private var nativeBindingsInitialized = false
+
+        private const val FIELD_OF_VIEW_DEGREES = 45.0
+        // View のサイズが決まる前に使う縦横比。縦向きの一般的なスマートフォンに合わせる。
+        private const val DEFAULT_VIEWPORT_ASPECT = 9.0 / 19.5
 
         // Small eye offsets that map tracked head yaw/pitch into camera parallax.
         private const val CAMERA_YAW_OFFSET_SCALE = 0.8

@@ -4,7 +4,9 @@ import com.example.vtubercamera_kmp_ver.avatar.mapping.VrmSpecVersion
 import com.example.vtubercamera_kmp_ver.avatar.state.AvatarRenderState
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmExpressionDescriptor
 import com.example.vtubercamera_kmp_ver.avatar.vrm.VrmHumanoidBoneBinding
+import com.example.vtubercamera_kmp_ver.camera.avatar.AvatarOffset
 import com.example.vtubercamera_kmp_ver.camera.avatar.DEFAULT_AVATAR_SCALE
+import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_OFFSET
 import com.example.vtubercamera_kmp_ver.camera.avatar.MAX_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.avatar.MIN_AVATAR_SCALE
 import com.example.vtubercamera_kmp_ver.camera.background.CameraBackgroundMode
@@ -56,6 +58,8 @@ internal object IOSAvatarRenderInterop {
     const val jawOpenKey = "jawOpen"
     const val mouthSmileKey = "mouthSmile"
     const val avatarScaleKey = "avatarScale"
+    const val avatarOffsetXKey = "avatarOffsetX"
+    const val avatarOffsetYKey = "avatarOffsetY"
     const val trackingConfidenceKey = "trackingConfidence"
     const val isTrackingKey = "isTracking"
     const val backgroundModeKey = "backgroundMode"
@@ -131,14 +135,16 @@ internal object IOSAvatarRenderInterop {
     }
 
     // Publishes render-state updates independently so tracking changes do not resend the full asset.
-    // The pinch-driven avatar scale rides along here because the native renderer applies it to the
-    // same frame as the tracking values.
-    fun publishRenderState(avatarRenderState: AvatarRenderState, avatarScale: Float) {
+    // The pinch-driven avatar scale and the drag-driven avatar offset ride along here because the
+    // native renderer applies them to the same frame as the tracking values.
+    fun publishRenderState(avatarRenderState: AvatarRenderState, avatarScale: Float, avatarOffset: AvatarOffset) {
         NSNotificationCenter.defaultCenter.postNotificationName(
             avatarRenderStateDidChangeNotification,
             null,
             mapOf(
                 avatarScaleKey to avatarScale.sanitizedAvatarScale(),
+                avatarOffsetXKey to avatarOffset.x.sanitizedAvatarOffset(),
+                avatarOffsetYKey to avatarOffset.y.sanitizedAvatarOffset(),
                 headYawDegreesKey to avatarRenderState.rig.headYawDegrees,
                 headPitchDegreesKey to avatarRenderState.rig.headPitchDegrees,
                 headRollDegreesKey to avatarRenderState.rig.headRollDegrees,
@@ -177,6 +183,13 @@ internal object IOSAvatarRenderInterop {
     private fun Float.sanitizedAvatarScale(): Float = when {
         isNaN() -> DEFAULT_AVATAR_SCALE
         else -> coerceIn(MIN_AVATAR_SCALE, MAX_AVATAR_SCALE)
+    }
+
+    // Keeps NaN or out-of-range offsets from reaching the native renderer, which would otherwise
+    // move the camera to an unusable position.
+    private fun Float.sanitizedAvatarOffset(): Float = when {
+        isNaN() -> 0f
+        else -> coerceIn(-MAX_AVATAR_OFFSET, MAX_AVATAR_OFFSET)
     }
 
     // Copies avatar bytes into NSData so the host app can consume them via NotificationCenter.
