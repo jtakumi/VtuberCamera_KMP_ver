@@ -347,6 +347,16 @@ class CameraViewModel(
         videoRecordingController.onToggleRecording()
     }
 
+    // 録画中の一時停止と再開を切り替える。
+    fun onToggleVideoRecordingPause() {
+        videoRecordingController.onTogglePause()
+    }
+
+    // 録画中または一時停止中の録画を停止する。
+    fun onStopVideoRecording() {
+        videoRecordingController.onStopRecording()
+    }
+
     fun onCapturePhoto() {
         videoRecordingController.onOutcomeAcknowledged()
         photoCaptureController.capturePhoto()

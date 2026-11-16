@@ -66,6 +66,8 @@ import com.example.vtubercamera_kmp_ver.camera.ui.CameraCaptureBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraSettingsDialog
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraTopBar
 import com.example.vtubercamera_kmp_ver.camera.ui.CameraUiHideButton
+import com.example.vtubercamera_kmp_ver.camera.ui.PausedIndicator
+import com.example.vtubercamera_kmp_ver.camera.ui.RecordingControlBar
 import com.example.vtubercamera_kmp_ver.camera.ui.overlayGlassTone
 import com.example.vtubercamera_kmp_ver.theme.rememberLiquidGlassAppearance
 import com.example.vtubercamera_kmp_ver.theme.LiquidGlassAppearance
@@ -190,6 +192,8 @@ fun CameraRoute(
             onCapturePhoto = cameraViewModel::onCapturePhoto,
             onToggleCaptureMode = cameraViewModel::onToggleCaptureMode,
             onToggleVideoRecording = cameraViewModel::onToggleVideoRecording,
+            onToggleVideoRecordingPause = cameraViewModel::onToggleVideoRecordingPause,
+            onStopVideoRecording = cameraViewModel::onStopVideoRecording,
             modifier = modifier,
             rendererHost = rendererHost,
         )
@@ -247,6 +251,8 @@ fun CameraScreen(
     onCapturePhoto: () -> Unit,
     onToggleCaptureMode: () -> Unit,
     onToggleVideoRecording: () -> Unit,
+    onToggleVideoRecordingPause: () -> Unit = {},
+    onStopVideoRecording: () -> Unit = {},
     modifier: Modifier = Modifier,
     rendererHost: CameraRendererHost = defaultCameraRendererHost,
 ) {
@@ -316,6 +322,8 @@ fun CameraScreen(
                 onCapturePhoto = onCapturePhoto,
                 onToggleCaptureMode = onToggleCaptureMode,
                 onToggleVideoRecording = onToggleVideoRecording,
+                onToggleVideoRecordingPause = onToggleVideoRecordingPause,
+                onStopVideoRecording = onStopVideoRecording,
             )
 
             else -> LoadingState(glass)
@@ -393,11 +401,15 @@ private fun CameraPreviewState(
     onCapturePhoto: () -> Unit,
     onToggleCaptureMode: () -> Unit,
     onToggleVideoRecording: () -> Unit,
+    onToggleVideoRecordingPause: () -> Unit,
+    onStopVideoRecording: () -> Unit,
 ) {
     val avatarPreview = avatarSelection?.preview
     val showUiActionLabel = stringResource(Res.string.camera_ui_show_action)
     val stopRecordingActionLabel = stringResource(Res.string.camera_video_stop_action)
     val isRecordingInProgress = videoRecording.isInProgress
+    // 一時停止に対応するプラットフォームでは、録画中の操作を画面下部の操作バーで行い、画面タップでは止めない。
+    val usesRecordingControlBar = cameraRepository.supportsVideoRecordingPause
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
     // 背景画像の範囲は画面の縦横比で決まる。設定画面の調整枠にも同じ比率を渡し、見た範囲がそのまま映るようにする。
     var screenAspectRatio by remember { mutableFloatStateOf(DEFAULT_SCREEN_ASPECT_RATIO) }
@@ -446,6 +458,7 @@ private fun CameraPreviewState(
                 .then(
                     when {
                         // 録画中は画面タップが停止操作になる。UI の再表示は録画の終了後に任せる。
+                        isRecordingInProgress && usesRecordingControlBar -> Modifier
                         isRecordingInProgress -> Modifier.stopRecordingOnTap(
                             label = stopRecordingActionLabel,
                             onStopRecording = onToggleVideoRecording,
@@ -501,6 +514,36 @@ private fun CameraPreviewState(
                     onDismissRequest = { isSettingsOpen = false },
                 )
             }
+        }
+
+        // 録画中の操作バーは録画の範囲の外（画面最下部）に置き、映像へは映らない。
+        // 一時停止中は映像を録っていないので、状態の表示も映り込みを気にせず出せる。
+        val isRecordingControllable = videoRecording == VideoRecordingState.Recording ||
+            videoRecording == VideoRecordingState.Paused
+        if (usesRecordingControlBar && isRecordingControllable) {
+            val isPaused = videoRecording == VideoRecordingState.Paused
+            if (isPaused) {
+                PausedIndicator(
+                    glass = glass,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = MaterialTheme.spacing.md)
+                        .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX),
+                )
+            }
+            RecordingControlBar(
+                isPaused = isPaused,
+                onTogglePause = onToggleVideoRecordingPause,
+                onStop = onStopVideoRecording,
+                glass = glass,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .zIndex(CAMERA_CONTROLS_LAYER_Z_INDEX)
+                    .navigationBarsPadding()
+                    .padding(horizontal = MaterialTheme.spacing.lg),
+            )
         }
 
         if (videoRecording == VideoRecordingState.Finalizing) {

@@ -33,6 +33,9 @@
     <string name="camera_ui_hide_button">UIを非表示</string>
     <string name="camera_ui_show_action">UIを再表示</string>
     <string name="camera_video_stop_action">録画を停止</string>
+    <string name="camera_video_pause_button">録画を一時停止</string>
+    <string name="camera_video_resume_button">録画を再開</string>
+    <string name="camera_video_paused_label">一時停止中</string>
     <string name="camera_settings_title">設定</string>
     <string name="camera_settings_close">閉じる</string>
     <string name="settings_section_bgm">BGM</string>

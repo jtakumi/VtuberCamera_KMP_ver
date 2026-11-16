@@ -36,6 +36,9 @@ internal class MixedAudioRecorder private constructor(
     private var isStopRequested = false
 
     @Volatile
+    private var isPaused = false
+
+    @Volatile
     private var failure: Throwable? = null
 
     @Volatile
@@ -55,6 +58,16 @@ internal class MixedAudioRecorder private constructor(
         }
         isBegun = true
         thread.start()
+    }
+
+    /** 音声の取り込みを一時停止する。一時停止の間はマイクも BGM も進めず、ファイルへ何も書かない。 */
+    fun pause() {
+        isPaused = true
+    }
+
+    /** 一時停止した音声の取り込みを再開する。 */
+    fun resume() {
+        isPaused = false
     }
 
     /**
@@ -85,10 +98,27 @@ internal class MixedAudioRecorder private constructor(
         val micBuffer = ShortArray(CHUNK_SAMPLES)
         val bgmBuffer = ShortArray(CHUNK_SAMPLES)
         val mixedBuffer = ShortArray(CHUNK_SAMPLES)
-        val startedAtNanos = SystemClock.elapsedRealtimeNanos()
+        var startedAtNanos = SystemClock.elapsedRealtimeNanos()
         var producedSamples = 0L
+        var isMicSuspended = false
         try {
             while (!isStopRequested) {
+                if (isPaused) {
+                    // 一時停止の間に溜まった音が再開後に混ざらないよう、マイクを止めて待つ。
+                    if (!isMicSuspended) {
+                        audioRecord?.stop()
+                        isMicSuspended = true
+                    }
+                    Thread.sleep(PAUSE_POLL_INTERVAL_MS)
+                    continue
+                }
+                if (isMicSuspended) {
+                    audioRecord?.startRecording()
+                    isMicSuspended = false
+                    // マイクを使わないときの実時間の基準を、止まっていた分だけ後ろへずらす。
+                    startedAtNanos = SystemClock.elapsedRealtimeNanos() -
+                        producedSamples * NANOS_PER_SECOND / MIX_SAMPLE_RATE
+                }
                 val sampleCount = if (audioRecord != null) {
                     audioRecord.read(micBuffer, 0, CHUNK_SAMPLES).also { readCount ->
                         if (readCount < 0) throw IOException("AudioRecord.read failed: $readCount")
@@ -124,6 +154,8 @@ internal class MixedAudioRecorder private constructor(
             recordFailure(error)
         } catch (error: RuntimeException) {
             recordFailure(error)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         } finally {
             finishWriting()
             release()
@@ -261,5 +293,6 @@ private const val CHUNK_SAMPLES = 1_024
 private const val BYTES_PER_SAMPLE = 2
 private const val MIC_BUFFER_CHUNKS = 4
 private const val STOP_JOIN_TIMEOUT_MS = 5_000L
+private const val PAUSE_POLL_INTERVAL_MS = 20L
 private const val NANOS_PER_SECOND = 1_000_000_000L
 private const val NANOS_PER_MILLI = 1_000_000L
