@@ -110,6 +110,23 @@ internal class FakeCameraRepository(
         }
     }
 
+    var pauseVideoRecordingCallCount: Int = 0
+    var resumeVideoRecordingCallCount: Int = 0
+
+    override val supportsVideoRecordingPause: Boolean = true
+
+    override suspend fun pauseVideoRecording(): Result<Unit> {
+        pauseVideoRecordingCallCount += 1
+        videoRecordingState.value = VideoRecordingState.Paused
+        return Result.success(Unit)
+    }
+
+    override suspend fun resumeVideoRecording(): Result<Unit> {
+        resumeVideoRecordingCallCount += 1
+        videoRecordingState.value = VideoRecordingState.Recording
+        return Result.success(Unit)
+    }
+
     override suspend fun stopVideoRecording(): Result<String?> {
         stopVideoRecordingCallCount += 1
         videoRecordingState.value = VideoRecordingState.Finalizing

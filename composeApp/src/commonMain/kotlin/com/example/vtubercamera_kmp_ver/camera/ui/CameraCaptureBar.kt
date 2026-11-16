@@ -160,7 +160,7 @@ private fun ShutterButton(
  * [iconTint] を渡すと、ガラスの前景色の代わりにアイコンをその色で描く。
  */
 @Composable
-private fun CaptureBarIconButton(
+internal fun CaptureBarIconButton(
     iconRes: DrawableResource,
     contentDescriptionRes: StringResource,
     onClick: () -> Unit,
@@ -232,9 +232,9 @@ private val CAPTURE_BAR_ROW_SPACING = 8.dp
 private val CAPTURE_BAR_BUTTON_SIZE = 64.dp
 private val CAPTURE_BAR_BUTTON_CORNER_RADIUS = 20.dp
 private val CAPTURE_BAR_ICON_SIZE = 28.dp
-private val CAPTURE_SHUTTER_BUTTON_SIZE = 76.dp
-private val CAPTURE_SHUTTER_ICON_SIZE = 34.dp
+internal val CAPTURE_SHUTTER_BUTTON_SIZE = 76.dp
+internal val CAPTURE_SHUTTER_ICON_SIZE = 34.dp
 private val CAPTURE_SHUTTER_RIM_WIDTH = 2.dp
 
 // 録画の開始を示す赤。
-private val RECORD_ICON_COLOR = Color(0xFFE53935)
+internal val RECORD_ICON_COLOR = Color(0xFFE53935)

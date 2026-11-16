@@ -30,6 +30,8 @@ class CameraSettingsController(
     // 録画の開始に合わせて BGM を流し始めたか。録画の終了で止めるのは、この連動で流したときだけにする。
     private var isBgmStartedByRecording = false
     private var wasRecording = false
+    private var wasPaused = false
+    private var pausedBgmPositionMs = 0L
 
     init {
         bgmPlayer.onPlaybackFailed = ::onBgmPlaybackFailed
@@ -147,11 +149,29 @@ class CameraSettingsController(
      */
     fun onRecordingStateChanged(recordingState: VideoRecordingState) {
         val isRecording = recordingState == VideoRecordingState.Recording
+        val isPaused = recordingState == VideoRecordingState.Paused
+        // 一時停止は録画の続きなので、録画の終了としては扱わない。
+        val isSessionActive = isRecording || isPaused
         val didStart = isRecording && !wasRecording
-        val didStop = !isRecording && wasRecording
-        wasRecording = isRecording
+        val didStop = !isSessionActive && wasRecording
+        val didPause = isPaused && !wasPaused
+        val didResume = isRecording && wasPaused
+        wasRecording = isSessionActive
+        wasPaused = isPaused
 
-        if (didStart) {
+        if (didPause) {
+            // 連動で流している BGM だけを止め、再開で同じ位置から流し直す。
+            if (isBgmStartedByRecording) {
+                pausedBgmPositionMs = bgmPlayer.positionMs
+                stopBgmPlayback()
+            }
+        } else if (didResume && isBgmStartedByRecording) {
+            val settings = _state.value.settings
+            val track = settings.bgmTrack
+            if (track != null) {
+                startBgmPlayback(track, settings.bgmVolume, startPositionMs = pausedBgmPositionMs)
+            }
+        } else if (didStart) {
             val settings = _state.value.settings
             val track = settings.bgmTrack
             if (settings.isBgmStartedWithRecording && track != null) {

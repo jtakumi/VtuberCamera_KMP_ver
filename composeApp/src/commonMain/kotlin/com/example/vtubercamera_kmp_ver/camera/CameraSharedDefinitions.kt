@@ -50,7 +50,7 @@ sealed interface PhotoCaptureState {
     data class Failed(val error: CameraError) : PhotoCaptureState
 }
 
-// 動画録画の進行に関する共有 UI 状態。[Starting]・[Recording]・[Finalizing] のあいだは録画が進行中で、
+// 動画録画の進行に関する共有 UI 状態。[Starting]・[Recording]・[Paused]・[Finalizing] のあいだは録画が進行中で、
 // 操作 UI は映像へ映り込まないよう隠れる。
 sealed interface VideoRecordingState {
     data object Idle : VideoRecordingState
@@ -59,6 +59,9 @@ sealed interface VideoRecordingState {
     data object Starting : VideoRecordingState
 
     data object Recording : VideoRecordingState
+
+    // 録画を一時停止している状態。録画の保存は確定せず、再開か停止を待つ。
+    data object Paused : VideoRecordingState
 
     // 録画停止を要求してから、ギャラリーへの保存が完了するまでの状態。
     data object Finalizing : VideoRecordingState
@@ -74,6 +77,7 @@ val VideoRecordingState.isInProgress: Boolean
     get() = when (this) {
         VideoRecordingState.Starting,
         VideoRecordingState.Recording,
+        VideoRecordingState.Paused,
         VideoRecordingState.Finalizing,
         -> true
         VideoRecordingState.Idle,
@@ -137,6 +141,7 @@ fun VideoRecordingState.toCameraMessage(): CameraMessage? = when (this) {
     VideoRecordingState.Idle,
     VideoRecordingState.Starting,
     VideoRecordingState.Recording,
+    VideoRecordingState.Paused,
     VideoRecordingState.Finalizing,
     // 保存成功時は通知を出さない。
     is VideoRecordingState.Succeeded,
@@ -172,6 +177,15 @@ interface CameraRepository {
     suspend fun capturePhoto(): Result<String?>
 
     fun observeVideoRecordingState(): Flow<VideoRecordingState>
+
+    // 録画を一時停止できるか。false のプラットフォームは、録画中の画面タップで停止する従来の操作を使う。
+    val supportsVideoRecordingPause: Boolean get() = false
+
+    // 録画を一時停止する。録画中でなければ失敗する。成功すると状態は [VideoRecordingState.Paused] になる。
+    suspend fun pauseVideoRecording(): Result<Unit> = Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+
+    // 一時停止中の録画を再開する。一時停止中でなければ失敗する。成功すると状態は [VideoRecordingState.Recording] になる。
+    suspend fun resumeVideoRecording(): Result<Unit> = Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
 
     // アプリ画面（カメラ映像とアバター）の録画を開始する。録画中や準備未完了のときは
     // [CameraError.VideoRecordFailed] で失敗する。[audioOptions] は録音する音声の構成（BGM の混合と雑音抑制）で、

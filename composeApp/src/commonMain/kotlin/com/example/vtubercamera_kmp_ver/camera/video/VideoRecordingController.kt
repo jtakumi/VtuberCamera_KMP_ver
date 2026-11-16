@@ -34,7 +34,9 @@ class VideoRecordingController(
     // 開始準備中と保存中は二重操作になるため何もしない。
     fun onToggleRecording() {
         when (_state.value) {
-            VideoRecordingState.Recording -> scope.launch { cameraRepository.stopVideoRecording() }
+            VideoRecordingState.Recording,
+            VideoRecordingState.Paused,
+            -> scope.launch { cameraRepository.stopVideoRecording() }
             VideoRecordingState.Starting,
             VideoRecordingState.Finalizing,
             -> Unit
@@ -42,6 +44,36 @@ class VideoRecordingController(
             is VideoRecordingState.Succeeded,
             is VideoRecordingState.Failed,
             -> startRecording()
+        }
+    }
+
+    // 録画中なら一時停止し、一時停止中なら再開する。それ以外の状態では何もしない。
+    // 失敗しても repository が状態を変えないため、録画は元の状態のまま続く。
+    fun onTogglePause() {
+        when (_state.value) {
+            VideoRecordingState.Recording -> scope.launch { cameraRepository.pauseVideoRecording() }
+            VideoRecordingState.Paused -> scope.launch { cameraRepository.resumeVideoRecording() }
+            VideoRecordingState.Idle,
+            VideoRecordingState.Starting,
+            VideoRecordingState.Finalizing,
+            is VideoRecordingState.Succeeded,
+            is VideoRecordingState.Failed,
+            -> Unit
+        }
+    }
+
+    // 録画中または一時停止中の録画を停止する。それ以外の状態では何もしない。
+    fun onStopRecording() {
+        when (_state.value) {
+            VideoRecordingState.Recording,
+            VideoRecordingState.Paused,
+            -> scope.launch { cameraRepository.stopVideoRecording() }
+            VideoRecordingState.Idle,
+            VideoRecordingState.Starting,
+            VideoRecordingState.Finalizing,
+            is VideoRecordingState.Succeeded,
+            is VideoRecordingState.Failed,
+            -> Unit
         }
     }
 
@@ -71,6 +103,7 @@ class VideoRecordingController(
                 VideoRecordingState.Idle,
                 VideoRecordingState.Starting,
                 VideoRecordingState.Recording,
+                VideoRecordingState.Paused,
                 VideoRecordingState.Finalizing,
                 -> recordingState
             }

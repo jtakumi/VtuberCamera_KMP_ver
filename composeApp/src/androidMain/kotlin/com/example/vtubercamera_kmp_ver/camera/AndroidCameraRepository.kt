@@ -243,6 +243,30 @@ internal class AndroidCameraRepository(
         return Result.success(Unit)
     }
 
+    override val supportsVideoRecordingPause: Boolean = true
+
+    // 録画中の録画を一時停止する。録画中でなければ、状態を変えずに失敗だけ返す。
+    override suspend fun pauseVideoRecording(): Result<Unit> {
+        val recording = activeRecording
+        if (recording == null || videoRecordingState.value != VideoRecordingState.Recording) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        return runCatching { recording.pause() }
+            .onSuccess { videoRecordingState.value = VideoRecordingState.Paused }
+            .recoverCatching { throw CameraRepositoryException(CameraError.VideoRecordFailed) }
+    }
+
+    // 一時停止中の録画を再開する。一時停止中でなければ、状態を変えずに失敗だけ返す。
+    override suspend fun resumeVideoRecording(): Result<Unit> {
+        val recording = activeRecording
+        if (recording == null || videoRecordingState.value != VideoRecordingState.Paused) {
+            return Result.failure(CameraRepositoryException(CameraError.VideoRecordFailed))
+        }
+        return runCatching { recording.resume() }
+            .onSuccess { videoRecordingState.value = VideoRecordingState.Recording }
+            .recoverCatching { throw CameraRepositoryException(CameraError.VideoRecordFailed) }
+    }
+
     // 録画の停止を要求し、ギャラリーへの保存が完了するまで待つ。録画中でなければ状態を変えずに失敗だけ返す。
     // 保存に失敗したときは [VideoRecordingState.Failed] へ遷移する（出力の片付けは recorder が行う）。
     override suspend fun stopVideoRecording(): Result<String?> {

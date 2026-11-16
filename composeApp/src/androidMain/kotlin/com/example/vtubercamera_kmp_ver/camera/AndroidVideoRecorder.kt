@@ -16,4 +16,14 @@ internal fun interface AndroidVideoRecorder {
 // 開始済みの録画への停止要求。停止後の保存完了は [AndroidVideoRecorder.startRecording] の callback で届く。
 internal fun interface AndroidVideoRecording {
     fun stop()
+
+    // 録画を一時停止する。一時停止中の映像と音声は録画に含まれない。失敗したときは例外を投げ、録画は続く。
+    fun pause() {
+        throw UnsupportedOperationException("Pausing is not supported")
+    }
+
+    // 一時停止中の録画を再開する。
+    fun resume() {
+        throw UnsupportedOperationException("Resuming is not supported")
+    }
 }
