@@ -162,11 +162,6 @@ constexpr double kCameraYawOffsetScale = 0.8;
 constexpr double kCameraPitchOffsetScale = 0.45;
 constexpr double kMaxYawDegrees = 45.0;
 constexpr double kMaxPitchDegrees = 30.0;
-constexpr float kJawWeight = 0.5f;
-constexpr float kSmileWeight = 0.35f;
-constexpr float kBlinkWeight = 0.15f;
-constexpr double kExpressionYOffsetScale = 0.18;
-constexpr double kExpressionZOffsetScale = 0.24;
 constexpr float kLightIntensity = 85000.0f;
 constexpr float kIndirectLightIntensity = 95000.0f;
 constexpr uint8_t kSceneLayerMask = 0xff;
@@ -950,10 +945,8 @@ private:
         const double panY = static_cast<double>(mAvatarOffsetY) * visibleHeight;
         const double trackingInfluence =
             mIsTracking ? clampDouble(static_cast<double>(mTrackingConfidence), 0.0, 1.0) : 0.0;
-        const double expressionInfluence = clampDouble(
-            static_cast<double>(mJawOpen * kJawWeight + mMouthSmile * kSmileWeight +
-                                ((mLeftEyeBlink + mRightEyeBlink) * 0.5f) * kBlinkWeight),
-            0.0, 1.0);
+        // The camera distance/height must not depend on expressions (mouth open etc.), otherwise
+        // the avatar appears to change size every time the mouth moves.
         const double yawRadians = toRadians(clampDouble(
             static_cast<double>(mirroredTrackingAngle(mHeadYawDegrees)),
             -kMaxYawDegrees,
@@ -966,9 +959,8 @@ private:
         mCamera->lookAt(
             double3{
                 mFraming.targetX + panX + std::sin(yawRadians) * kCameraYawOffsetScale * trackingInfluence,
-                mFraming.targetY + panY + std::sin(pitchRadians) * kCameraPitchOffsetScale * trackingInfluence +
-                    expressionInfluence * kExpressionYOffsetScale,
-                mFraming.targetZ + scaledCameraDistance - expressionInfluence * kExpressionZOffsetScale,
+                mFraming.targetY + panY + std::sin(pitchRadians) * kCameraPitchOffsetScale * trackingInfluence,
+                mFraming.targetZ + scaledCameraDistance,
             },
             double3{mFraming.targetX + panX, mFraming.targetY + panY, mFraming.targetZ},
             double3{0.0, 1.0, 0.0});
