@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Build
@@ -19,7 +20,10 @@ import android.view.PixelCopy
 import android.view.Surface
 import android.view.View
 import android.view.Window
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.example.vtubercamera_kmp_ver.camera.settings.StoredMedia
+import com.example.vtubercamera_kmp_ver.camera.ui.RECORDING_CONTROL_BAR_HEIGHT
 import com.example.vtubercamera_kmp_ver.camera.video.VideoRecordingAudioOptions
 import java.io.File
 import java.io.FileDescriptor
@@ -53,7 +57,9 @@ internal class AndroidScreenVideoRecorder(
         onFinalized: (uri: String?, error: Throwable?) -> Unit,
     ): AndroidVideoRecording {
         val window = checkNotNull(windowProvider()) { "Window is not available for screen recording" }
-        val recordingSize = window.decorView.toRecordingSize()
+        // 録画中の操作バーと OS の操作領域は録画範囲から除き、映像へ映り込まないようにする。
+        val excludedBottomPx = window.decorView.recordingExcludedBottomPx()
+        val recordingSize = window.decorView.toRecordingSize(excludedBottomPx)
         val isMicrophoneAvailable = isMicrophonePermitted()
         val mixedAudio = createMixedAudioOrNull(audioOptions, isMicrophoneAvailable)
         val galleryOutput = try {
@@ -85,6 +91,7 @@ internal class AndroidScreenVideoRecorder(
             window = window,
             recorder = recorder,
             size = recordingSize,
+            excludedBottomPx = excludedBottomPx,
             galleryOutput = galleryOutput,
             mixedAudio = mixedAudio,
             onFinalized = onFinalized,
@@ -186,13 +193,25 @@ private data class RecordingSize(val width: Int, val height: Int) {
 }
 
 // ウィンドウの描画サイズから録画解像度を決める。長辺を上限へ収めて縮小し、幅・高さを偶数へ丸める。
-private fun View.toRecordingSize(): RecordingSize {
-    check(width > 0 && height > 0) { "Window has not been laid out yet" }
-    val scale = min(1f, MAX_RECORDING_LONG_SIDE.toFloat() / max(width, height))
+// [excludedBottomPx] は下端から録画範囲へ含めない高さで、残った範囲を録画する。
+private fun View.toRecordingSize(excludedBottomPx: Int): RecordingSize {
+    val sourceHeight = height - excludedBottomPx
+    check(width > 0 && sourceHeight > 0) { "Window has not been laid out yet" }
+    val scale = min(1f, MAX_RECORDING_LONG_SIDE.toFloat() / max(width, sourceHeight))
     return RecordingSize(
         width = (width * scale).roundToInt().toEvenDimension(),
-        height = (height * scale).roundToInt().toEvenDimension(),
+        height = (sourceHeight * scale).roundToInt().toEvenDimension(),
     )
+}
+
+// 録画中の操作バーの高さに、バーが避けている OS の操作領域（ナビゲーションバー）の高さを足した、下端の除外範囲。
+private fun View.recordingExcludedBottomPx(): Int {
+    val barHeightPx = (RECORDING_CONTROL_BAR_HEIGHT.value * resources.displayMetrics.density).roundToInt()
+    val navigationBarPx = ViewCompat.getRootWindowInsets(this)
+        ?.getInsets(WindowInsetsCompat.Type.navigationBars())
+        ?.bottom
+        ?: 0
+    return barHeightPx + navigationBarPx
 }
 
 private fun Int.toEvenDimension(): Int = max(MIN_RECORDING_DIMENSION, this / 2 * 2)
@@ -277,6 +296,7 @@ private class ScreenRecordingSession(
     private val window: Window,
     private val recorder: MediaRecorder,
     size: RecordingSize,
+    private val excludedBottomPx: Int,
     private val galleryOutput: GalleryVideoOutput,
     private val mixedAudio: MixedAudioParts?,
     private val onFinalized: (uri: String?, error: Throwable?) -> Unit,
@@ -291,6 +311,9 @@ private class ScreenRecordingSession(
     private var isFinished = false
     private var drawnFrameCount = 0
     private var consecutiveCopyFailureCount = 0
+    private var isPaused = false
+    private var isCopyInFlight = false
+    private var copyNotBeforeUptimeMillis = 0L
 
     // 録画を始めてフレームの取り込みを開始する。開始に失敗したときは資源を解放して例外を投げる。
     fun begin() {
@@ -320,20 +343,69 @@ private class ScreenRecordingSession(
         workerHandler.post { finish(failure = null) }
     }
 
+    override fun pause() {
+        workerHandler.post {
+            if (isFinished || isPaused) return@post
+            try {
+                recorder.pause()
+            } catch (error: RuntimeException) {
+                finish(failure = error)
+                return@post
+            }
+            mixedAudio?.recorder?.pause()
+            isPaused = true
+        }
+    }
+
+    override fun resume() {
+        workerHandler.post {
+            if (isFinished || !isPaused) return@post
+            try {
+                recorder.resume()
+            } catch (error: RuntimeException) {
+                finish(failure = error)
+                return@post
+            }
+            mixedAudio?.recorder?.resume()
+            isPaused = false
+            // 一時停止中の表示が画面から消えるのを待ってから、フレームの取り込みを再開する。
+            copyNotBeforeUptimeMillis = SystemClock.uptimeMillis() + RESUME_SETTLE_MILLIS
+            workerHandler.post(::copyFrame)
+        }
+    }
+
     // ウィンドウを 1 フレーム分複製する。複製できないウィンドウ（破棄済みなど）は録画の失敗として終える。
+    // 一時停止中は何もしない。複製の最中の呼び出しや、再開直後の待ち時間は、重複や早すぎる取り込みを避けて見送る。
     private fun copyFrame() {
-        if (isFinished) return
+        if (isFinished || isPaused || isCopyInFlight) return
+        val waitMillis = copyNotBeforeUptimeMillis - SystemClock.uptimeMillis()
+        if (waitMillis > 0L) {
+            workerHandler.postDelayed(::copyFrame, waitMillis)
+            return
+        }
         val startedAtMillis = SystemClock.uptimeMillis()
+        isCopyInFlight = true
         try {
-            PixelCopy.request(window, frame, { result -> onFrameCopied(result, startedAtMillis) }, workerHandler)
+            val source = Rect(0, 0, window.decorView.width, window.decorView.height - excludedBottomPx)
+            PixelCopy.request(
+                window,
+                source,
+                frame,
+                { result -> onFrameCopied(result, startedAtMillis) },
+                workerHandler,
+            )
         } catch (error: IllegalArgumentException) {
+            isCopyInFlight = false
             finish(failure = error)
         }
     }
 
     // 複製したフレームを録画の入力 Surface へ描き、次のフレームを一定間隔で予約する。
     private fun onFrameCopied(result: Int, startedAtMillis: Long) {
+        isCopyInFlight = false
         if (isFinished) return
+        // 一時停止の要求が複製の最中に届いたときは、このフレームを捨てて次を予約しない。再開で取り込みを始め直す。
+        if (isPaused) return
         if (result == PixelCopy.SUCCESS) {
             consecutiveCopyFailureCount = 0
             try {
@@ -468,6 +540,8 @@ private const val TEMP_AUDIO_SUFFIX = ".m4a"
 
 private const val VIDEO_FRAME_RATE = 30
 private const val FRAME_INTERVAL_MILLIS = 1_000L / VIDEO_FRAME_RATE
+// 再開してから最初のフレームを取り込むまでの待ち。一時停止中の表示が消える前のフレームを録らないための余裕。
+private const val RESUME_SETTLE_MILLIS = 200L
 private const val MAX_RECORDING_LONG_SIDE = 1_920
 private const val MIN_RECORDING_DIMENSION = 2
 private const val BITS_PER_PIXEL = 4

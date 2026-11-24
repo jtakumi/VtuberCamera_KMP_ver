@@ -36,6 +36,54 @@ class VideoRecordingControllerTest {
     }
 
     @Test
+    fun onTogglePause_whileRecording_pausesThenResumes() = runTest {
+        val repository = FakeCameraRepository()
+        val controller = createController(repository)
+        controller.onToggleRecording()
+        advanceRecordingWork()
+
+        controller.onTogglePause()
+        advanceRecordingWork()
+
+        assertEquals(VideoRecordingState.Paused, controller.state.value)
+        assertEquals(1, repository.pauseVideoRecordingCallCount)
+
+        controller.onTogglePause()
+        advanceRecordingWork()
+
+        assertEquals(VideoRecordingState.Recording, controller.state.value)
+        assertEquals(1, repository.resumeVideoRecordingCallCount)
+    }
+
+    @Test
+    fun onTogglePause_whenIdle_isIgnored() = runTest {
+        val repository = FakeCameraRepository()
+        val controller = createController(repository)
+
+        controller.onTogglePause()
+        advanceRecordingWork()
+
+        assertEquals(0, repository.pauseVideoRecordingCallCount)
+        assertEquals(VideoRecordingState.Idle, controller.state.value)
+    }
+
+    @Test
+    fun onStopRecording_whilePaused_stopsRecording() = runTest {
+        val repository = FakeCameraRepository()
+        val controller = createController(repository)
+        controller.onToggleRecording()
+        advanceRecordingWork()
+        controller.onTogglePause()
+        advanceRecordingWork()
+
+        controller.onStopRecording()
+        advanceRecordingWork()
+
+        assertEquals(1, repository.stopVideoRecordingCallCount)
+        assertEquals(VideoRecordingState.Succeeded("fake://video.mp4"), controller.state.value)
+    }
+
+    @Test
     fun onToggleRecording_whenIdle_publishesStartingBeforeRecordingBegins() = runTest {
         val repository = FakeCameraRepository()
         val controller = createController(repository)
